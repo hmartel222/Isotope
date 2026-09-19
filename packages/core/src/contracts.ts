@@ -167,6 +167,7 @@ export type VerifiedRepair = Static<typeof VerifiedRepairSchema>;
 
 export const IsotopeConfigSchema = object({
   version: Type.Literal(1), language: choices('ts', 'py', 'auto'),
+  fixturePair: opt(str()),
   entryPoints: Type.Array(object({ file: str(), export: str(), kind: adapter }), { minItems: 1 }),
   mocks: Type.Array(Type.Union([
     object({

@@ -2,7 +2,7 @@
 
 This pack implements the Stripe portion of v3 §9.1. The canonical product registry remains `specs/`; the copy in this pack makes the pack independently reviewable. Runtime code is always pointed at a registry and never knows this path.
 
-Real evidence currently present and verified: `sub-updated-single` (planning) and `sub-updated-single-B` (held-out). The other four required pairs remain capture-gated; they must not be fabricated. `pack.yml` records that state and `capture/RUNBOOK.md` is the completion path.
+All six required real-evidence pairs are present and normalizer-verified: `sub-updated-single` (planning), `sub-updated-single-B` (held-out), plus `sub-updated-multi`, `sub-updated-aggregating`, `sub-updated-noop`, and `invoice-paid` (auxiliary). The capture run used temporary dual-version test-mode webhook endpoints through an ephemeral Cloudflare tunnel; all endpoints were deleted after capture.
 
 | Case | Target | Fixtures / flags | Expected | Exit | Reporter | Defense |
 |---|---|---|---|---:|---|---|

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "pair": "sub-updated-multi",
+  "role": "auxiliary",
+  "envelope": "provider",
+  "captureMethod": "B",
+  "aliasNamespace": "C",
+  "normalizer": {
+    "tool": "tools/normalize-fixtures.js",
+    "version": 1,
+    "normalizedAt": "2026-09-19T23:03:28.978Z"
+  },
+  "operations": [
+    "record api/version metadata",
+    "replace provider identifiers with pair-scoped deterministic aliases",
+    "emit normalized JSON preserving key order, array order and all scalars",
+    "record sha256 of each raw input"
+  ],
+  "old": {
+    "apiVersion": "2025-02-24.acacia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/acacia/customer.subscription.updated.2026-09-19T22-58-00-560Z.5122cedf.json",
+    "rawSha256": "5122cedfd569cc249e1a3d92ae087911464e13fc01c21d7d24614c5139034073",
+    "rawBytes": 7651
+  },
+  "new": {
+    "apiVersion": "2026-08-26.dahlia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/dahlia/customer.subscription.updated.2026-09-19T22-58-00-518Z.a9acf6d2.json",
+    "rawSha256": "a9acf6d23c93c3a7aaca42d2deb33911ab7153f3137a911225e4447ffc62431f",
+    "rawBytes": 7416
+  },
+  "observed": {
+    "old": {
+      "subscriptionLevelPeriodEndPresent": true,
+      "subscriptionLevelPeriodEnd": 1792450677,
+      "itemCount": 2,
+      "itemLevelPeriodEnds": [
+        1792450677,
+        1821394677
+      ]
+    },
+    "new": {
+      "subscriptionLevelPeriodEndPresent": false,
+      "subscriptionLevelPeriodEnd": null,
+      "itemCount": 2,
+      "itemLevelPeriodEnds": [
+        1792450677,
+        1821394677
+      ]
+    }
+  },
+  "aliases": {
+    "evt_1UHXClBYq8SRmcbOl3c2mXMX": "evt_C1",
+    "sub_1UHXCjBYq8SRmcbOvrjWBwf1": "sub_C1",
+    "cus_VI7RBOT79YRO3j": "cus_C1",
+    "si_VI7R9JlN4FerNc": "si_C1",
+    "price_1UHXCiBYq8SRmcbOWjN7C7VQ": "price_C1",
+    "prod_VI7RqRn2P8gLLO": "prod_C1",
+    "tax_behavior": "tax_C1",
+    "tax_rates": "tax_C2",
+    "si_VI7Rit4HEDzzOp": "si_C2",
+    "price_1UHXCjBYq8SRmcbOYpTNvuui": "price_C2",
+    "in_1UHXCjBYq8SRmcbO3TBySkID": "in_C1",
+    "req_Aa0KcVGptV3uGZ": "req_C1"
+  }
+}
