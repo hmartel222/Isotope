@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { artifactPaths, readJsonArtifact, removeJsonArtifact, writeJsonArtifact, validateContract, resolveVerdict,
-  type DiffReport, type EntryPoint, type FixturePair, type HarnessResult, type IsotopeReport, type VerdictResult } from '@isotope/core';
+  type DiffReport, type EntryPoint, type FixturePair, type HarnessResult, type IsotopeReport, type VerdictResult, type SelectedSpecs } from '@isotope/core';
 import { analyzeConfiguredProject, graphSummary } from './scan';
 import { createTsHarnessPlan, runTsHarness, HarnessExecutionError } from '@isotope/harness-ts';
 import { checkDeterminism, diffSignatures } from '@isotope/differ';
@@ -13,6 +13,7 @@ export interface WalkingSkeletonOptions {
   disableRepair?: boolean;
   /** Internal tests only. Must contain meta.synthetic=true; never falls back implicitly. */
   testFixtureDirectory?: string;
+  selectedSpecs?: SelectedSpecs;
 }
 export interface WalkingSkeletonResult {
   exitCode: 0 | 1 | 3 | 4; output: string; report: IsotopeReport;
@@ -33,7 +34,7 @@ function fixtureVersion(value: unknown, label: string): string {
 
 /** Compatibility API name; Phase 5 replaces the static graph with real L2. */
 export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Promise<WalkingSkeletonResult> {
-  const analysis = await analyzeConfiguredProject(options.configPath);
+  const analysis = await analyzeConfiguredProject(options.configPath, options.selectedSpecs);
   const results: WalkingSkeletonResult[] = [];
   for (const entry of analysis.bdg.entryPoints) {
     const artifactProjectRoot = analysis.bdg.entryPoints.length === 1 ? options.artifactProjectRoot

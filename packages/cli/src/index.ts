@@ -2,6 +2,10 @@ import { Command, InvalidArgumentError } from 'commander';
 import { NotImplementedStageError } from '@isotope/core';
 import { verifyWalkingSkeleton } from './walking-skeleton';
 import { scanProject } from './scan';
+import { selectChangeSpecs } from '@isotope/changespec';
+import { artifactPaths, writeJsonArtifact, validateContract, type IsotopeReport } from '@isotope/core';
+import { resolve } from 'node:path';
+import { realpath } from 'node:fs/promises';
 export { verifyWalkingSkeleton } from './walking-skeleton';
 export { scanProject } from './scan';
 
@@ -10,9 +14,28 @@ export function createProgram(): Command {
   const program = new Command().exitOverride().name('isotope').description('Isotope — provider dataflow and behavioral verification').version('0.1.0');
   program.option('--config <path>', 'configuration file', 'isotope.yml');
   program.command('scan').description('L2: analyze configured entry points and write the BDG').action(async () => console.log(await scanProject(program.opts<{ config: string }>().config)));
-  program.command('verify').description('Analyze and verify explicitly configured entry points').option('--no-reasoner', 'mechanical verification only').option('--no-repair', 'stop after detection and verdict').action(async (options: { reasoner: boolean; repair: boolean }) => {
+  program.command('verify').description('Analyze and verify configured entry points').option('--no-reasoner', 'mechanical verification only').option('--no-repair', 'stop after detection and verdict').option('--base <ref>', 'local Git base revision').option('--head <ref>', 'local Git head revision').action(async (options: { reasoner: boolean; repair: boolean; base?: string; head?: string }) => {
     const testFixtureDirectory = process.env.ISOTOPE_TEST_FIXTURES;
-    const result = await verifyWalkingSkeleton({ configPath: program.opts<{ config: string }>().config, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
+    if ((options.base && !options.head) || (!options.base && options.head)) throw new InvalidArgumentError('--base and --head must be supplied together');
+    const configPath = program.opts<{ config: string }>().config;
+    if (options.base && options.head) {
+      const configAbsolute = await realpath(resolve(configPath));
+      const selected = await selectChangeSpecs({ repositoryRoot: resolve(configAbsolute, '..'), baseRef: options.base, headRef: options.head, specsRoot: resolve(__dirname, '../../../specs') });
+      const root = resolve(configAbsolute, '..'); const paths = artifactPaths(root);
+      await writeJsonArtifact(paths.root, paths.selectedSpecs, 'SelectedSpecs', selected.selected);
+      console.log(['Dependency changes:', ...selected.dependencyChanges.map(c => `  ${c.package} ${c.fromVersion} → ${c.toVersion} (${c.ecosystem})`),
+        'Selected ChangeSpecs:', ...(selected.selected.specs.length ? selected.selected.specs.map(s => `  ${s.id}`) : ['  none'])].join('\n'));
+      if (!selected.selected.specs.length) {
+        const verdict = validateContract('VerdictReport', { schemaVersion: 1, verdict: 'SKIP', results: [] });
+        const report = validateContract('IsotopeReport', { schemaVersion: 1, selectedSpecs: selected.selected, bdgRef: 'not-run', signatureRefs: [], diffReportRefs: [], evidencePacketRefs: [], reasoningRefs: [], verdict, repairPacketRefs: [], candidateRefs: [], repairVerifications: [], verifiedRepairs: [], audit: [] });
+        await writeJsonArtifact(paths.root, paths.verdict, 'VerdictReport', verdict);
+        await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
+        console.log('Verdict: SKIP'); process.exitCode = 0; return;
+      }
+      const result = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...(testFixtureDirectory ? { testFixtureDirectory } : {}), selectedSpecs: selected.selected });
+      console.log(result.output); process.exitCode = result.exitCode; return;
+    }
+    const result = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
     console.log(result.output);
     process.exitCode = result.exitCode;
   });

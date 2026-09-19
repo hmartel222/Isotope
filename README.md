@@ -11,6 +11,7 @@ The [v3 specification](docs-v3-spec.md) is the architectural source of truth. Se
 - Phase 3: reusable TS child-process harness, config-driven nested mocks, exercised provider interception, fixed Date/random/UUID, bounded stable serialization, preload egress blocking, Express/plain adapters and repeat-run isolation. See [harness documentation](packages/harness-ts/README.md) and [Phase 3 audit](docs/PHASE3.md).
 - Phase 4: complete pure structural differ, mechanical verdict precedence, informational PASS, semantic residual ESCALATE, scoped ambiguity hints and enforced ≥90% differ branch coverage. See the [Phase 4 audit](docs/PHASE4.md).
 - Phase 5: real bounded TS/JS provider dataflow, deterministic BDGs, static-only `scan`, and generated-graph `verify`. See the [resolver documentation](packages/resolver-ts/README.md) and [Phase 5 audit](docs/PHASE5.md).
+- Phase 6: local Git dependency detector and human-verified ChangeSpec selector for npm/PyPI, resolved lockfile preference, threshold crossing, deterministic `selected-specs.json`, and SKIP-without-L2 for irrelevant revisions. See the [Phase 6 audit](docs/PHASE6.md).
 - **Real-provider acceptance is blocked:** `fixtures/normalized/sub-updated-single/{old,new,meta}.json` is absent. Passing synthetic integration tests proves the plumbing only.
 
 Not yet implemented: dependency-based ChangeSpec selection, additional framework adapters, semantic reasoning, repair, Python execution, GitHub Action/reporting, fleet, or accuracy benchmarks.

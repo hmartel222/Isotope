@@ -1,14 +1,14 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { parse } from 'yaml';
-import { artifactPaths, validateContract, writeJsonArtifact, type BDG } from '@isotope/core';
+import { artifactPaths, validateContract, writeJsonArtifact, type BDG, type SelectedSpecs } from '@isotope/core';
 import { loadWalkingSkeletonSpec } from '@isotope/changespec';
 import { resolveBehavioralDependencyGraph } from '@isotope/resolver-ts';
 
-export async function analyzeConfiguredProject(configPath: string) {
+export async function analyzeConfiguredProject(configPath: string, selectedOverride?: SelectedSpecs) {
   const path = await realpath(resolve(configPath)); const projectRoot = dirname(path);
   const config = validateContract('IsotopeConfig', parse(await readFile(path, 'utf8')) as unknown);
-  const selected = await loadWalkingSkeletonSpec(resolve(__dirname, '../../../specs'));
+  const selected = selectedOverride ?? await loadWalkingSkeletonSpec(resolve(__dirname, '../../../specs'));
   const bdg = await resolveBehavioralDependencyGraph({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0]! });
   return { projectRoot, config, selected, bdg };
 }
