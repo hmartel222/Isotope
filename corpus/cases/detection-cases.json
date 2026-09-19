@@ -90,6 +90,31 @@
     "tags": ["acceptance", "internal", "python"]
   },
   {
+    "id": "acme-typescript",
+    "description": "Invented Acme SDK proves descriptor-driven TypeScript interception and custom headers.",
+    "repositoryRoot": "corpus/cases/repositories/acme-typescript",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/acme-events",
+    "dependency": { "package": "acme-events", "from": "1.9.0", "to": "2.0.0" },
+    "expected": { "selectedSpecIds": ["acme.events.quota-move"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["acceptance", "internal", "provider-neutral", "typescript"]
+  },
+  {
+    "id": "contoso-python",
+    "description": "Invented Contoso SDK proves generic Python metavariables and fixture interception.",
+    "repositoryRoot": "corpus/cases/repositories/contoso-python",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/contoso-generate",
+    "ecosystem": "pypi",
+    "dependency": { "package": "contoso-ai", "from": "3.4.0", "to": "4.0.0" },
+    "expected": { "selectedSpecIds": ["contoso.generate.score-move"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["acceptance", "internal", "provider-neutral", "python"]
+  },
+  {
     "id": "reasoned-pass",
     "description": "Cassette reasoner classifies a multi-item period shift as a benign adaptation.",
     "repositoryRoot": "corpus/cases/repositories/ambiguity-escalate",

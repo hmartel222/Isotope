@@ -130,9 +130,71 @@
           {
             "additionalProperties": false,
             "properties": {
+              "adapter": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "exports": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "intercept": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array",
+                "uniqueItems": true
+              },
               "module": {
                 "minLength": 1,
                 "type": "string"
+              },
+              "records": {
+                "patternProperties": {
+                  "^(.*)$": {
+                    "anyOf": [
+                      {
+                        "const": "db_write",
+                        "type": "string"
+                      },
+                      {
+                        "const": "http_out",
+                        "type": "string"
+                      },
+                      {
+                        "const": "queue",
+                        "type": "string"
+                      },
+                      {
+                        "const": "email",
+                        "type": "string"
+                      },
+                      {
+                        "const": "returned_state",
+                        "type": "string"
+                      },
+                      {
+                        "const": "log_only",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "requestHeaders": {
+                "patternProperties": {
+                  "^(.*)$": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
               },
               "strategy": {
                 "const": "provider",
