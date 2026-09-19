@@ -19,6 +19,7 @@ All paths are owned by `packages/core/src/artifact-paths.ts`:
   diffs/<codeVersion>/<fixturePair>/<entryPoint>.<comparisonKind>.json
   evidence-packets/<entryPoint>.<divergence>.json
   reasoning/<entryPoint>.<divergence>.<vote>.json
+  cache/<key>.json
   verdict.json
   repair/packets/<repairId>.json
   repair/candidates/<repairId>.json
