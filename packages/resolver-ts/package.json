@@ -15,6 +15,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@isotope/core": "workspace:*"
+    "@babel/parser": "7.28.5",
+    "@isotope/core": "workspace:*",
+    "picomatch": "4.0.3",
+    "ts-morph": "26.0.0"
+  },
+  "devDependencies": {
+    "@types/picomatch": "4.0.2"
   }
 }
