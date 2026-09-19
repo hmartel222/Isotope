@@ -8,13 +8,14 @@ The [v3 specification](docs-v3-spec.md) is the architectural source of truth. Se
 
 - Phase 1: monorepo, shared types/schemas, validation, artifact helpers, and package/CLI boundaries.
 - Phase 2 implementation: real TypeScript handler execution, mocked Stripe/DB boundaries, side-effect capture, four independent runs, metadata-free determinism comparison, mechanical silent-break detection, and local CLI artifacts/verdicts.
+- Phase 3: reusable TS child-process harness, config-driven nested mocks, exercised provider interception, fixed Date/random/UUID, bounded stable serialization, preload egress blocking, Express/plain adapters and repeat-run isolation. See [harness documentation](packages/harness-ts/README.md) and [Phase 3 audit](docs/PHASE3.md).
 - **Real-provider acceptance is blocked:** `fixtures/normalized/sub-updated-single/{old,new,meta}.json` is absent. Passing synthetic integration tests proves the plumbing only.
 
-Not yet implemented: dependency-based ChangeSpec selection, AST/BDG generation, generic/framework-wide harnessing, complete differ, semantic reasoning, repair, Python execution, GitHub Action/reporting, fleet, or accuracy benchmarks.
+Not yet implemented: dependency-based ChangeSpec selection, AST/BDG generation, additional framework adapters, complete differ, semantic reasoning, repair, Python execution, GitHub Action/reporting, fleet, or accuracy benchmarks.
 
 ## Package map
 
-`core` owns schemas, artifact I/O, stage contracts and the mechanical verdict subset. `changespec` explicitly loads the known spec. `harness-ts` executes the specimen using Vitest. `differ` owns behavioral comparison. `cli` orchestrates those packages. The other v3 packages (`resolver-ts`, `resolver-py`, `harness-py`, `reasoner`, `repair`, `verifier`, `reporter`, `fleet`) remain stubs. Core has no subsystem dependency; only the CLI orchestrates peers.
+`core` owns schemas, artifact I/O, stage contracts and the mechanical verdict subset. `changespec` explicitly loads the known spec. `harness-ts` executes explicit plans using generated Vitest tests in fresh children. `differ` owns behavioral comparison. `cli` orchestrates those packages. The other v3 packages (`resolver-ts`, `resolver-py`, `harness-py`, `reasoner`, `repair`, `verifier`, `reporter`, `fleet`) remain stubs. Core has no subsystem dependency; only the CLI orchestrates peers.
 
 ## Local setup
 
@@ -45,4 +46,4 @@ The specimen README documents explicitly labeled synthetic broken/PASS control c
 
 ## Next milestone
 
-Phase 3 should harden `packages/harness-ts/runtime/specimen.test.mjs`: replace the fixed Stripe/DB mock shapes with validated configured boundaries, strengthen egress/process cleanup and deterministic clock/UUID/random handling, and broaden serializer coverage. Keep the behavioral-view and artifact contracts unchanged. Phase 3 has not started.
+Phase 4: complete L4 structural differ/classification in `packages/differ/src/index.ts`. ChangeSpec selection and BDG construction remain static; semantic reasoning, repair and other deferred stages have not begun.

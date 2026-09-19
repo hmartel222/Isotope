@@ -56,6 +56,6 @@ The report references signatures and diffs containing fixture versions, return v
 
 ## Boundaries
 
-Only the Express-like status/json/send adapter, Stripe constructEvent, and one configured `db` export with `subscription.update` are supported. DB module paths resolve from the config directory. The specimen’s actual DB module throws if it is ever reached: there is no connection or database client. Fetch, HTTP(S) request/get, and socket connection attempts are blocked inside the worker; even a caught blocked request invalidates the run. This is not yet the full v3 egress sandbox or a sandbox for arbitrary untrusted repositories.
+Execution now uses the [Phase 3 generic TypeScript harness](../../packages/harness-ts/README.md). DB methods and deterministic returns come from config, local modules resolve from the config root, and every run uses fresh child/provider/mock state. The specimen's real DB module still throws if reached. The harness adds generated tests, Express/plain adapters, fixed Date/random/UUID, bounded serialization and a Node preload that blocks unexpected egress. It is not an OS sandbox for hostile repositories.
 
 PASS → 0; mechanical FAIL → 1; unstable/untrustworthy/unsupported semantic comparison → INDETERMINATE → 4; invalid config or missing fixtures → 10. Other CLI commands remain explicit stubs. Full v3 semantic escalation is deferred; Phase 2 never emits a fabricated reasoned verdict.

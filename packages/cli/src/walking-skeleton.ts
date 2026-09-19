@@ -4,7 +4,7 @@ import { parse } from 'yaml';
 import { artifactPaths, readJsonArtifact, removeJsonArtifact, writeJsonArtifact, validateContract, resolveVerdict,
   type DiffReport, type FixturePair, type HarnessResult, type IsotopeReport, type VerdictResult } from '@isotope/core';
 import { loadWalkingSkeletonSpec } from '@isotope/changespec';
-import { runHarness, HarnessExecutionError } from '@isotope/harness-ts';
+import { createTsHarnessPlan, runTsHarness, HarnessExecutionError } from '@isotope/harness-ts';
 import { checkDeterminism, diffSignatures } from '@isotope/differ';
 
 export interface WalkingSkeletonOptions {
@@ -85,7 +85,11 @@ export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Pr
   let result: VerdictResult;
   const signatureRefs: string[] = [];
   try {
-    signatures = await runHarness({ repoRoot: projectRoot, config, entryPoint, bdg, fixture, codeVersion: 'original' });
+    const execution = { repoRoot: projectRoot, config, entryPoint, fixture, codeVersion: 'original' as const };
+    signatures = {
+      old: [await runTsHarness(createTsHarnessPlan(execution, 'old', 0)), await runTsHarness(createTsHarnessPlan(execution, 'old', 1))],
+      new: [await runTsHarness(createTsHarnessPlan(execution, 'new', 0)), await runTsHarness(createTsHarnessPlan(execution, 'new', 1))],
+    };
     for (const signature of [...signatures.old, ...signatures.new]) {
       const path = paths.signature(signature);
       await writeJsonArtifact(paths.root, path, 'Signature', signature);

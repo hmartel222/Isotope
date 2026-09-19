@@ -1,73 +1,141 @@
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { promisify } from 'node:util';
-import { validateContract, type HarnessInput, type HarnessResult, type JsonValue, type Signature } from '@isotope/core';
+import { join, resolve } from 'node:path';
+import { validateContract, writeJsonArtifact, type HarnessInput, type HarnessResult, type Signature } from '@isotope/core';
+import { HarnessExecutionError } from './errors';
+import { assertWithin, createTsHarnessPlan, isLocalModule, projectFile, type TsHarnessPlan } from './plan';
+import { getAdapter } from './adapters';
 export { serializeBehavior } from './serialize';
-const execute = promisify(execFile);
+export { createRecorder } from './mocks';
+export { HarnessExecutionError } from './errors';
+export { createTsHarnessPlan } from './plan';
+export type { TsHarnessPlan } from './plan';
+export type { HandlerAdapter, AdapterContext, AdapterResult } from './adapters';
+export const DEFAULT_TIMEOUT_MS = 20_000;
 
-export class HarnessExecutionError extends Error {
-  constructor(readonly reason: string, message: string) { super(message); this.name = 'HarnessExecutionError'; }
-}
-export interface SingleRunPlan {
-  entryFile: string; exportName: string; dbFile: string; fixture: JsonValue;
-  entryPointId: string; codeVersion: Signature['codeVersion']; payloadVersion: string; fixturePair: string; runIndex: number;
-  dbReturn: JsonValue;
-}
-
-/** One real execution in a fresh process; no module, fixture, or mock state is reused. */
-export async function runTsHarness(plan: SingleRunPlan): Promise<Signature> {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), 'isotope-harness-')));
-  const resultPath = join(directory, 'result.json');
+/** Validate the protocol and its association with this execution, not just its shape. */
+export function acceptChildResult(value: unknown, plan: TsHarnessPlan): Signature {
   try {
-    const planPath = join(directory, 'plan.json');
-    await writeFile(planPath, JSON.stringify({ ...plan, resultPath }), 'utf8');
-    const runtime = resolve(__dirname, '../runtime/runner.mjs');
-    let executionError: unknown;
-    try {
-      await execute(process.execPath, [runtime, planPath], {
-        cwd: dirname(plan.entryFile), timeout: 20_000, maxBuffer: 1024 * 1024,
-        // Deliberately do not forward provider/DB credentials to customer execution.
-        env: { PATH: process.env.PATH ?? '', HOME: directory, TMPDIR: directory, CI: '1', NO_COLOR: '1' },
-      });
-    } catch (error) { executionError = error; }
-    let result: { signature?: unknown; error?: { reason: string; message: string } };
-    try { result = JSON.parse(await readFile(resultPath, 'utf8')) as typeof result; }
-    catch { throw new HarnessExecutionError('harness_could_not_run', `Isolated handler execution produced no result: ${executionError instanceof Error ? executionError.message : 'missing result'}`); }
-    if (result.error) throw new HarnessExecutionError(result.error.reason, result.error.message);
-    if (executionError) throw new HarnessExecutionError('harness_could_not_run', `Isolated runner failed: ${String(executionError)}`);
-    return validateContract('Signature', result.signature);
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
-
-async function projectFile(root: string, file: string): Promise<string> {
-  const base = await realpath(root);
-  const target = await realpath(resolve(base, file));
-  const rel = relative(base, target);
-  if (rel === '..' || rel.startsWith('../') || isAbsolute(rel)) throw new HarnessExecutionError('unsupported_harness_plan', 'Phase 2 entry and DB files must be within the specimen');
-  return target;
-}
-
-/** PHASE 2 LIMITATION: one TS Express-like handler, Stripe, and one DB mock. */
-export async function runHarness(input: HarnessInput): Promise<HarnessResult> {
-  if (input.entryPoint.kind !== 'express_route' || input.entryPoint.language !== 'ts' || input.config.entryPoints.length !== 1) throw new HarnessExecutionError('unsupported_harness_plan', 'Phase 2 supports one TypeScript express_route entry point');
-  const dbMocks = input.config.mocks.filter(mock => 'sinkKind' in mock && mock.sinkKind === 'db_write');
-  const dbMock = dbMocks[0];
-  if (input.config.mocks.length !== 2 || dbMocks.length !== 1 || !dbMock || !('exports' in dbMock) || dbMock.exports.db !== 'recordAll' || !input.config.mocks.some(mock => mock.module === 'stripe' && 'strategy' in mock && mock.strategy === 'provider')) throw new HarnessExecutionError('unsupported_harness_plan', 'Configure exactly stripe strategy: provider and one db export: recordAll/db_write mock');
-  const entryFile = await projectFile(input.repoRoot, input.entryPoint.file);
-  const dbFile = await projectFile(input.repoRoot, dbMock.module);
-  const dbReturn = input.config.returns['db.subscription.update'];
-  if (dbReturn === undefined) throw new HarnessExecutionError('unsupported_harness_plan', 'Configure returns[db.subscription.update]');
-  const fixedReturn: JsonValue = dbReturn;
-  async function pair(path: string, payloadVersion: string): Promise<[Signature, Signature]> {
-    async function run(runIndex: number) {
-      // Reload for every process. Customer mutation cannot affect later runs or the disk fixture.
-      const fixture = JSON.parse(await readFile(path, 'utf8')) as JsonValue;
-      return runTsHarness({ entryFile, dbFile, exportName: input.entryPoint.export, fixture, dbReturn: fixedReturn,
-        entryPointId: input.entryPoint.id, codeVersion: input.codeVersion, payloadVersion, fixturePair: input.fixture.id, runIndex });
+    const result = value as { signature?: unknown; error?: { reason: string; message: string; diagnostics?: Record<string, unknown> } };
+    if (!result || typeof result !== 'object') throw new Error('Expected a result object');
+    if (result.error) {
+      const reasons = ['provider_stub_not_exercised', 'blocked_egress', 'harness_timeout', 'harness_could_not_run', 'unsupported_behavior_serialization', 'serialization_limit', 'adapter_not_implemented'];
+      if (!reasons.includes(result.error.reason) || typeof result.error.message !== 'string' || result.signature) throw new Error('Invalid failure envelope');
+      throw new HarnessExecutionError(result.error.reason as ConstructorParameters<typeof HarnessExecutionError>[0], result.error.message.slice(0, 8192), result.error.diagnostics);
     }
-    return [await run(0), await run(1)];
+    const signature = validateContract('Signature', result.signature);
+    if (signature.entryPointId !== plan.entryPoint.id || signature.codeVersion !== plan.codeVersion || signature.payloadVersion !== plan.fixture.payloadVersion || signature.fixturePair !== plan.fixture.pairId || signature.runIndex !== plan.runIndex || signature.calls.some((c, i) => c.seq !== i)) throw new Error('Signature does not match execution identity or call sequence');
+    return signature;
+  } catch (error) {
+    if (error instanceof HarnessExecutionError) throw error;
+    throw new HarnessExecutionError('invalid_child_output', `Invalid child result: ${String(error)}`);
   }
-  return { old: await pair(input.fixture.oldPath, input.fixture.oldVersion), new: await pair(input.fixture.newPath, input.fixture.newVersion) };
+}
+
+async function generatedDirectory(root: string): Promise<string> {
+  let current = root;
+  for (const part of ['.isotope', 'generated']) {
+    current = join(current, part);
+    try { if ((await lstat(current)).isSymbolicLink()) throw new Error('Symlinked generated directory'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    await mkdir(current, { recursive: true });
+  }
+  return current;
+}
+
+/** One fresh child and Vitest context per invocation. No verdict or BDG knowledge. */
+async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: number } = {}): Promise<Signature> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw new HarnessExecutionError('unsupported_harness_plan', 'timeoutMs must be between 1 and 120000');
+  getAdapter(plan.entryPoint.kind);
+  if (!Number.isInteger(plan.runIndex) || plan.runIndex < 0 || !plan.entryPoint.id || !plan.entryPoint.exportName || !plan.fixture.pairId || !['old', 'new'].includes(plan.fixture.side)) throw new HarnessExecutionError('unsupported_harness_plan', 'Invalid execution identity');
+  const root = await realpath(plan.repositoryRoot);
+  const entryFile = await projectFile(root, plan.entryPoint.file);
+  // Fixtures may be explicit external files: normalized provider artifacts are shared across repos.
+  const fixturePath = await realpath(resolve(root, plan.fixture.payloadPath));
+  const mocks = await Promise.all(plan.mocks.map(async mock => {
+    if ('strategy' in mock && mock.module !== 'stripe') throw new HarnessExecutionError('unsupported_harness_plan', `Unsupported provider: ${mock.module}`);
+    if (mock.module.startsWith('node:')) throw new HarnessExecutionError('unsupported_harness_plan', 'Built-in modules cannot be configured as observable mocks');
+    return { ...mock, module: isLocalModule(mock.module) ? await projectFile(root, mock.module) : mock.module };
+  }));
+  if (new Set(mocks.map(m => m.module)).size !== mocks.length) throw new HarnessExecutionError('unsupported_harness_plan', 'Duplicate mock modules');
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'isotope-harness-')));
+  let specPath: string | undefined;
+  let ownsSpec = false;
+  try {
+    const generated = await generatedDirectory(root);
+    const key = createHash('sha256').update(JSON.stringify([plan.entryPoint, plan.fixture, plan.codeVersion, plan.runIndex])).digest('hex').slice(0, 24);
+    specPath = join(generated, `${key}.${plan.fixture.side}.${plan.runIndex}.spec.ts`);
+    // Exclusive creation prevents concurrent invocations with the same identity from racing.
+    await writeFile(specPath, `// Generated execution wrapper; not an authoritative artifact.\nimport ${JSON.stringify(resolve(__dirname, '../runtime/execution.test.mjs'))};\n`, { flag: 'wx' });
+    ownsSpec = true;
+    const resultPath = join(directory, 'result.json');
+    const planPath = join(directory, 'plan.json');
+    await writeFile(planPath, JSON.stringify({ ...plan, repositoryRoot: root, entryFile, mocks, fixturePath, resultPath, specPath }), { mode: 0o600 });
+    const runtime = resolve(__dirname, '../runtime/runner.mjs');
+    const preload = resolve(__dirname, '../block-net.cjs');
+    const outcome = await new Promise<{ code: number | null; signal: string | null; stdout: string; stderr: string; timedOut: boolean }>((done, reject) => {
+      const child = spawn(process.execPath, [runtime, planPath], {
+        cwd: root, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
+        env: { PATH: process.env.PATH ?? '', HOME: directory, TMPDIR: directory, CI: '1', NO_COLOR: '1', TZ: 'UTC',
+          NODE_OPTIONS: `--require ${JSON.stringify(preload)}`, ISOTOPE_EGRESS_LOG: join(directory, 'egress.jsonl') },
+      });
+      let stdout = ''; let stderr = ''; let timedOut = false;
+      const kill = () => {
+        try { if (child.pid && process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+      };
+      const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
+      child.stdout.on('data', data => { stdout = (stdout + String(data)).slice(-16384); });
+      child.stderr.on('data', data => { stderr = (stderr + String(data)).slice(-16384); });
+      child.once('error', error => { clearTimeout(timer); kill(); reject(error); });
+      child.once('exit', () => { kill(); }); // Reap pool descendants even after a runner crash.
+      child.once('close', (code, signal) => { clearTimeout(timer); done({ code, signal, stdout, stderr, timedOut }); });
+    });
+    const diagnostics = { entryPointId: plan.entryPoint.id, stage: 'child', generatedTestPath: specPath, ...outcome };
+    let egress = '';
+    try { egress = await readFile(join(directory, 'egress.jsonl'), 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    if (egress) throw new HarnessExecutionError('blocked_egress', 'Unexpected outbound I/O was blocked; configure the missing boundary', { ...diagnostics, attempts: egress.slice(0, 4096) });
+    if (outcome.timedOut) throw new HarnessExecutionError('harness_timeout', `Harness exceeded ${timeoutMs}ms; child process group terminated`, diagnostics);
+    if (outcome.code !== 0) throw new HarnessExecutionError('harness_could_not_run', `Harness child exited ${outcome.code ?? outcome.signal}`, diagnostics);
+    let result: unknown;
+    try {
+      if ((await lstat(resultPath)).size > 8 * 1024 * 1024) throw new Error('Result exceeds 8 MiB');
+      result = JSON.parse(await readFile(resultPath, 'utf8')) as unknown;
+    } catch (error) { throw new HarnessExecutionError('invalid_child_output', `Missing or malformed result: ${String(error)}`, diagnostics); }
+    let signature: Signature;
+    try { signature = acceptChildResult(result, plan); }
+    catch (error) { if (error instanceof HarnessExecutionError) throw new HarnessExecutionError(error.reason, error.message, { ...diagnostics, ...error.diagnostics }); throw error; }
+    if (plan.outputPath) {
+      try { await writeJsonArtifact(root, assertWithin(root, resolve(root, plan.outputPath)), 'Signature', signature); }
+      catch (error) { throw new HarnessExecutionError('artifact_write_failed', String(error), diagnostics); }
+    }
+    return signature;
+  } catch (error) {
+    if (error instanceof HarnessExecutionError) throw error;
+    throw new HarnessExecutionError('harness_could_not_run', String(error), { entryPointId: plan.entryPoint.id, generatedTestPath: specPath });
+  } finally {
+    if (ownsSpec && specPath) await rm(specPath, { force: true });
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+/** All preparation, process and protocol errors use the typed L3 failure channel. */
+export async function runTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: number } = {}): Promise<Signature> {
+  try { return await executeTsHarness(plan, options); }
+  catch (error) {
+    if (error instanceof HarnessExecutionError) throw error;
+    throw new HarnessExecutionError('harness_could_not_run', String(error));
+  }
+}
+
+/** Compatibility stage API; config translation is also exported for orchestrators/L10. */
+export async function runHarness(input: HarnessInput): Promise<HarnessResult> {
+  if (input.entryPoint.language !== 'ts') throw new HarnessExecutionError('unsupported_harness_plan', 'TypeScript harness requires a TypeScript entry point');
+  return {
+    old: [await runTsHarness(createTsHarnessPlan(input, 'old', 0)), await runTsHarness(createTsHarnessPlan(input, 'old', 1))],
+    new: [await runTsHarness(createTsHarnessPlan(input, 'new', 0)), await runTsHarness(createTsHarnessPlan(input, 'new', 1))],
+  };
 }
