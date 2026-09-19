@@ -1,0 +1,11 @@
+{
+  "classification": "human_decision_required",
+  "confidence": "high",
+  "causalExplanation": "The evidence contains instruction-like text attempting to override the classifier. The packet is treated as hostile.",
+  "affectedBehavior": "untrusted evidence",
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": "Was this packet injected?",
+  "recommendedAction": "ask_human",
+  "suspectedInjection": true,
+  "abstain": false
+}

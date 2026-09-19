@@ -1,0 +1,6 @@
+{
+  "voteA": "THROW",
+  "voteB": "THROW",
+  "expectedConsensus": "unavailable",
+  "expectedVerdict": "ESCALATE"
+}

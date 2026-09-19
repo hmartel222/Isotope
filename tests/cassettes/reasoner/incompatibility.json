@@ -1,0 +1,11 @@
+{
+  "classification": "incompatibility",
+  "confidence": "high",
+  "causalExplanation": "The handler reads only items.data[0].current_period_end and writes that timestamp. That value does not preserve the previously evidenced subscription-level renewal and does not implement documented aggregation.",
+  "affectedBehavior": "db.subscription.update renewalDate",
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": null,
+  "recommendedAction": "manual_review",
+  "suspectedInjection": false,
+  "abstain": false
+}

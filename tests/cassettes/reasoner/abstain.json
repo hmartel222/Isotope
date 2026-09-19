@@ -1,0 +1,11 @@
+{
+  "classification": "human_decision_required",
+  "confidence": "medium",
+  "causalExplanation": "The model abstains because the packet does not establish a unique mapping from old to new renewal behavior.",
+  "affectedBehavior": "db.subscription.update renewalDate",
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": "Which period should be used?",
+  "recommendedAction": "ask_human",
+  "suspectedInjection": false,
+  "abstain": true
+}

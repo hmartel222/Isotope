@@ -1,0 +1,11 @@
+{
+  "classification": "human_decision_required",
+  "confidence": "medium",
+  "causalExplanation": "Multiple item periods are valid under the new contract, and the application still needs one account-level renewal date. No recoverable policy is present in the supplied evidence.",
+  "affectedBehavior": "account-level renewal date",
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": "Which subscription item's period end should drive renewal?",
+  "recommendedAction": "ask_human",
+  "suspectedInjection": false,
+  "abstain": false
+}

@@ -1,0 +1,11 @@
+{
+  "classification": "benign_adaptation",
+  "confidence": "low",
+  "causalExplanation": "The numeric change might be an adaptation, but the evidence is too thin to authorize a reasoned pass.",
+  "affectedBehavior": "db.subscription.update renewalDate",
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": null,
+  "recommendedAction": "none",
+  "suspectedInjection": false,
+  "abstain": false
+}
