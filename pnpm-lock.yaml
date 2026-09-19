@@ -83,6 +83,12 @@ importers:
       '@isotope/differ':
         specifier: workspace:*
         version: link:../differ
+      '@isotope/fleet':
+        specifier: workspace:*
+        version: link:../fleet
+      '@isotope/harness-py':
+        specifier: workspace:*
+        version: link:../harness-py
       '@isotope/harness-ts':
         specifier: workspace:*
         version: link:../harness-ts
@@ -92,6 +98,9 @@ importers:
       '@isotope/repair':
         specifier: workspace:*
         version: link:../repair
+      '@isotope/resolver-py':
+        specifier: workspace:*
+        version: link:../resolver-py
       '@isotope/resolver-ts':
         specifier: workspace:*
         version: link:../resolver-ts
