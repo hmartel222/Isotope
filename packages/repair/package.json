@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@isotope/core": "workspace:*"
+    "@isotope/core": "workspace:*",
+    "ts-morph": "26.0.0"
   }
 }

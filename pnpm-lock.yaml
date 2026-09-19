@@ -143,6 +143,9 @@ importers:
       '@isotope/core':
         specifier: workspace:*
         version: link:../core
+      ts-morph:
+        specifier: 26.0.0
+        version: 26.0.0
 
   packages/reporter:
     dependencies:
@@ -180,6 +183,15 @@ importers:
       '@isotope/core':
         specifier: workspace:*
         version: link:../core
+      '@isotope/differ':
+        specifier: workspace:*
+        version: link:../differ
+      '@isotope/harness-ts':
+        specifier: workspace:*
+        version: link:../harness-ts
+      '@isotope/resolver-ts':
+        specifier: workspace:*
+        version: link:../resolver-ts
 
 packages:
 
