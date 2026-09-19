@@ -61,13 +61,15 @@ The pure resolver in `core/src/verdict.ts` checks:
 
 1. Unstable → **INDETERMINATE**, mechanical.
 2. Any mechanical critical/high → **FAIL**, mechanical, regardless of BDG confidence or other semantic findings.
-3. Semantic residual → **ESCALATE**, unavailable, reason `semantic_reasoner_unavailable`.
-4. Info only → **PASS**, with `only_informational_divergences`.
-5. No divergence → **PASS**, with `identical_behavior`.
+3. Reasoner consensus incompatibility → **FAIL_REASONED**.
+4. Human decision / disagreement / abstain / injection / unavailable / error / cap exceeded / reasoner off → **ESCALATE**.
+5. Reasoner consensus benign_adaptation at medium+ confidence → **PASS_REASONED**.
+6. Info only → **PASS**, with `only_informational_divergences`.
+7. No divergence → **PASS**, with `identical_behavior`.
 
-`hasMechanicalFailure` and `needsSemanticReasoning` expose the structural bypass seam. The latter is a routing hint, not authorization to invoke L5: future code must apply provenance, config and budget rules. Supplied reasoning cannot produce a reasoned verdict in this phase. No L5 stub is called. Per-entry instability dominates; the separate aggregate resolver remains a stub, so no PR-wide precedence was changed.
+`hasMechanicalFailure` and `needsSemanticReasoning` expose the structural bypass seam. Mechanical critical/high never reads reasoner output. PR-level `resolveAggregateVerdict` implements `FAIL > FAIL_REASONED > ESCALATE > INDETERMINATE > PASS_REASONED > PASS > SKIP`.
 
-CLI exits: PASS 0, FAIL 1, ESCALATE 3, INDETERMINATE 4, and FAIL-with-verified-repair 5. Harness failures retain Phase 3's conservative exit 4; malformed artifacts are errors, not fabricated instability. L4 remains pure; Phase 9 repair verification reuses it downstream without changing detection authority.
+CLI exits: PASS/PASS_REASONED 0, FAIL/FAIL_REASONED 1, ESCALATE 3, INDETERMINATE 4, and FAIL-with-verified-repair 5. Harness failures retain Phase 3's conservative exit 4. L4 remains pure; Phase 10 reuses it as evidence, never as a model appeal.
 
 ## Tests and coverage
 

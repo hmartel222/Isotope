@@ -24,7 +24,7 @@ export function createProgram(): Command {
     if (options.base && options.head) {
       const configAbsolute = await realpath(resolve(configPath)); const root = resolve(configAbsolute, '..');
       const result = await verifyRepository({ repositoryRoot: root, configPath: configAbsolute, specsPath: resolve(__dirname, '../../../specs'),
-        baseRef: options.base, headRef: options.head, reasoner: 'off', repair: options.repair === false ? 'off' : 'on', ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
+        baseRef: options.base, headRef: options.head, reasoner: options.reasoner === false ? 'off' : 'on', repair: options.repair === false ? 'off' : 'on', ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
       console.log(result.output); process.exitCode = result.exitCode; return;
     }
     const result = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
@@ -53,6 +53,6 @@ export function createProgram(): Command {
       console.log(result.output); process.exitCode = result.exitCode;
     });
   program.command('accuracy').description('Run the historical benchmark (stub)').action(() => pending('accuracy'));
-  program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. Deterministic repairs are isolated and independently verified; semantic reasoning and model repair remain unavailable.');
+  program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. Deterministic repairs are isolated and independently verified. Semantic reasoning is optional and never overrides a mechanical FAIL.');
   return program;
 }

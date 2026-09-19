@@ -23,7 +23,8 @@
     "@isotope/differ": "workspace:*",
     "@isotope/resolver-ts": "workspace:*",
     "@isotope/repair": "workspace:*",
-    "@isotope/verifier": "workspace:*"
+    "@isotope/verifier": "workspace:*",
+    "@isotope/reasoner": "workspace:*"
   },
   "bin": {
     "isotope": "bin/isotope.cjs"

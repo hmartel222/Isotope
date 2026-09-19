@@ -44,7 +44,7 @@ for (const scenario of scenarios) test(`real L3 -> L4 -> L6 -> CLI: ${scenario.n
   try {const result=await execute(process.execPath,[path.join(root,'packages/cli/dist/bin.js'),'verify','--no-reasoner','--no-repair'],{cwd:directory,env:{...process.env,ISOTOPE_TEST_FIXTURES:fixtureDirectory},timeout:60000});stdout=result.stdout;}
   catch(error){exit=error.code;stdout=error.stdout;}
   assert.equal(exit,scenario.exit,stdout);assert.match(stdout,new RegExp('Verdict: '+scenario.verdict));assert.match(stdout,/SYNTHETIC TEST-ONLY/);
-  if(exit===3) assert.match(stdout,/Semantic reasoner: unavailable in current build/);
+  if(exit===3) assert.match(stdout,/Semantic reasoner: disabled; decision required|semantic_reasoner_unavailable/);
   const p=core.artifactPaths(directory);
   const diff=await core.readJsonArtifact(p.root,p.diffReport,'DiffReport');
   const verdict=await core.readJsonArtifact(p.root,p.verdict,'VerdictReport');

@@ -10,7 +10,7 @@ export interface VerifyRepositoryOptions {
   specsPath: string;
   baseRef: string;
   headRef: string;
-  reasoner: 'off';
+  reasoner: 'on' | 'off';
   repair: 'on' | 'off';
   /** Internal acceptance only; product Action runs never set this. */
   testFixtureDirectory?: string;
@@ -41,7 +41,7 @@ export async function verifyRepository(options: VerifyRepositoryOptions): Promis
     await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
     return { exitCode: 0, output: `${selectionOutput}\nVerdict: SKIP`, report, selection, artifactRoot: paths.root, execution: null };
   }
-  const execution = await verifyWalkingSkeleton({ configPath, disableReasoner: true, disableRepair: options.repair === 'off', selectedSpecs: selection.selected, fixtureRoot: resolve(repositoryRoot, 'fixtures/normalized'),
+  const execution = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === 'off', disableRepair: options.repair === 'off', selectedSpecs: selection.selected, fixtureRoot: resolve(repositoryRoot, 'fixtures/normalized'),
     ...(options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}) });
   return { exitCode: execution.exitCode, output: `${selectionOutput}\n${execution.output}`, report: execution.report, selection, artifactRoot: paths.root, execution };
 }
