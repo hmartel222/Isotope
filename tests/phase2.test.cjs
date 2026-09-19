@@ -150,15 +150,15 @@ for (const [name, source, reason] of [
 });
 test('missing constructEvent becomes INDETERMINATE in the real orchestration', async t => {
   const directory = await project(t);
-  await fs.writeFile(path.join(directory,'src/webhook.ts'), 'export async function handler(req,res) { return res.status(200).json({ received:true }); }');
+  await fs.writeFile(path.join(directory,'src/webhook.ts'), "import Stripe from 'stripe'; const stripe = new Stripe('inert'); export async function handler(req,res) { if (false) stripe.webhooks.constructEvent('', '', ''); return res.status(200).json({ received:true }); }");
   const result = await verifyWalkingSkeleton({configPath:path.join(directory,'isotope.yml'),testFixtureDirectory:testFixtures('broken')});
   assert.equal(result.exitCode,4); assert.equal(result.report.verdict.verdict,'INDETERMINATE'); assert.equal(result.report.verdict.results[0].reason,'provider_stub_not_exercised');
   assert.deepEqual(result.report.signatureRefs,[]); assert.deepEqual(result.report.diffReportRefs,[]);
 });
-test('multiple configured entry points fail with an actionable error', async t => {
+test('a missing configured export fails with an actionable resolver error', async t => {
   const directory = await project(t); const config = await configAt(directory); config.entryPoints.push({...config.entryPoints[0],export:'other'});
   await fs.writeFile(path.join(directory,'isotope.yml'),JSON.stringify(config));
-  await assert.rejects(verifyWalkingSkeleton({configPath:path.join(directory,'isotope.yml'),testFixtureDirectory:testFixtures('broken')}),/exactly one/);
+  await assert.rejects(verifyWalkingSkeleton({configPath:path.join(directory,'isotope.yml'),testFixtureDirectory:testFixtures('broken')}),/entry export not found/);
 });
 test('CLI broken case exits 1 and all nine generated artifacts validate; no later-stage artifacts', async t => {
   const directory = await project(t);
@@ -189,7 +189,7 @@ test('added call arguments remain unsupported semantic differences, never a fals
 test('failed re-run removes stale comparison artifacts', async t => {
   const directory = await project(t); const p = core.artifactPaths(directory);
   await fs.mkdir(p.root); await fs.writeFile(p.diffReport, JSON.stringify(fixtures.DiffReport));
-  await fs.writeFile(path.join(directory,'src/webhook.ts'), 'export async function handler(req,res) { return res.status(200).json({ received:true }); }');
+  await fs.writeFile(path.join(directory,'src/webhook.ts'), "import Stripe from 'stripe'; const stripe = new Stripe('inert'); export async function handler(req,res) { if (false) stripe.webhooks.constructEvent('', '', ''); return res.status(200).json({ received:true }); }");
   const result=await verifyWalkingSkeleton({configPath:path.join(directory,'isotope.yml'),testFixtureDirectory:testFixtures('broken')});
   assert.equal(result.exitCode,4); await assert.rejects(fs.access(p.diffReport), {code:'ENOENT'});
 });

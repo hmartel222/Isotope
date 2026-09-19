@@ -2,11 +2,19 @@
 
 **Not part of the real-world evaluation corpus.** This small handler intentionally reads the old subscription-level period field. No repair is applied.
 
-Static pieces: one explicitly chosen ChangeSpec, one configured entry point, and `bdg.stub.json`. The BDG’s provenance describes a known provider call but was authored manually, not discovered by an AST resolver.
+Explicit pieces: one chosen ChangeSpec and one configured entry point. Phase 5 generates the BDG from actual source using the TypeScript resolver. `bdg.stub.json` remains a historical contract fixture and is no longer loaded by verification.
 
 Real pieces: Vitest imports and executes the TypeScript handler in four fresh child processes; Stripe `constructEvent` and `db.subscription.update` are mocked before import; the provider stub must be invoked; returned HTTP state, exceptions, and ordered DB arguments are captured. Each fixture starts fresh. Comparison uses only returned/threw/calls, preserving all metadata in the stored signatures.
 
 ## Provider run
+
+Static-only analysis works without provider payloads:
+
+```sh
+pnpm isotope --config examples/walking-skeleton/isotope.yml scan
+```
+
+It finds a high-confidence provider call, the `current_period_end` read (with the cast recorded), and a causal path to the configured `db.subscription.update` sink.
 
 From the repository root, after setup:
 
@@ -49,7 +57,7 @@ ISOTOPE_TEST_FIXTURES="$PWD/packages/harness-ts/test-fixtures/broken" pnpm phase
 Under `examples/walking-skeleton/.isotope/`:
 
 - `selected-specs.json`, `bdg.json`.
-- Four `signatures/original/<pair>/ep_phase2.<encoded-api-version>.<0-or-1>.json` files.
+- Four `signatures/original/<pair>/<deterministic-entry-id>.<encoded-api-version>.<0-or-1>.json` files.
 - `diff-report.json`, `verdict.json`, `isotope-report.json`.
 
 The report references signatures and diffs containing fixture versions, return values, determinism status, and observed DB values. Paths are constructed by core; each artifact is validated on write. There are no fabricated reasoning/repair artifacts or empty later-stage directories. Failed harness reruns clear this invocation’s old signatures/diff and write an INDETERMINATE report without invented execution evidence.
@@ -58,4 +66,4 @@ The report references signatures and diffs containing fixture versions, return v
 
 Execution now uses the [Phase 3 generic TypeScript harness](../../packages/harness-ts/README.md). DB methods and deterministic returns come from config, local modules resolve from the config root, and every run uses fresh child/provider/mock state. The specimen's real DB module still throws if reached. The harness adds generated tests, Express/plain adapters, fixed Date/random/UUID, bounded serialization and a Node preload that blocks unexpected egress. It is not an OS sandbox for hostile repositories.
 
-PASS (identical or info only) → 0; mechanical FAIL → 1; semantic residual → ESCALATE → 3; unstable/untrustworthy execution → INDETERMINATE → 4; invalid config or missing fixtures → 10. Other CLI commands remain explicit stubs. Phase 4 classifies structural differences and escalates semantic questions without invoking L5; no reasoned verdict is fabricated.
+PASS (identical or info only) → 0; mechanical FAIL → 1; semantic residual → ESCALATE → 3; unstable/untrustworthy execution → INDETERMINATE → 4; invalid config or missing fixtures → 10. An entry without a proven provider root is skipped before execution (SKIP/0); incomplete static analysis without a proven root is INDETERMINATE/4. `scan` performs L2 only; commands other than scan/verify remain explicit stubs. Phase 4 classifies structural differences and escalates semantic questions without invoking L5; no reasoned verdict is fabricated.

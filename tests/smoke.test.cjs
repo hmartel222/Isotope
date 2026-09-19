@@ -9,7 +9,7 @@ const packages = ['core','changespec','resolver-ts','resolver-py','harness-ts','
 for (const name of packages) test(`package ${name} imports and stubs never fake success`, () => {
   const api = require(`@isotope/${name}`);
   assert.ok(Object.keys(api).length);
-  if (!['core', 'cli', 'harness-ts', 'differ', 'changespec'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
+  if (!['core', 'cli', 'harness-ts', 'differ', 'changespec', 'resolver-ts'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
 });
 test('aggregate verdict resolution remains explicitly unimplemented', () => {
   const core = require('@isotope/core');
@@ -33,7 +33,7 @@ test('CLI top-level help lists every required command form', () => {
   const result = cli(['--help']); assert.equal(result.status, 0, result.stderr);
   for (const command of ['scan', 'verify', 'repair', 'explain', 'fleet', 'spec', 'fixtures', 'matrix', 'accuracy', '--no-reasoner', '--no-repair', 'validate|draft|list', 'fixtures normalize', '--explain <repairId>']) assert.ok(result.stdout.includes(command), command);
 });
-const commands = [['scan'], ['repair','ep-test'], ['repair','--explain','r1'], ['explain','ep-test'], ['fleet','--repos','corpus/repos.json','--spec','test','--out','dashboard.html','--reason','--repair'], ['spec','validate'], ['spec','draft','--url','https://example.invalid','--provider','test'], ['spec','list'], ['fixtures','normalize'], ['matrix'], ['accuracy']];
+const commands = [['repair','ep-test'], ['repair','--explain','r1'], ['explain','ep-test'], ['fleet','--repos','corpus/repos.json','--spec','test','--out','dashboard.html','--reason','--repair'], ['spec','validate'], ['spec','draft','--url','https://example.invalid','--provider','test'], ['spec','list'], ['fixtures','normalize'], ['matrix'], ['accuracy']];
 for (const args of commands) test(`CLI ${args.join(' ')} parses and fails explicitly`, () => {
   const result = cli(args); assert.equal(result.status, 12, result.stderr); assert.match(result.stderr, /not implemented yet/); assert.doesNotMatch(result.stdout, /PASS|verified repair/i);
 });
