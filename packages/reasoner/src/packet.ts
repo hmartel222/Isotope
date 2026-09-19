@@ -12,6 +12,8 @@ import { estimateTokens, HARD_CAP_TOKENS, TARGET_TOKENS } from './tokens';
 export interface PacketBuildInput {
   repoRoot: string; spec: ChangeSpec; bdg: BDG; entryPoint: EntryPoint; diff: DiffReport;
   old: Signature; new: Signature; oldPayload: unknown; newPayload: unknown; redact: boolean;
+  /** When set, replace the default semantic-only divergence filter. Repair packets may include mechanical residuals. */
+  divergences?: DiffReport['divergences'];
 }
 export type PacketBuildResult =
   | { ok: true; packet: EvidencePacket; hash: string; primaryDivergenceId: string; estimatedTokens: number }
@@ -56,9 +58,9 @@ function ambiguitySatisfied(payload: JsonValue, expression: string): boolean {
   return Array.isArray(value) && value.length > Number(match[2]);
 }
 
-function narrowSignature(signature: Signature, diff: DiffReport): Signature {
+function narrowSignature(signature: Signature, divergences: DiffReport['divergences']): Signature {
   const indexes = new Set<number>();
-  for (const divergence of semanticDivergences(diff)) {
+  for (const divergence of divergences) {
     const call = /^\/calls\/(\d+)/.exec(divergence.pointer);
     if (call) {
       const index = Number(call[1]);
@@ -149,7 +151,8 @@ function keepLiterals(oldPayload: JsonValue, newPayload: JsonValue, diff: DiffRe
 }
 
 export async function buildEvidencePacket(input: PacketBuildInput): Promise<PacketBuildResult> {
-  const semantic = semanticDivergences(input.diff);
+  const semantic = input.divergences ?? semanticDivergences(input.diff);
+  if (!semantic.length) return { ok: false, reason: 'slice_overflow' };
   const site = input.bdg.affectedSites.find(item => item.entryPointId === input.entryPoint.id);
   const change = input.spec.changes[site?.changeIndex ?? 0] ?? input.spec.changes[0]!;
   const slice = await primarySlice(input);
@@ -167,7 +170,7 @@ export async function buildEvidencePacket(input: PacketBuildInput): Promise<Pack
     downstream = downstream.map(fn => { const next = redactSource(fn.slice, keep); destroyed = destroyed || next.destroyedDecisionEvidence; return { ...fn, slice: next.text }; });
   }
   if (destroyed) return { ok: false, reason: 'redaction_destroyed_evidence' };
-  let oldSig = narrowSignature(input.old, input.diff); let newSig = narrowSignature(input.new, input.diff);
+  let oldSig = narrowSignature(input.old, semantic); let newSig = narrowSignature(input.new, semantic);
   let graphNodes = nodes; let graphSinks = sinks;
   const assemble = () => validateContract('EvidencePacket', {
     packetVersion: 1,

@@ -7,7 +7,7 @@ export { redactSource } from './redact';
 export { REASONER_PROMPT_VERSION, REASONING_SCHEMA_VERSION, DEFAULT_REASONER_MODEL, REASONER_SYSTEM_PROMPT } from './prompt';
 export { validateReasoningResult, extractJson } from './validate';
 export { resolveReasonerConsensus } from './consensus';
-export { createAnthropicModel, credentialsAvailable, apiKeyFromEnv, type SemanticModel, type ReasonerRequest } from './adapter';
+export { createGeminiModel, createAnthropicModel, credentialsAvailable, apiKeyFromEnv, type SemanticModel, type ReasonerRequest } from './adapter';
 export { cacheKey } from './cache';
 export { reasonAboutEntryPoint, REQUEST_TIMEOUT_MS, type ReasonEntryInput } from './reason';
 

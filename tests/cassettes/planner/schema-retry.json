@@ -1,0 +1,26 @@
+{
+  "first": "not-json",
+  "retry": {
+    "classification": "repair_candidate",
+    "confidence": "high",
+    "summary": "Retry produced a schema-valid anchored edit.",
+    "causalChain": "provider change → helper shift → restore item period",
+    "patch": {
+      "files": [
+        {
+          "path": "src/period.ts",
+          "edits": [{ "anchor": "return Number(item.current_period_end) + 1;", "replacement": "return item.current_period_end;" }]
+        },
+        {
+          "path": "src/webhook.ts",
+          "edits": [{ "anchor": "hasLegacyPeriod(object) ? observed : periodEnd(item)", "replacement": "observed" }]
+        }
+      ]
+    },
+    "assumptions": [],
+    "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+    "humanQuestion": null,
+    "suspectedInjection": false,
+    "abstain": false
+  }
+}

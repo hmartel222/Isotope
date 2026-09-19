@@ -26,9 +26,16 @@ export interface ReasoningEligibilityInput {
   diff: DiffReport; bdg: BDG; entryPoint: EntryPoint; config: IsotopeConfig; credentialsAvailable: boolean; remainingInvocations: number;
 }
 export interface ReasoningEligibility { eligible: boolean; reason: string; primaryDivergenceId: string | null; divergenceIds: string[] }
-export interface RepairEligibilityInput { verdict: VerdictResult; bdg: BDG; selectedSpecs: SelectedSpecs; config: IsotopeConfig; fixture: FixturePair; newPayload: JsonValue }
+export interface RepairEligibilityInput { verdict: VerdictResult; bdg: BDG; selectedSpecs: SelectedSpecs; config: IsotopeConfig; fixture: FixturePair; newPayload: JsonValue; credentialsAvailable?: boolean }
 export interface RepairEligibility { eligible: boolean; route: 'deterministic' | 'model' | 'none'; reason: string; siteIds: string[]; changeIndex: number | null }
-export interface RepairPlanInput { packet: RepairPacket; config: IsotopeConfig['repair'] }
+export interface PlannerModel {
+  classify(input: { system: string; user: string; timeoutMs: number }): Promise<string>;
+  modelId: string;
+}
+export interface RepairPlanInput {
+  packet: RepairPacket; config: IsotopeConfig['repair']; repairId: string;
+  model?: PlannerModel; credentials?: boolean; mechanicalRetryHint?: string;
+}
 export interface PatchApplicationInput { repoRoot: string; temporaryRoot?: string; repairId: string; candidate: CandidatePatch; allowedPaths: string[]; maxFiles: number; maxChangedLines: number }
 /** Future implementation must release the workspace in a finally block. */
 export interface AppliedCandidate { repairId: string; workspaceRoot: string; diff: string; changedFiles: string[]; linesAdded: number; linesRemoved: number; dispose(): Promise<void> }

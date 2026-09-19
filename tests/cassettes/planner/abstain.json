@@ -1,0 +1,12 @@
+{
+  "classification": "no_safe_repair",
+  "confidence": "medium",
+  "summary": "Planner abstained.",
+  "causalChain": "provider change → abstain",
+  "patch": null,
+  "assumptions": [],
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": null,
+  "suspectedInjection": false,
+  "abstain": true
+}

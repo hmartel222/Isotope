@@ -122,7 +122,7 @@ pnpm workspace of `packages/*`. Core has **no** subsystem dependency.
 | `@isotope/resolver-ts` | Bounded BDG |
 | `@isotope/harness-ts` | Isolated execution |
 | `@isotope/differ` | Pure L4 |
-| `@isotope/reasoner` | L5 eligibility, packet, two votes, cache, Anthropic adapter |
+| `@isotope/reasoner` | L5 eligibility, packet, two votes, cache, Gemini adapter |
 | `@isotope/repair` | Deterministic eligibility, `path_rename`, ephemeral apply. `planRepair` **throws** |
 | `@isotope/verifier` | Re-entrant L10. Already calls L5 if patched behavior is semantic. Accepts `PASS_REASONED` as baseline-equivalent |
 | `@isotope/reporter` | PR comment / check. `FAIL_REASONED` currently says planner unavailable |
@@ -176,8 +176,8 @@ One EvidencePacket per **entry point**, not per leaf divergence. Primary id = le
 
 `packages/reasoner/src/reason.ts`, `consensus.ts`, `validate.ts`, `prompt.ts`, `adapter.ts`, `cache.ts`
 
-- Default model id: `claude-sonnet-5` (`DEFAULT_REASONER_MODEL`)
-- SDK: `@anthropic-ai/sdk` 0.39.0. Temperature omitted (current API). 30s timeout. No tools
+- Default model id: `gemini-2.5-flash` (`DEFAULT_REASONER_MODEL`)
+- SDK: `@google/generative-ai`. Temperature 0. 30s timeout. No tools
 - Narrow `SemanticModel { classify(input): Promise<string>; modelId }`
 - Prompt version `REASONER_PROMPT_VERSION = 1`. Evidence only inside `<evidence>`
 - Two independent votes; one mechanical schema retry (`primaryVotes = 2`, `apiAttempts <= 3`). Retry does not see the other vote
@@ -194,7 +194,7 @@ One EvidencePacket per **entry point**, not per leaf divergence. Primary id = le
 
 - Verify path: `packages/cli/src/walking-skeleton.ts` calls `reasonAboutEntryPoint` when `needsSemanticReasoning && mode === 'on'`
 - CLI `--no-reasoner` forces off; otherwise config wins. Action default `reasoner: off`
-- Credentials: walking-skeleton uses `assumeCredentials ?? (semanticModel ? true : credentialsAvailable())`. Env: `ANTHROPIC_API_KEY` or `INPUT_ANTHROPIC_API_KEY`
+- Credentials: walking-skeleton uses `assumeCredentials ?? (semanticModel ? true : credentialsAvailable())`. Env: `GEMINI_API_KEY`, `INPUT_GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, or `GOOGLE_API_KEY`
 - L10 `packages/verifier/src/index.ts` already reuses the same L5 if patched baseline-diff is semantic. `verifyRepair` still **requires original mechanical FAIL** (`originalVerdict.verdict !== 'FAIL'` throws). Phase 11 must extend this if a reasoned incompatibility is to be verified after a planner patch — the original verdict for that path is `FAIL_REASONED`, not `FAIL`
 
 ### Tests / corpus added in Phase 10

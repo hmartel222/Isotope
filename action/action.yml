@@ -6,7 +6,7 @@ inputs:
   fail-on: { description: Reserved severity list, default: "critical,high" }
   reasoner: { description: Enable bounded semantic reasoning, default: "off" }
   repair: { description: Enable isolated deterministic repair verification, default: "off" }
-  anthropic-api-key: { description: Anthropic API key for optional L5 semantic reasoning, required: false }
+  gemini-api-key: { description: Gemini API key for optional L5 semantic reasoning and L8 repair planning, required: false }
   github-token: { description: Token for optional direct PR reporting, required: false }
   mode: { description: verify or report, default: verify }
   base: { description: Explicit base SHA outside pull_request events, required: false }

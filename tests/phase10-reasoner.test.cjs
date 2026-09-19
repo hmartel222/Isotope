@@ -254,8 +254,8 @@ test('incomplete reasoned votes escalate', () => {
   assert.equal(verdict.verdict, 'ESCALATE');
 });
 
-test('live Sonnet aggregation is optional and skipped without credentials', { timeout: 180000 }, async t => {
-  if (!process.env.ANTHROPIC_API_KEY) { t.skip('ANTHROPIC_API_KEY not available'); return; }
+test('live Gemini aggregation is optional and skipped without credentials', { timeout: 180000 }, async t => {
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) { t.skip('GEMINI_API_KEY not available'); return; }
   const repo = await corpus(t, 'ambiguity-escalate');
   const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
   const configPath = path.join(repo, 'isotope.yml');

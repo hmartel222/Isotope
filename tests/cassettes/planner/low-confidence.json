@@ -1,0 +1,19 @@
+{
+  "classification": "repair_candidate",
+  "confidence": "low",
+  "summary": "A possible edit exists but confidence is too low to apply.",
+  "causalChain": "provider change → uncertain site → low confidence",
+  "patch": {
+    "files": [
+      {
+        "path": "src/period.ts",
+        "edits": [{ "anchor": "return Number(item.current_period_end) + 1;", "replacement": "return item.current_period_end;" }]
+      }
+    ]
+  },
+  "assumptions": [],
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": null,
+  "suspectedInjection": false,
+  "abstain": false
+}

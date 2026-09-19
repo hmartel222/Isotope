@@ -1,0 +1,12 @@
+{
+  "classification": "human_decision_required",
+  "confidence": "high",
+  "summary": "Several item periods are valid; choosing among them is application policy.",
+  "causalChain": "provider change → multi-item payload → no unique period → human decision",
+  "patch": null,
+  "assumptions": [],
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": "Which subscription item's period end should drive renewal?",
+  "suspectedInjection": false,
+  "abstain": false
+}

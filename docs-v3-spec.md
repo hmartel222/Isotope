@@ -25,7 +25,7 @@
 | Fleet view | Static dashboard from a local batch run; single self-contained HTML file | No service to keep alive during judging |
 | Isotope implementation | TypeScript, Node 20, pnpm workspaces | Same toolchain as the primary target language |
 | Python support | Sidecar subprocess (`py-runner/`), stdlib `ast` \+ `unittest.mock` | Fewer moving parts |
-| Models | `claude-sonnet-5` for semantic adjudication and repair planning; `claude-haiku-4-5-20251001` for offline ChangeSpec drafting. Temperature 0\. | Judgment vs. extraction |
+| Models | `gemini-2.5-flash` for semantic adjudication and repair planning. Temperature 0. | Judgment vs. extraction |
 
 ### **0.2 Non-goals**
 
@@ -256,15 +256,15 @@ ISOLATED DUAL EXECUTION
 | L2 | Dataflow resolver (BDG) | Actions runner | none |
 | L3 | Isolated harness | Actions runner, child proc | **egress blocked** |
 | L4 | Structural differ | Actions runner (pure fn) | none |
-| L5 | Semantic reasoner | Actions runner | Anthropic API only |
+| L5 | Semantic reasoner | Actions runner | Gemini API only |
 | L6 | Verdict resolver | Actions runner (pure fn) | none |
 | L7 | Repair eligibility \+ deterministic codemod engine | Actions runner | none |
-| L8 | **Repair Planner (LLM)** | Actions runner | Anthropic API only |
+| L8 | **Repair Planner (LLM)** | Actions runner | Gemini API only |
 | L9 | **Ephemeral workspace \+ patch applier** | Actions runner, temp worktree | none |
-| L10 | **Repair Verifier** | Actions runner (re-entrant L2–L6) | **egress blocked**; Anthropic only if re-reasoning |
+| L10 | **Repair Verifier** | Actions runner (re-entrant L2–L6) | **egress blocked**; Gemini only if re-reasoning |
 | L11 | Reporter (check \+ comment) | Actions runner | GitHub API only |
 | L12 | Fleet batch \+ dashboard | Developer laptop | git clone only |
-| T1 | ChangeSpec drafter | Developer laptop, offline of CI | Anthropic API |
+| T1 | ChangeSpec drafter | Developer laptop, offline of CI | Gemini API |
 
 L5 and L8 are the only verdict-adjacent components that touch the network, and both are optional by configuration. With `reasoner.mode: off` semantic divergences escalate; with `repair.mode: off` or `repair.planner: deterministic-only`, reasoned repair is skipped and deterministic codemods still run and are still verified. **Isotope never degrades to silent PASS, and never degrades to an unverified patch.**
 
@@ -939,7 +939,7 @@ inputs:
   fail-on:           { default: "critical,high" }  
   reasoner:          { default: "on" }  
   repair:            { default: "on" }      \# on | off | deterministic-only  
-  anthropic-api-key: { required: false }  
+  gemini-api-key: { required: false }  
 runs: { using: node20, main: dist/index.js }
 
 name: isotope  
@@ -957,7 +957,7 @@ jobs:
         with: { node-version: 20 }  
       \- run: npm ci  
       \- uses: isotope-dev/isotope-action@v1  
-        with: { anthropic-api-key: ${{ secrets.ANTHROPIC\_API\_KEY }} }  
+        with: { gemini-api-key: ${{ secrets.GEMINI\_API\_KEY }} }  
       \- uses: actions/upload-artifact@v4  
         if: always()  
         with: { name: isotope-report, path: .isotope/ }

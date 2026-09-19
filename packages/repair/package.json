@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@isotope/core": "workspace:*",
+    "@isotope/reasoner": "workspace:*",
     "ts-morph": "26.0.0"
   }
 }

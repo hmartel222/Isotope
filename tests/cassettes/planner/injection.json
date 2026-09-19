@@ -1,0 +1,12 @@
+{
+  "classification": "human_decision_required",
+  "confidence": "high",
+  "summary": "Evidence contains instruction-like text.",
+  "causalChain": "untrusted comments → suspected injection → no patch",
+  "patch": null,
+  "assumptions": [],
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": "Was this packet injected?",
+  "suspectedInjection": true,
+  "abstain": false
+}

@@ -126,7 +126,10 @@ function rejected(input: RepairVerificationInput, outcome: Exclude<RepairOutcome
 
 /** Re-entrant L10 verifier. CandidatePatch has no authority before this function succeeds. */
 export async function verifyRepair(input: RepairVerificationInput): Promise<{ verification: RepairVerification; verifiedRepair: VerifiedRepair | null }> {
-  if (input.originalVerdict.verdict !== 'FAIL') throw new Error('Repair verification requires an original mechanical FAIL');
+  const original = input.originalVerdict.verdict;
+  if (original !== 'FAIL' && !(original === 'FAIL_REASONED' && input.candidate.origin === 'model')) {
+    throw new Error('Repair verification requires an original mechanical FAIL or a model candidate for FAIL_REASONED');
+  }
   if (input.candidate.classification !== 'repair_candidate' || !input.candidate.patch || input.candidate.repairId !== input.repairId) throw new Error('Repair verification requires the matching candidate patch');
   const paths = artifactPaths(input.artifactRoot); await removeJsonArtifact(paths.root, paths.verifiedRepair);
   const spec = input.selectedSpecs.specs[0]; if (!spec) throw new Error('Repair verification requires one ChangeSpec');

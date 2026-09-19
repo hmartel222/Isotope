@@ -1,0 +1,33 @@
+{
+  "classification": "repair_candidate",
+  "confidence": "high",
+  "summary": "Stop shifting the item period and write the observed item current_period_end.",
+  "causalChain": "Basil removed the subscription period → helper falls back to item period plus one → sink writes a different timestamp → restore the evidenced item period",
+  "patch": {
+    "files": [
+      {
+        "path": "src/period.ts",
+        "edits": [
+          {
+            "anchor": "return Number(item.current_period_end) + 1;",
+            "replacement": "return item.current_period_end;"
+          }
+        ]
+      },
+      {
+        "path": "src/webhook.ts",
+        "edits": [
+          {
+            "anchor": "hasLegacyPeriod(object) ? observed : periodEnd(item)",
+            "replacement": "observed"
+          }
+        ]
+      }
+    ]
+  },
+  "assumptions": ["The planning fixture has a single item whose period equals the old subscription period."],
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": null,
+  "suspectedInjection": false,
+  "abstain": false
+}

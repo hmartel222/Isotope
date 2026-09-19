@@ -69,7 +69,8 @@ export function evaluateRepairEligibility(input: RepairEligibilityInput): Repair
   const none = (reason: string): RepairEligibility => ({ eligible: false, route: 'none', reason, siteIds: [], changeIndex: null });
   if (input.config.repair.verify !== true) return none('verification_required');
   if (input.config.repair.mode !== 'on') return none('repair_disabled');
-  if (input.verdict.verdict !== 'FAIL') return none('verdict_not_mechanical_fail');
+  const verdict = input.verdict.verdict;
+  if (verdict !== 'FAIL' && verdict !== 'FAIL_REASONED') return none('verdict_not_mechanical_fail');
   if (input.selectedSpecs.specs.length !== 1) return none('requires_one_changespec');
   const spec = input.selectedSpecs.specs[0]!;
   if (!spec.fixtures.heldout_pair || spec.fixtures.heldout_pair === spec.fixtures.pair) return none('held_out_fixture_required');
@@ -85,15 +86,21 @@ export function evaluateRepairEligibility(input: RepairEligibilityInput): Repair
     if (!decision.supported) return none('unsupported_business_policy_predicate');
     if (decision.value) return none('business_policy_required');
   }
+  const siteIds = sites.map(site => site.id).sort();
+  const modelRoute = (reasonWhenDisabled: string): RepairEligibility => {
+    if (input.config.repair.planner !== 'model') return none(reasonWhenDisabled);
+    if (!input.credentialsAvailable) return { eligible: false, route: 'model', reason: 'credentials_unavailable', siteIds: [], changeIndex: null };
+    return { eligible: true, route: 'model', reason: 'model_planner', siteIds, changeIndex: changeIndexes[0] ?? 0 };
+  };
+  // Reasoned incompatibilities never take the path_rename shortcut, even when a codemod exists.
+  if (verdict === 'FAIL_REASONED') return modelRoute('planner_disabled');
   const eligibleIndexes = changeIndexes.filter(index => spec.changes[index]?.codemod?.kind === 'path_rename');
-  if (!eligibleIndexes.length) return input.config.repair.planner === 'model'
-    ? { eligible: false, route: 'model', reason: 'planner_unavailable_in_current_build', siteIds: [], changeIndex: null }
-    : none('no_safe_deterministic_codemod');
+  if (!eligibleIndexes.length) return modelRoute('no_safe_deterministic_codemod');
   if (eligibleIndexes.length !== 1) return none('multiple_codemods_ambiguous');
   const changeIndex = eligibleIndexes[0]!;
   const predicate = evaluateRepairPredicate(spec.changes[changeIndex]!.codemod!.safe_when, input.newPayload);
   if (!predicate.supported) return none('unsupported_safe_when_predicate');
-  if (!predicate.value) return none('safe_when_false');
+  if (!predicate.value) return modelRoute('safe_when_false');
   const eligibleSites = sites.filter(site => site.changeIndex === changeIndex);
   if (!eligibleSites.length) return none('authoritative_site_required');
   return { eligible: true, route: 'deterministic', reason: 'deterministic_codemod_safe', siteIds: eligibleSites.map(site => site.id).sort(), changeIndex };
@@ -159,7 +166,8 @@ export async function generateDeterministicCandidate(input: DeterministicCandida
   });
 }
 
-export const planRepair = async (): Promise<CandidatePatch> => { throw new Error('Model repair planner unavailable in current build'); };
+export { buildRepairPacket, assertNoHeldOutLeakage, type RepairPacketBuildInput, type RepairPacketBuildResult } from './packet';
+export { planRepair, PLANNER_PROMPT_VERSION, DEFAULT_PLANNER_MODEL, REQUEST_TIMEOUT_MS, type PlanRepairResult } from './plan';
 
 const lockfiles = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'npm-shrinkwrap.json', 'poetry.lock', 'requirements.txt']);
 function slash(path: string): string { return path.split(sep).join('/'); }

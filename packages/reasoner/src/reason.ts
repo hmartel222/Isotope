@@ -4,7 +4,7 @@ import {
   type BDG, type ChangeSpec, type DiffReport, type EntryPoint, type EvidencePacket, type IsotopeConfig,
   type ReasoningRun, type Signature,
 } from '@isotope/core';
-import { apiKeyFromEnv, createAnthropicModel, credentialsAvailable, type SemanticModel } from './adapter';
+import { apiKeyFromEnv, createGeminiModel, credentialsAvailable, type SemanticModel } from './adapter';
 import { cacheKey, readReasonerCache, writeReasonerCache } from './cache';
 import { resolveReasonerConsensus, type VoteOutcome } from './consensus';
 import { evaluateReasoningEligibility } from './eligibility';
@@ -66,7 +66,7 @@ export async function reasonAboutEntryPoint(input: ReasonEntryInput): Promise<{ 
   const packetRef = relative(paths.root, packetPath).split('\\').join('/');
   const model = input.model ?? (() => {
     const key = apiKeyFromEnv(); if (!key) return null;
-    return createAnthropicModel(key, DEFAULT_REASONER_MODEL);
+    return createGeminiModel(key, DEFAULT_REASONER_MODEL);
   })();
   if (!model) return { run: unavailable('credentials_unavailable', { packetHash: built.hash, primaryDivergenceId: built.primaryDivergenceId, packetRef }), packet: built.packet, invocationsUsed: 0 };
   const key = cacheKey(built.hash, model.modelId);

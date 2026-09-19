@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   if (mode === 'verify') {
     runtime = await prepareHarnessRuntime(); process.once('exit', () => rmSync(runtime!.root, { recursive: true, force: true })); process.env.ISOTOPE_ACTION_RUNTIME_ROOT = join(runtime.root, 'runtime');
     const internalFixture = process.env.ISOTOPE_ACTION_TEST_MODE === '1' ? process.env.ISOTOPE_INTERNAL_TEST_FIXTURES : undefined;
-    const key = input('anthropic-api-key'); if (key) process.env.ANTHROPIC_API_KEY = key;
+    const key = input('gemini-api-key'); if (key) process.env.GEMINI_API_KEY = key;
     const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), specsPath: input('specs-path', 'specs'), baseRef: context.baseSha, headRef: context.headSha, reasoner: reasoner as 'on' | 'off', repair: repair as 'on' | 'off',
       ...(internalFixture ? { testFixtureDirectory: internalFixture } : {}) });
     artifactRoot = result.artifactRoot; console.log(result.output);

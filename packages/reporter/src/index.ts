@@ -50,8 +50,9 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
     const verified = evidence.report.verifiedRepairs[0];
     if (verified) {
       const diff = verified.diff.slice(0, 8000).replace(/```/g, '``\u200b`');
+      const origin = verified.candidate.origin === 'model' ? 'model-generated' : 'deterministic';
       lines.push('', '### ✅ Verified repair available', '', '```diff', diff.trimEnd(), '```', '', 'Verification:',
-        '- original verdict: FAIL', '- patched planning fixture: PASS', '- held-out fixture: PASS', '- provider→sink flow preserved',
+        `- original verdict: FAIL (${origin})`, '- patched planning fixture: PASS', '- held-out fixture: PASS', '- provider→sink flow preserved',
         '', 'Applied only in an isolated workspace. Nothing was committed, pushed, or merged.');
     } else if (evidence.report.repairVerifications.length) {
       const rejected = evidence.report.repairVerifications[0]!;
@@ -63,7 +64,21 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
       lines.push('', clean(reasoned.causalExplanation, 800), '', `Affected behavior: ${clean(reasoned.affectedBehavior, 400)}`, `Confidence: ${code(reasoned.confidence)}`);
       if (reasoned.evidenceRefs.length) lines.push(`Evidence: ${reasoned.evidenceRefs.slice(0, 5).map(ref => code(ref.kind === 'code' ? `${ref.file}:${ref.line}` : ref.kind === 'dataflow' ? ref.nodeId : ref.kind === 'diff' ? ref.pointer : ref.path)).join(', ')}`);
     }
-    lines.push('', 'Manual review required. The model repair planner is unavailable in this build.');
+    const verified = evidence.report.verifiedRepairs[0];
+    if (verified) {
+      const diff = verified.diff.slice(0, 8000).replace(/```/g, '``\u200b`');
+      lines.push('', '### 🤖 Repair proposed', '', '### ✅ independently verified', '', '```diff', diff.trimEnd(), '```', '', 'Verification:',
+        `- FAIL_REASONED → ${verified.verification.planning.verdict.verdict}`, '- held-out fixture: PASS', '- provider→sink flow preserved',
+        '', 'The patch was generated from bounded evidence, applied only in an isolated workspace, and independently re-verified.',
+        'Nothing was committed, pushed, or merged.');
+    } else if (evidence.report.repairVerifications.length) {
+      const rejected = evidence.report.repairVerifications[0]!;
+      lines.push('', 'Candidate rejected by verifier', `Reason: ${code(rejected.outcome)} — ${clean(rejected.reason, 500)}`);
+    } else if (evidence.report.candidateRefs.length) {
+      lines.push('', 'Planner declined. No candidate was applied.', 'Manual review required.');
+    } else {
+      lines.push('', 'Manual review required. A verified repair was not offered.');
+    }
   } else if (verdict === 'PASS') {
     lines.push('### ✅ Isotope — compatible', '', transition(evidence.selected), '', `${counts(evidence)}.`, 'No behavioral incompatibility found.');
   } else if (verdict === 'PASS_REASONED') {
@@ -86,7 +101,7 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
 }
 
 export function renderCheckSummary(evidence: ReportEvidence): string {
-  const repair = evidence.report.verifiedRepairs.length ? ['', 'A verified deterministic repair is available; the incompatibility remains blocking until a human applies it.'] : [];
+  const repair = evidence.report.verifiedRepairs.length ? ['', 'A verified repair is available; the incompatibility remains blocking until a human applies it.'] : [];
   return [`### Isotope: ${evidence.report.verdict.verdict}`, '', transition(evidence.selected), '', counts(evidence), ...repair, '', 'Artifacts: `.isotope/`'].join('\n');
 }
 export function mapVerdictToConclusion(verdict: Verdict): CheckConclusion {

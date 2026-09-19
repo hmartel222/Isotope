@@ -25,8 +25,9 @@ test('package graph is acyclic; CLI orchestrates while subsystems depend only on
     active.add(p);
     for (const dependency of Object.keys(manifests[p].dependencies || {})) if (dependency.startsWith('@isotope/')) {
       assert.notEqual(p, 'core');
-      if (!['cli','verifier'].includes(p)) assert.equal(dependency, '@isotope/core');
+      if (!['cli','verifier','repair'].includes(p)) assert.equal(dependency, '@isotope/core');
       if (p === 'verifier') assert.ok(['@isotope/core','@isotope/differ','@isotope/harness-ts','@isotope/resolver-ts','@isotope/reasoner'].includes(dependency));
+      if (p === 'repair') assert.ok(['@isotope/core','@isotope/reasoner'].includes(dependency));
       visit(dependency.slice(9));
     }
     active.delete(p); done.add(p);
@@ -38,7 +39,7 @@ test('CLI top-level help lists every required command form', () => {
   const result = cli(['--help']); assert.equal(result.status, 0, result.stderr);
   for (const command of ['scan', 'verify', 'repair', 'explain', 'fleet', 'spec', 'fixtures', 'matrix', 'accuracy', '--no-reasoner', '--no-repair', 'validate|draft|list', 'fixtures normalize', '--explain <repairId>']) assert.ok(result.stdout.includes(command), command);
 });
-const commands = [['repair','--explain','r1'], ['explain','ep-test'], ['fleet','--repos','corpus/repos.json','--spec','test','--out','dashboard.html','--reason','--repair'], ['spec','validate'], ['spec','draft','--url','https://example.invalid','--provider','test'], ['spec','list'], ['fixtures','normalize'], ['accuracy']];
+const commands = [['explain','ep-test'], ['fleet','--repos','corpus/repos.json','--spec','test','--out','dashboard.html','--reason','--repair'], ['spec','validate'], ['spec','draft','--url','https://example.invalid','--provider','test'], ['spec','list'], ['fixtures','normalize'], ['accuracy']];
 for (const args of commands) test(`CLI ${args.join(' ')} parses and fails explicitly`, () => {
   const result = cli(args); assert.equal(result.status, 12, result.stderr); assert.match(result.stderr, /not implemented yet/); assert.doesNotMatch(result.stdout, /PASS|verified repair/i);
 });
@@ -60,6 +61,7 @@ test('product fixture directories contain no invented payloads', () => {
 });
 test('CLI repair loads existing evidence and fails closed when configuration/artifacts are absent', () => {
   const result=cli(['repair','ep-test']); assert.equal(result.status,10); assert.doesNotMatch(result.stdout,/PASS|verified repair/i);
+  const explain=cli(['repair','--explain','r1']); assert.equal(explain.status,0); assert.match(explain.stdout,/RepairPacket: absent|Candidate: absent/);
 });
 
 test('Phase 2 verify flags parse and require a real configuration', () => {

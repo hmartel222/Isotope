@@ -2,7 +2,7 @@
 
 Phase 8 packages the deterministic verifier as a bundled Node 20 Action and adds a trust-separated reporter. The CLI and Action both call `verifyRepository`, which owns Git dependency selection, SKIP artifact generation, and invocation of the existing resolver, harness, differ, and verdict pipeline.
 
-The Action reads full base and head SHAs from the `pull_request` payload. It never guesses `HEAD^`, installs dependencies, changes customer source, commits, pushes, or merges. The consuming workflow checks out the PR head with complete history and installs project dependencies before invoking the Action. Phase 8 supports only `reasoner: off`, `repair: off`, and `fail-on: critical,high`; the Anthropic input is reserved and no model key is required.
+The Action reads full base and head SHAs from the `pull_request` payload. It never guesses `HEAD^`, installs dependencies, changes customer source, commits, pushes, or merges. The consuming workflow checks out the PR head with complete history and installs project dependencies before invoking the Action. Phase 8 supports only `reasoner: off`, `repair: off`, and `fail-on: critical,high`; the Gemini input is reserved and no model key is required.
 
 The reporter renders only typed `SelectedSpecs`, `BDG`, `DiffReport`, `Signature`, and `IsotopeReport` data. It escapes and bounds customer-derived strings, caps annotations, maps INDETERMINATE to a neutral check conclusion, and returns no PR comment for SKIP. Its GitHub adapter updates exactly one bot-owned comment containing `<!-- isotope-report -->`; human comments are never edited. Comment or check API failures are recorded separately and cannot change the product verdict.
 

@@ -1,0 +1,12 @@
+{
+  "classification": "no_safe_repair",
+  "confidence": "medium",
+  "summary": "The incompatibility is understood but the bounded slices do not justify a safe edit.",
+  "causalChain": "provider change → affected code → insufficient evidence → no edit",
+  "patch": null,
+  "assumptions": [],
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewalDate" }],
+  "humanQuestion": null,
+  "suspectedInjection": false,
+  "abstain": false
+}

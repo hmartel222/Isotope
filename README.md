@@ -16,13 +16,14 @@ The [v3 specification](docs-v3-spec.md) is the architectural source of truth. Se
 - Phase 8: bundled Node 20 GitHub Action, shared CLI/Action verification API, typed reporter, bounded annotations, bot-owned comment upsert, job summaries, and direct plus trust-separated workflow templates. See the [Phase 8 audit](docs/PHASE8.md).
 - Phase 9: deterministic BDG-anchored repair candidates, isolated worktrees, immutable-baseline and held-out re-execution, structural anti-cheat checks, exit 5, and verified-repair reporting. See the [Phase 9 audit](docs/PHASE9.md).
 - Phase 10: bounded L5 evidence packets, two independent semantic votes, `PASS_REASONED` / `FAIL_REASONED` / `ESCALATE`, and mechanical-failure bypass. See the [Phase 10 audit](docs/PHASE10.md).
+- Phase 11: bounded L8 repair planner, ephemeral apply of model candidates, and independent L10 verification. See the [Phase 11 audit](docs/PHASE11.md).
 - **Real-provider acceptance is blocked:** `fixtures/normalized/sub-updated-single/{old,new,meta}.json` is absent. Passing synthetic integration tests proves the plumbing only.
 
-Not yet implemented: additional framework adapters, model repair planning, Python execution, fleet, or accuracy benchmarks.
+Not yet implemented: additional framework adapters, Python execution, fleet, or accuracy benchmarks.
 
 ## Package map
 
-`core` owns schemas, artifact I/O, stage contracts and the L6 verdict resolver. `changespec` loads the known spec. `resolver-ts` constructs bounded provider dataflow graphs. `harness-ts` executes isolated plans. `differ` owns pure structural classification. `reasoner` builds bounded evidence packets and two independent semantic votes. `repair` and `verifier` own deterministic repair and independent L10 checks. `reporter` renders PR comments. `cli` orchestrates those packages. `resolver-py`, `harness-py`, and `fleet` remain stubs. Core has no subsystem dependency.
+`core` owns schemas, artifact I/O, stage contracts and the L6 verdict resolver. `changespec` loads the known spec. `resolver-ts` constructs bounded provider dataflow graphs. `harness-ts` executes isolated plans. `differ` owns pure structural classification. `reasoner` builds bounded evidence packets and two independent semantic votes. `repair` owns deterministic candidates plus the bounded L8 planner. `verifier` independently checks candidates. `reporter` renders PR comments. `cli` orchestrates those packages. `resolver-py`, `harness-py`, and `fleet` remain stubs. Core has no subsystem dependency.
 
 ## Local setup
 
@@ -56,6 +57,6 @@ The specimen README documents explicitly labeled synthetic broken/PASS control c
 
 ## Next milestone
 
-Recommended Phase 11 starting point: the LLM Repair Planner for `FAIL_REASONED` only, after mechanical FAIL remains on the existing deterministic path. Do not let a model patch a mechanical failure or skip L10. Full handoff: [docs/PHASE11-TRANSFER.md](docs/PHASE11-TRANSFER.md).
+Recommended Phase 12 starting point: fleet / accuracy / extra adapters. Do not weaken L10 or let the planner patch a mechanical FAIL that already has a safe deterministic codemod.
 
 `pnpm coverage:differ` runs the independent pure-differ suite and enforces the coverage gate; `pnpm test` also includes that gate.
