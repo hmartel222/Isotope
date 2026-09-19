@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {"id":"1","target":"01-mechanical","fixture":"sub-updated-single","reasoner":"off","repair":"off","verdict":"FAIL","exitCode":1,"comment":"incompatibility"},
+    {"id":"2","target":"02-partial","fixture":"sub-updated-single","reasoner":"off","repair":"off","verdict":"FAIL","exitCode":1,"comment":"incompatibility"},
+    {"id":"3","target":"03-migrated","fixture":"sub-updated-single","reasoner":"off","repair":"off","verdict":"PASS","exitCode":0,"comment":"clean"},
+    {"id":"4","target":"04-migrated-item","fixture":"sub-updated-single","reasoner":"off","repair":"off","verdict":"PASS","exitCode":0,"comment":"clean"},
+    {"id":"5","target":"05-noop","fixture":"sub-updated-noop","reasoner":"off","repair":"off","verdict":"PASS","exitCode":0,"comment":"clean","blocked":"real capture missing"},
+    {"id":"6","target":"06-wrong-provider","fixture":null,"reasoner":"off","repair":"off","verdict":"SKIP","exitCode":0,"comment":"clean"},
+    {"id":"7","target":"07-ambiguity","fixture":"sub-updated-multi","reasoner":"off","repair":"off","verdict":"ESCALATE","exitCode":3,"comment":"decision","blocked":"real capture missing"},
+    {"id":"9","target":"09-aggregating","fixture":"sub-updated-aggregating","reasoner":"on","repair":"off","verdict":"PASS_REASONED","exitCode":0,"comment":"reasoned-pass","blocked":"real capture and model credential missing"},
+    {"id":"10","target":"10-injection","fixture":"sub-updated-single","reasoner":"off","repair":"off","verdict":"FAIL","exitCode":1,"comment":"incompatibility"},
+    {"id":"11","target":"11-no-reasoner","fixture":"sub-updated-aggregating","reasoner":"off","repair":"off","verdict":"ESCALATE","exitCode":3,"comment":"decision","blocked":"real capture missing"},
+    {"id":"12","target":"12-repair","fixture":"sub-updated-single","heldOut":"sub-updated-single-B","reasoner":"off","repair":"on","verdict":"FAIL","exitCode":5,"comment":"verified-deterministic-repair"},
+    {"id":"13","target":"13-coordinated","fixture":"sub-updated-aggregating","heldOut":"sub-updated-single-B","reasoner":"on","repair":"on","verdict":"FAIL_REASONED","exitCode":5,"comment":"verified-reasoned-repair","blocked":"real capture and model credential missing"},
+    {"id":"14","target":"14-no-policy-repair","fixture":"sub-updated-multi","reasoner":"off","repair":"on","verdict":"ESCALATE","exitCode":3,"comment":"decision","blocked":"real capture missing"},
+    {"id":"15","target":"12-repair","fixture":"sub-updated-single","heldOut":"sub-updated-single-B","verdict":"ESCALATE","exitCode":3,"comment":"repair-rejected","outcome":"overfit_rejected"},
+    {"id":"16a","target":"12-repair","fixture":"sub-updated-single","heldOut":"sub-updated-single-B","reasoner":"off","repair":"on","verdict":"FAIL","exitCode":5,"comment":"verified-deterministic-repair"},
+    {"id":"16b","target":"13-coordinated","fixture":"sub-updated-aggregating","reasoner":"on","repair":"on","verdict":"ESCALATE","exitCode":3,"comment":"decision","blocked":"real capture missing"}
+  ]
+}

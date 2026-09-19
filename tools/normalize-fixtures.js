@@ -230,7 +230,7 @@ function normalize(options) {
   for (const required of ['pair', 'namespace', 'old', 'new']) {
     if (!options[required]) fail(`--${required} is required`);
   }
-  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(options.pair)) fail('--pair must be a lowercase kebab-case identifier');
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/.test(options.pair)) fail('--pair must be a safe kebab-case identifier');
   if (!/^[A-Z][A-Z0-9]{0,7}$/.test(options.namespace)) fail('--namespace must be a short uppercase token, e.g. A or B');
 
   const role = options.role ?? 'planning';

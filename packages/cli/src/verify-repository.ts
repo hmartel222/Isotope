@@ -8,6 +8,8 @@ export interface VerifyRepositoryOptions {
   repositoryRoot: string;
   configPath: string;
   specsPath: string;
+  fixturesPath?: string;
+  specId?: string;
   baseRef: string;
   headRef: string;
   reasoner: 'on' | 'off';
@@ -30,6 +32,11 @@ export async function verifyRepository(options: VerifyRepositoryOptions): Promis
   const configPath = await realpath(resolve(repositoryRoot, options.configPath));
   const specsPath = await realpath(resolve(repositoryRoot, options.specsPath));
   const selection = await selectChangeSpecs({ repositoryRoot, baseRef: options.baseRef, headRef: options.headRef, specsRoot: specsPath });
+  if (options.specId) {
+    const specs = selection.selected.specs.filter(spec => spec.id === options.specId);
+    if (!specs.length) throw new Error(`Selected dependency change does not match ChangeSpec ${options.specId}`);
+    selection.selected = validateContract('SelectedSpecs', { ...selection.selected, specs });
+  }
   const paths = artifactPaths(repositoryRoot);
   await writeJsonArtifact(paths.root, paths.selectedSpecs, 'SelectedSpecs', selection.selected);
   const selectionOutput = ['Dependency changes:', ...selection.dependencyChanges.map(c => `  ${c.package} ${c.fromVersion} → ${c.toVersion} (${c.ecosystem})`),
@@ -41,7 +48,7 @@ export async function verifyRepository(options: VerifyRepositoryOptions): Promis
     await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
     return { exitCode: 0, output: `${selectionOutput}\nVerdict: SKIP`, report, selection, artifactRoot: paths.root, execution: null };
   }
-  const execution = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === 'off', disableRepair: options.repair === 'off', selectedSpecs: selection.selected, fixtureRoot: resolve(repositoryRoot, 'fixtures/normalized'),
+  const execution = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === 'off', disableRepair: options.repair === 'off', selectedSpecs: selection.selected, fixtureRoot: resolve(options.fixturesPath ?? resolve(repositoryRoot, 'fixtures/normalized')),
     ...(options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}) });
   return { exitCode: execution.exitCode, output: `${selectionOutput}\n${execution.output}`, report: execution.report, selection, artifactRoot: paths.root, execution };
 }

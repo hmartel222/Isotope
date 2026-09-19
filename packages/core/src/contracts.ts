@@ -174,6 +174,7 @@ export const IsotopeConfigSchema = object({
       intercept: opt(Type.Array(str(), { minItems: 1, uniqueItems: true })), exports: opt(strings()),
       requestHeaders: opt(Type.Record(Type.String({ minLength: 1 }), str())),
       records: opt(Type.Record(Type.String({ minLength: 1 }), SinkKindSchema)),
+      errorPatterns: opt(strings()),
     }),
     object({ module: str(), exports: Type.Record(str(), Type.Literal('recordAll'), { minProperties: 1 }), sinkKind: SinkKindSchema }),
   ])), returns: Type.Record(Type.String(), json), failOn: Type.Array(SeveritySchema, { uniqueItems: true }),

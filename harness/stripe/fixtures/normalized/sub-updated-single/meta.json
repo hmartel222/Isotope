@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "pair": "sub-updated-single",
+  "role": "planning",
+  "envelope": "provider",
+  "captureMethod": "B",
+  "aliasNamespace": "A",
+  "normalizer": {
+    "tool": "tools/normalize-fixtures.js",
+    "version": 1,
+    "normalizedAt": "2026-09-19T07:37:30.330Z"
+  },
+  "operations": [
+    "record api/version metadata",
+    "replace provider identifiers with pair-scoped deterministic aliases",
+    "emit normalized JSON preserving key order, array order and all scalars",
+    "record sha256 of each raw input"
+  ],
+  "old": {
+    "apiVersion": "2025-02-24.acacia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/acacia/customer.subscription.updated.2026-09-19T07-31-56-729Z.a73e660b.json",
+    "rawSha256": "a73e660b2d23d7326217a8ed97576032ea72f74b11f506ce01692bd01e59f38d",
+    "rawBytes": 5988
+  },
+  "new": {
+    "apiVersion": "2026-08-26.dahlia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/dahlia/customer.subscription.updated.2026-09-19T07-31-56-737Z.e5a3c4a6.json",
+    "rawSha256": "e5a3c4a6c02fe5c9b2a5c0059b070ba1f7074625f1339e2f94075d735dfb0e02",
+    "rawBytes": 5800
+  },
+  "observed": {
+    "old": {
+      "subscriptionLevelPeriodEndPresent": true,
+      "subscriptionLevelPeriodEnd": 1792395112,
+      "itemCount": 1,
+      "itemLevelPeriodEnds": [
+        1792395112
+      ]
+    },
+    "new": {
+      "subscriptionLevelPeriodEndPresent": false,
+      "subscriptionLevelPeriodEnd": null,
+      "itemCount": 1,
+      "itemLevelPeriodEnds": [
+        1792395112
+      ]
+    }
+  },
+  "aliases": {
+    "evt_1UHIkaBYq8SRmcbOM4FFx4n2": "evt_A1",
+    "sub_1UHIkXBYq8SRmcbOQMuAGOPP": "sub_A1",
+    "cus_VHsVEzQ1obTVnx": "cus_A1",
+    "si_VHsVAf3P3AHaxM": "si_A1",
+    "price_1UHIkWBYq8SRmcbOb5EcaJLb": "price_A1",
+    "prod_VHsVkKA2gNm7IR": "prod_A1",
+    "tax_behavior": "tax_A1",
+    "tax_rates": "tax_A2",
+    "in_1UHIkXBYq8SRmcbOLIUV99bv": "in_A1",
+    "req_CfhtzdASFjB77b": "req_A1"
+  }
+}

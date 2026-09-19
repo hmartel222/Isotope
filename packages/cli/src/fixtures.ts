@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { ChangeSpec, FixturePair, JsonValue } from '@isotope/core';
-import { validateProviderFixtures } from './provider-fixtures';
 
 function object(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -27,13 +26,22 @@ export async function loadFixturePair(input: {
     throw error;
   }
   const payloads = [JSON.parse(files[0]!) as JsonValue, JSON.parse(files[1]!) as JsonValue] as [JsonValue, JsonValue];
-  validateProviderFixtures(input.spec.provider, payloads);
+  // Payload shape belongs to the pack. The portable core validates only the
+  // JSON/provenance contract and never dispatches on a provider name.
+  object(payloads[0], 'old fixture');
+  object(payloads[1], 'new fixture');
   const metadata = object(JSON.parse(files[2]!) as unknown, 'fixture metadata');
   if (input.synthetic && metadata.synthetic !== true) throw new Error('Internal test fixtures must explicitly declare meta.synthetic: true');
   if (!input.synthetic && metadata.synthetic === true) throw new Error('Synthetic fixtures are forbidden in product fixture directories');
-  if (typeof metadata.provenance !== 'string' || !metadata.provenance) throw new Error('Fixture metadata requires provenance');
-  const oldVersion = typeof metadata.oldVersion === 'string' && metadata.oldVersion ? metadata.oldVersion : input.spec.versions.from;
-  const newVersion = typeof metadata.newVersion === 'string' && metadata.newVersion ? metadata.newVersion : input.spec.versions.to;
+  const hasProvenance = (typeof metadata.provenance === 'string' && metadata.provenance.length > 0)
+    || metadata.envelope === 'provider' || metadata.synthetic === true;
+  if (!hasProvenance) throw new Error('Fixture metadata requires provenance');
+  const nestedOld = object(metadata.old ?? {}, 'fixture metadata.old');
+  const nestedNew = object(metadata.new ?? {}, 'fixture metadata.new');
+  const oldVersion = typeof metadata.oldVersion === 'string' && metadata.oldVersion ? metadata.oldVersion
+    : typeof nestedOld.apiVersion === 'string' && nestedOld.apiVersion ? nestedOld.apiVersion : input.spec.versions.from;
+  const newVersion = typeof metadata.newVersion === 'string' && metadata.newVersion ? metadata.newVersion
+    : typeof nestedNew.apiVersion === 'string' && nestedNew.apiVersion ? nestedNew.apiVersion : input.spec.versions.to;
   if (oldVersion === newVersion) throw new Error('Fixture metadata needs distinct old/new version labels');
   return {
     fixture: { id: input.synthetic ? `synthetic-${input.pairId}` : input.pairId, role: input.role, oldPath, newPath, oldVersion, newVersion },

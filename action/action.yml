@@ -1,7 +1,8 @@
 name: Isotope behavioral verification
 description: Verify dependency upgrade behavior without modifying pull request source
 inputs:
-  specs-path: { description: ChangeSpec registry, default: specs }
+  specs-path: { description: Optional ChangeSpec registry override, required: false }
+  fixtures-path: { description: Optional normalized fixture registry override, required: false }
   config: { description: Isotope configuration, default: isotope.yml }
   fail-on: { description: Reserved severity list, default: "critical,high" }
   reasoner: { description: Enable bounded semantic reasoning, default: "off" }

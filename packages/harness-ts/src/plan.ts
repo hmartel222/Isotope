@@ -2,9 +2,12 @@ import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep, extname } from 'node:path';
 import type { EntryPoint, HarnessInput, IsotopeConfig, Signature } from '@isotope/core';
 import { HarnessExecutionError } from './errors';
-import { resolveProviderAdapter, type ProviderAdapterDescriptor, type ProviderMockConfig } from './provider-adapters';
 type RecorderMock = Exclude<IsotopeConfig['mocks'][number], { strategy: 'provider' }>;
-export type PlannedMock = RecorderMock | (ProviderMockConfig & { providerAdapter?: ProviderAdapterDescriptor });
+type ProviderMock = Extract<IsotopeConfig['mocks'][number], { strategy: 'provider' }>;
+export type PlannedMock = RecorderMock | (ProviderMock & { providerAdapter: {
+  id: string; module: string; exports: string[]; intercept: string[];
+  requestHeaders: Record<string, string>; records: NonNullable<ProviderMock['records']>; errorPatterns: string[];
+} });
 export interface TsHarnessPlan {
   repositoryRoot: string;
   entryPoint: { id: string; file: string; exportName: string; kind: EntryPoint['kind'] };
@@ -18,10 +21,11 @@ export interface TsHarnessPlan {
   outputPath?: string;
 }
 export function createTsHarnessPlan(input: Omit<HarnessInput, 'bdg'>, side: 'old' | 'new', runIndex: number): TsHarnessPlan {
-  const mocks: PlannedMock[] = input.config.mocks.map(mock => 'strategy' in mock
-    ? { ...mock, providerAdapter: resolveProviderAdapter(mock) }
-    : mock);
-  const requestHeaders = Object.assign({}, ...mocks.filter((mock): mock is ProviderMockConfig & { providerAdapter: ProviderAdapterDescriptor } => 'strategy' in mock && Boolean(mock.providerAdapter))
+  const mocks: PlannedMock[] = input.config.mocks.map(mock => 'strategy' in mock ? { ...mock, providerAdapter: {
+    id: mock.adapter ?? 'fixture-call', module: mock.module, exports: mock.exports ?? ['default'],
+    intercept: mock.intercept ?? [], requestHeaders: mock.requestHeaders ?? {}, records: mock.records ?? {}, errorPatterns: mock.errorPatterns ?? [],
+  } } : mock);
+  const requestHeaders = Object.assign({}, ...mocks.filter((mock): mock is Extract<PlannedMock, { strategy: 'provider' }> => 'strategy' in mock)
     .map(mock => mock.providerAdapter.requestHeaders));
   return {
     repositoryRoot: input.repoRoot,
