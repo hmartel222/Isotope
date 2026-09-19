@@ -9928,7 +9928,8 @@ var require_contracts = __commonJS({
           intercept: opt(typebox_1.Type.Array(str(), { minItems: 1, uniqueItems: true })),
           exports: opt(strings()),
           requestHeaders: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), str())),
-          records: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), exports2.SinkKindSchema))
+          records: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), exports2.SinkKindSchema)),
+          errorPatterns: opt(strings())
         }),
         object({ module: str(), exports: typebox_1.Type.Record(str(), typebox_1.Type.Literal("recordAll"), { minProperties: 1 }), sinkKind: exports2.SinkKindSchema })
       ])),
@@ -24801,14 +24802,15 @@ var require_specimen = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.loadWalkingSkeletonSpec = loadWalkingSkeletonSpec;
-    var promises_1 = require("node:fs/promises");
-    var node_path_1 = require("node:path");
-    var yaml_1 = require_dist2();
     var core_1 = require_dist();
+    var index_1 = require_dist3();
     async function loadWalkingSkeletonSpec(registryRoot) {
-      const spec = (0, core_1.validateContract)("ChangeSpec", (0, yaml_1.parse)(await (0, promises_1.readFile)((0, node_path_1.join)(registryRoot, "stripe/basil-subscription-period.yaml"), "utf8")));
-      if (spec.verified_by !== "human" || !spec.verified_at)
-        throw new Error("Walking-skeleton spec must be human verified");
+      const specs = await (0, index_1.loadHumanSpecs)(registryRoot);
+      const ranked = specs.slice().sort((a, b) => b.changes.length - a.changes.length || a.id.localeCompare(b.id));
+      const spec = ranked[0];
+      if (!spec || ranked[1] && ranked[1].changes.length === spec.changes.length) {
+        throw new Error(`Compatibility specimen requires a unique most-comprehensive human-verified spec; found ${specs.length}`);
+      }
       return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
     }
   }
@@ -315963,8 +315965,13 @@ ${await (0, promises_1.readFile)((0, node_path_1.resolve)(projectRoot, e.file), 
         lines.push(`Diagnostic: ${d.file}: ${d.reason}`);
       return lines;
     }
-    async function scanProject(configPath) {
-      const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath);
+    async function scanProject(configPath, specId) {
+      let override;
+      if (specId) {
+        const spec = await (0, changespec_1.loadSpecById)((0, node_path_1.resolve)(__dirname, "../../../specs"), specId);
+        override = (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
+      }
+      const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath, override);
       const paths = (0, core_1.artifactPaths)(projectRoot);
       await (0, core_1.writeJsonArtifact)(paths.root, paths.bdg, "BDG", bdg);
       return [`ChangeSpec: ${selected.specs[0].id}`, ...graphSummary(bdg), `BDG artifact: ${paths.bdg}`].join("\n");
@@ -315992,66 +315999,6 @@ var require_errors3 = __commonJS({
   }
 });
 
-// packages/harness-ts/dist/provider-adapters/stripe.js
-var require_stripe = __commonJS({
-  "packages/harness-ts/dist/provider-adapters/stripe.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.stripeAdapter = void 0;
-    exports2.stripeAdapter = {
-      id: "stripe-webhook",
-      module: "stripe",
-      exports: ["default", "Stripe"],
-      intercept: ["webhooks.constructEvent", "webhooks.constructEventAsync"],
-      requestHeaders: { "stripe-signature": "isotope-mocked-signature" },
-      records: { "subscriptions.retrieve": "http_out" },
-      errorPatterns: ["StripeSignatureVerificationError", "signature verification", "webhook signature"]
-    };
-  }
-});
-
-// packages/harness-ts/dist/provider-adapters/index.js
-var require_provider_adapters = __commonJS({
-  "packages/harness-ts/dist/provider-adapters/index.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.resolveProviderAdapter = resolveProviderAdapter;
-    var errors_1 = require_errors3();
-    var stripe_1 = require_stripe();
-    var builtins = [stripe_1.stripeAdapter];
-    function unique(values, label) {
-      const result = [...new Set(values.filter(Boolean))];
-      if (!result.length)
-        throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `${label} must not be empty`);
-      return result;
-    }
-    function resolveProviderAdapter(mock) {
-      if (mock.adapter === "fixture-call") {
-        return {
-          id: "fixture-call",
-          module: mock.module,
-          exports: unique(mock.exports ?? ["default"], "provider exports"),
-          intercept: unique(mock.intercept ?? [], "provider intercept paths"),
-          requestHeaders: { ...mock.requestHeaders ?? {} },
-          records: { ...mock.records ?? {} },
-          errorPatterns: []
-        };
-      }
-      const adapter = builtins.find((item) => item.id === mock.adapter || !mock.adapter && item.module === mock.module);
-      if (!adapter)
-        throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `Unknown provider adapter for module ${mock.module}`);
-      return {
-        ...adapter,
-        module: mock.module,
-        requestHeaders: { ...adapter.requestHeaders, ...mock.requestHeaders ?? {} },
-        intercept: mock.intercept ? unique(mock.intercept, "provider intercept paths") : [...adapter.intercept],
-        exports: mock.exports ? unique(mock.exports, "provider exports") : [...adapter.exports],
-        records: { ...adapter.records, ...mock.records ?? {} }
-      };
-    }
-  }
-});
-
 // packages/harness-ts/dist/plan.js
 var require_plan = __commonJS({
   "packages/harness-ts/dist/plan.js"(exports2) {
@@ -316064,10 +316011,17 @@ var require_plan = __commonJS({
     var promises_1 = require("node:fs/promises");
     var node_path_1 = require("node:path");
     var errors_1 = require_errors3();
-    var provider_adapters_1 = require_provider_adapters();
     function createTsHarnessPlan(input2, side, runIndex) {
-      const mocks = input2.config.mocks.map((mock) => "strategy" in mock ? { ...mock, providerAdapter: (0, provider_adapters_1.resolveProviderAdapter)(mock) } : mock);
-      const requestHeaders = Object.assign({}, ...mocks.filter((mock) => "strategy" in mock && Boolean(mock.providerAdapter)).map((mock) => mock.providerAdapter.requestHeaders));
+      const mocks = input2.config.mocks.map((mock) => "strategy" in mock ? { ...mock, providerAdapter: {
+        id: mock.adapter ?? "fixture-call",
+        module: mock.module,
+        exports: mock.exports ?? ["default"],
+        intercept: mock.intercept ?? [],
+        requestHeaders: mock.requestHeaders ?? {},
+        records: mock.records ?? {},
+        errorPatterns: mock.errorPatterns ?? []
+      } } : mock);
+      const requestHeaders = Object.assign({}, ...mocks.filter((mock) => "strategy" in mock).map((mock) => mock.providerAdapter.requestHeaders));
       return {
         repositoryRoot: input2.repoRoot,
         entryPoint: { id: input2.entryPoint.id, file: input2.entryPoint.file, exportName: input2.entryPoint.export, kind: input2.entryPoint.kind },
@@ -316364,7 +316318,6 @@ var require_dist6 = __commonJS({
     var errors_1 = require_errors3();
     var plan_1 = require_plan();
     var adapters_1 = require_adapters();
-    var provider_adapters_1 = require_provider_adapters();
     var serialize_1 = require_serialize();
     Object.defineProperty(exports2, "serializeBehavior", { enumerable: true, get: function() {
       return serialize_1.serializeBehavior;
@@ -316434,14 +316387,23 @@ var require_dist6 = __commonJS({
       const entryFile = await (0, plan_1.projectFile)(root, plan.entryPoint.file);
       const fixturePath = await (0, promises_1.realpath)((0, node_path_1.resolve)(root, plan.fixture.payloadPath));
       const mocks = await Promise.all(plan.mocks.map(async (mock) => {
-        const normalized = "strategy" in mock && !mock.providerAdapter ? { ...mock, providerAdapter: (0, provider_adapters_1.resolveProviderAdapter)(mock) } : mock;
-        if ("strategy" in normalized) {
-          const descriptor = normalized.providerAdapter;
-          if (!descriptor || descriptor.module !== normalized.module)
-            throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `Invalid provider adapter for module ${normalized.module}`);
-        }
+        const normalized = mock;
         if (normalized.module.startsWith("node:"))
           throw new errors_1.HarnessExecutionError("unsupported_harness_plan", "Built-in modules cannot be configured as observable mocks");
+        if ("strategy" in normalized) {
+          const descriptor = normalized.providerAdapter ?? {
+            id: normalized.adapter ?? "fixture-call",
+            module: normalized.module,
+            exports: normalized.exports ?? ["default"],
+            intercept: normalized.intercept ?? [],
+            requestHeaders: normalized.requestHeaders ?? {},
+            records: normalized.records ?? {},
+            errorPatterns: normalized.errorPatterns ?? []
+          };
+          if (descriptor.module !== normalized.module)
+            throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `Invalid provider adapter for module ${normalized.module}`);
+          return { ...normalized, providerAdapter: descriptor, module: (0, plan_1.isLocalModule)(normalized.module) ? await (0, plan_1.projectFile)(root, normalized.module) : normalized.module };
+        }
         return { ...normalized, module: (0, plan_1.isLocalModule)(normalized.module) ? await (0, plan_1.projectFile)(root, normalized.module) : normalized.module };
       }));
       if (new Set(mocks.map((m) => m.module)).size !== mocks.length)
@@ -319683,45 +319645,6 @@ var require_dist12 = __commonJS({
   }
 });
 
-// packages/cli/dist/provider-fixtures/stripe.js
-var require_stripe2 = __commonJS({
-  "packages/cli/dist/provider-fixtures/stripe.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.stripeFixtureValidator = void 0;
-    exports2.stripeFixtureValidator = {
-      provider: "stripe",
-      validate(payload, side) {
-        if (!payload || typeof payload !== "object" || Array.isArray(payload))
-          throw new Error(`${side} Stripe fixture must be an event object`);
-        const event = payload;
-        const data = event.data;
-        if (!data || typeof data !== "object" || Array.isArray(data) || !data.object) {
-          throw new Error(`${side} Stripe fixture requires data.object`);
-        }
-      }
-    };
-  }
-});
-
-// packages/cli/dist/provider-fixtures/index.js
-var require_provider_fixtures = __commonJS({
-  "packages/cli/dist/provider-fixtures/index.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.validateProviderFixtures = validateProviderFixtures;
-    var stripe_1 = require_stripe2();
-    var validators = [stripe_1.stripeFixtureValidator];
-    function validateProviderFixtures(provider, payloads) {
-      const validator = validators.find((candidate) => candidate.provider === provider);
-      if (!validator)
-        return;
-      validator.validate(payloads[0], "old");
-      validator.validate(payloads[1], "new");
-    }
-  }
-});
-
 // packages/cli/dist/fixtures.js
 var require_fixtures = __commonJS({
   "packages/cli/dist/fixtures.js"(exports2) {
@@ -319730,7 +319653,6 @@ var require_fixtures = __commonJS({
     exports2.loadFixturePair = loadFixturePair;
     var promises_1 = require("node:fs/promises");
     var node_path_1 = require("node:path");
-    var provider_fixtures_1 = require_provider_fixtures();
     function object(value, label) {
       if (!value || typeof value !== "object" || Array.isArray(value))
         throw new Error(`${label} must be an object`);
@@ -319753,16 +319675,20 @@ ${metaPath}`);
         throw error;
       }
       const payloads = [JSON.parse(files[0]), JSON.parse(files[1])];
-      (0, provider_fixtures_1.validateProviderFixtures)(input2.spec.provider, payloads);
+      object(payloads[0], "old fixture");
+      object(payloads[1], "new fixture");
       const metadata = object(JSON.parse(files[2]), "fixture metadata");
       if (input2.synthetic && metadata.synthetic !== true)
         throw new Error("Internal test fixtures must explicitly declare meta.synthetic: true");
       if (!input2.synthetic && metadata.synthetic === true)
         throw new Error("Synthetic fixtures are forbidden in product fixture directories");
-      if (typeof metadata.provenance !== "string" || !metadata.provenance)
+      const hasProvenance = typeof metadata.provenance === "string" && metadata.provenance.length > 0 || metadata.envelope === "provider" || metadata.synthetic === true;
+      if (!hasProvenance)
         throw new Error("Fixture metadata requires provenance");
-      const oldVersion = typeof metadata.oldVersion === "string" && metadata.oldVersion ? metadata.oldVersion : input2.spec.versions.from;
-      const newVersion = typeof metadata.newVersion === "string" && metadata.newVersion ? metadata.newVersion : input2.spec.versions.to;
+      const nestedOld = object(metadata.old ?? {}, "fixture metadata.old");
+      const nestedNew = object(metadata.new ?? {}, "fixture metadata.new");
+      const oldVersion = typeof metadata.oldVersion === "string" && metadata.oldVersion ? metadata.oldVersion : typeof nestedOld.apiVersion === "string" && nestedOld.apiVersion ? nestedOld.apiVersion : input2.spec.versions.from;
+      const newVersion = typeof metadata.newVersion === "string" && metadata.newVersion ? metadata.newVersion : typeof nestedNew.apiVersion === "string" && nestedNew.apiVersion ? nestedNew.apiVersion : input2.spec.versions.to;
       if (oldVersion === newVersion)
         throw new Error("Fixture metadata needs distinct old/new version labels");
       return {
@@ -320406,6 +320332,12 @@ var require_verify_repository = __commonJS({
       const configPath = await (0, promises_1.realpath)((0, node_path_1.resolve)(repositoryRoot, options.configPath));
       const specsPath = await (0, promises_1.realpath)((0, node_path_1.resolve)(repositoryRoot, options.specsPath));
       const selection = await (0, changespec_1.selectChangeSpecs)({ repositoryRoot, baseRef: options.baseRef, headRef: options.headRef, specsRoot: specsPath });
+      if (options.specId) {
+        const specs = selection.selected.specs.filter((spec) => spec.id === options.specId);
+        if (!specs.length)
+          throw new Error(`Selected dependency change does not match ChangeSpec ${options.specId}`);
+        selection.selected = (0, core_1.validateContract)("SelectedSpecs", { ...selection.selected, specs });
+      }
       const paths = (0, core_1.artifactPaths)(repositoryRoot);
       await (0, core_1.writeJsonArtifact)(paths.root, paths.selectedSpecs, "SelectedSpecs", selection.selected);
       const selectionOutput = [
@@ -320427,7 +320359,7 @@ Verdict: SKIP`, report, selection, artifactRoot: paths.root, execution: null };
         disableReasoner: options.reasoner === "off",
         disableRepair: options.repair === "off",
         selectedSpecs: selection.selected,
-        fixtureRoot: (0, node_path_1.resolve)(repositoryRoot, "fixtures/normalized"),
+        fixtureRoot: (0, node_path_1.resolve)(options.fixturesPath ?? (0, node_path_1.resolve)(repositoryRoot, "fixtures/normalized")),
         ...options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}
       });
       return { exitCode: execution.exitCode, output: `${selectionOutput}
@@ -320982,8 +320914,8 @@ var require_dist14 = __commonJS({
     function createProgram() {
       const program = new commander_1.Command().exitOverride().name("isotope").description("Isotope \u2014 provider dataflow and behavioral verification").version("0.1.0");
       program.option("--config <path>", "configuration file", "isotope.yml");
-      program.command("scan").description("L2: analyze configured entry points and write the BDG").action(async () => console.log(await (0, scan_1.scanProject)(program.opts().config)));
-      program.command("verify").description("Analyze and verify configured entry points").option("--no-reasoner", "mechanical verification only").option("--no-repair", "stop after detection and verdict").option("--base <ref>", "local Git base revision").option("--head <ref>", "local Git head revision").action(async (options) => {
+      program.command("scan").description("L2: analyze configured entry points and write the BDG").option("--spec <id>", "ChangeSpec identifier").action(async (options) => console.log(await (0, scan_1.scanProject)(program.opts().config, options.spec)));
+      program.command("verify").description("Analyze and verify configured entry points").option("--spec <id>", "ChangeSpec identifier").option("--no-reasoner", "mechanical verification only").option("--no-repair", "stop after detection and verdict").option("--base <ref>", "local Git base revision").option("--head <ref>", "local Git head revision").action(async (options) => {
         const testFixtureDirectory = process.env.ISOTOPE_TEST_FIXTURES;
         if (options.base && !options.head || !options.base && options.head)
           throw new commander_1.InvalidArgumentError("--base and --head must be supplied together");
@@ -320995,10 +320927,12 @@ var require_dist14 = __commonJS({
             repositoryRoot: root,
             configPath: configAbsolute,
             specsPath: (0, node_path_1.resolve)(__dirname, "../../../specs"),
+            fixturesPath: (0, node_path_1.resolve)(__dirname, "../../../fixtures/normalized"),
             baseRef: options.base,
             headRef: options.head,
             reasoner: options.reasoner === false ? "off" : "on",
             repair: options.repair === false ? "off" : "on",
+            ...options.spec ? { specId: options.spec } : {},
             ...testFixtureDirectory ? { testFixtureDirectory } : {}
           });
           console.log(result2.output);
@@ -321353,7 +321287,7 @@ async function loadReportEvidence(rootInput) {
 
 // action/src/index.ts
 function input(name, fallback = "") {
-  return (process.env[`INPUT_${name.toUpperCase().replace(/-/g, "_")}`] ?? fallback).trim();
+  return (process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] ?? fallback).trim();
 }
 async function output(name, value) {
   const path = process.env.GITHUB_OUTPUT;
@@ -321402,7 +321336,8 @@ async function main() {
     const result = await (0, import_cli.verifyRepository)({
       repositoryRoot,
       configPath: input("config", "isotope.yml"),
-      specsPath: input("specs-path", "specs"),
+      specsPath: input("specs-path", (0, import_node_path2.resolve)(__dirname, "../../specs")),
+      fixturesPath: input("fixtures-path", (0, import_node_path2.resolve)(__dirname, "../../fixtures/normalized")),
       baseRef: context.baseSha,
       headRef: context.headSha,
       reasoner,

@@ -13,11 +13,11 @@ jobs:
         with: { fetch-depth: 0, ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
-      - run: corepack enable && pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - id: isotope
         uses: ./action
         with: { github-token: "${{ github.token }}", reasoner: off, repair: off }
       - name: Upload Isotope evidence
         if: always()
         uses: actions/upload-artifact@v4
-        with: { name: "isotope-${{ github.event.pull_request.number }}", path: .isotope/, if-no-files-found: warn, retention-days: 14 }
+        with: { name: "isotope-${{ github.event.pull_request.number }}", path: .isotope/, if-no-files-found: warn, retention-days: 14, include-hidden-files: true }

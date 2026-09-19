@@ -19,7 +19,13 @@
     },
     {
       "module": "stripe",
-      "strategy": "provider"
+      "strategy": "provider",
+      "adapter": "fixture-call",
+      "exports": ["default", "Stripe"],
+      "intercept": ["webhooks.constructEvent"],
+      "requestHeaders": {"stripe-signature": "isotope-mocked-signature"},
+      "records": {"subscriptions.retrieve": "http_out"},
+      "errorPatterns": ["StripeSignatureVerificationError", "signature verification", "webhook signature"]
     }
   ],
   "returns": {

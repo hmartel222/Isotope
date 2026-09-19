@@ -1,0 +1,53 @@
+# Transcribed from the user's human-supplied v3 specification, section 3.1.
+# This is an explicit Phase 2 selection, not the output of dependency analysis.
+id: stripe.basil.subscription-period
+provider: stripe
+title: Subscription period fields moved to subscription items
+source: https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "2025-02-24.acacia", to: "2026-08-26.dahlia" }
+semantics: |
+  Before Basil, a Subscription carried a single current_period_start/end pair
+  describing one billing period for the whole subscription. From Basil, each
+  SubscriptionItem carries its own period. A subscription with one item has one
+  period, equal to the old value. A subscription with multiple items may have
+  several distinct periods, and no single subscription-level period exists.
+detection:
+  ecosystems:
+    npm: { packages: [stripe], breaking_from: "18.0.0" }
+    pypi: { packages: [stripe], breaking_from: "12.0.0" }
+  taint_roots:
+    - { kind: call, language: ts, pattern: "$STRIPE.webhooks.constructEvent($$$)" }
+    - { kind: call, language: py, pattern: "$STRIPE.Webhook.construct_event($$$)" }
+    - { kind: call, language: ts, pattern: "$STRIPE.subscriptions.retrieve($$$)" }
+    - { kind: type, language: ts, pattern: "Stripe.Event" }
+changes:
+  - object: subscription
+    applies_to_events: ["customer.subscription.*", "invoice.*"]
+    removed_path: current_period_end
+    replacement:
+      path: items.data[*].current_period_end
+      cardinality: many
+      semantics: Period is now per subscription item.
+    ambiguity:
+      when: items.data.length > 1
+      question: Which subscription item's period end should drive renewal?
+      options: [first item, max across items, min across items]
+    repair_policy:
+      business_policy_required_when: items.data.length > 1
+    codemod:
+      kind: path_rename
+      safe_when: items.data.length == 1
+      from: $OBJ.current_period_end
+      to: $OBJ.items.data[0].current_period_end
+  - object: invoice
+    removed_path: subscription
+    replacement: { path: parent.subscription_details.subscription, cardinality: one }
+    codemod: { kind: path_rename, safe_when: always, from: "$OBJ.subscription", to: "$OBJ.parent.subscription_details.subscription" }
+fixtures:
+  pair: sub-updated-single
+  heldout_pair: sub-updated-single-B
+  ambiguity_pair: sub-updated-multi
+  adaptation_pair: sub-updated-aggregating
+  noop_pair: sub-updated-noop

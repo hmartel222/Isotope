@@ -1,0 +1,23 @@
+version: 1
+provider: stripe
+specs:
+  - stripe.basil.subscription-period
+registry: specs
+fixtureRegistry: fixtures/normalized
+capture:
+  method: dual-version-webhook-endpoints
+  runbook: capture/RUNBOOK.md
+trigger:
+  dependency:
+    ecosystem: npm
+    package: stripe
+    before: 17.7.0
+    breakingFrom: 18.0.0
+fixtures:
+  planning: sub-updated-single
+  heldOut: sub-updated-single-B
+  requiredPendingCapture:
+    - sub-updated-multi
+    - sub-updated-aggregating
+    - sub-updated-noop
+    - invoice-paid

@@ -121,7 +121,7 @@ test('oversized string evidence fails closed instead of producing a truncated si
 });
 test('Express status/json/send/end, actual Stripe interception and deterministic retrieve', async t => {
   const plan = await setup(t); plan.entryPoint.file='src/express.ts'; plan.entryPoint.kind='express_route';
-  plan.provider.requireWebhookInterception=true; plan.mocks.push({module:'stripe',strategy:'provider'});
+  plan.provider.requireWebhookInterception=true; plan.mocks.push({module:'stripe',strategy:'provider',adapter:'fixture-call',exports:['default','Stripe'],intercept:['webhooks.constructEvent'],requestHeaders:{'stripe-signature':'isotope-mocked-signature'},records:{'subscriptions.retrieve':'http_out'}});
   plan.mockReturns['stripe.subscriptions.retrieve']={id:'sub_test'};
   for (const [exportName, expected] of [['handler',{status:201,body:'done'}],['json',{status:202,body:{value:1}}],['send',{status:203,body:'sent'}],['retrieve',{status:200,body:{id:'sub_test'}}]]) {
     const sig=await harness.runTsHarness({...plan,entryPoint:{...plan.entryPoint,exportName}}); assert.deepEqual(sig.returned,expected);
