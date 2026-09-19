@@ -17,6 +17,32 @@ Baseline Node 20.20.2 / pnpm 9.15.9 checks passed: typecheck, **144 tests**, bui
 
 Interpretations needed by v3 are documented in the [differ package](../packages/differ/README.md): specific leaves take precedence over generic argument changes; new array slots are semantic rather than `field_added`; old-only/changed errors are semantic; only semantic log kinds are downgraded; missing-to-defined or already-missing presence changes remain semantic. The empty report represents identical behavior.
 
+## Final recovery validation — September 19, 2026
+
+Recovered checkout: `main` at `903a45f` (`part of phase 4`), with `81729f4` and `1f5dc91` in local history. The working tree was clean; the interrupted Phase 4 edits were already committed. `origin` points to `https://github.com/hmartel222/hophacksf26.git`; remote publication was not checked. No standalone `transfer.md` existed, so the supplied handoff and repository v3 specification were used. No implementation fixes were required, and this recovery made no commit or push.
+
+Validation used the locally installed **Node 20.19.5 / pnpm 9.15.9**, rather than the default Node 24. The old `/tmp/isotope-toolchain` and coverage log were absent. A frozen-lockfile install restored the missing c8 dependency without changing the lockfile; downloads required network permission.
+
+- `pnpm typecheck`, `pnpm build`, and `pnpm isotope --help`: passed.
+- `pnpm coverage:differ`: **69 tests passed**; 100% branches, statements and lines in every covered file. Function coverage: `behavior.ts` 100%, `index.ts` 90.9%, `verdict.ts` 100%. All configured 90% per-file gates passed.
+- Final `pnpm test`: **227 passed, zero failures or skips**, including all **11 Phase 4 integration scenarios**. Full-suite coverage was **100% branches, statements, lines and functions** for both differ source files and the core verdict resolver.
+- Synthetic walking-skeleton control: **PASS / exit 0**, stable, no divergences.
+- Synthetic broken pair: **FAIL / exit 1**, stable, with `/calls/0/args/0/data/renewalDate`: `1700000123` → `__undefined__`, **`value_to_missing` / mechanical / critical**. All four runs returned HTTP 200.
+- Real-harness semantic defined-value change: **ESCALATE / exit 3**, `value_changed`, unavailable provenance. Object-field additions and semantic log-only changes: **PASS / exit 0**, informational evidence retained. Unstable self-comparisons: **INDETERMINATE / exit 4**, only instability findings.
+- Read and schema-validated all **nine saved artifacts for each manual control**, including four signatures, graph, selected specs, diff, verdict and report. Snapshots remain in ignored `.isotope/phase4-validation/{control,broken}/`. Integration tests also read and validate their written signatures, diff and reports before cleanup.
+
+Environment caveats: the first sandboxed suite could not bind the local egress-test listener (`listen EPERM`). With permission, that test passed and observed zero connections, but that run encountered a transient `kill EPERM` in timeout cleanup. The timeout test then passed in isolation, and the final full suite passed. No cleanup exception was suppressed and no test was weakened; recurrence of that process-cleanup error merits investigation.
+
+The real-provider command was also run: **exit 10**, because `fixtures/normalized/sub-updated-single/{old,new,meta}.json` remains absent. No provider payloads were fabricated. Phase 4 software validation is complete; real-provider acceptance remains blocked.
+
+## Structural and verdict rules confirmed
+
+L4 remains pure and deterministic. Object keys traverse in sorted order, arrays retain numeric order, and calls compare positionally by `(mock, sinkKind)`; replacement emits dropped then added. Defined-to-null/undefined/absence is authoritative loss, whereas `0`, `false` and the empty string are defined. New object keys are informational; array growth is semantic. Specific leaf findings take precedence over generic argument changes.
+
+BDG association requires a unique matching name/kind and a sink node in the selected entry point; otherwise it is null. Confidence never weakens mechanical evidence. Caller-evaluated ambiguity facts annotate only relevant semantic pointer subtrees and decide no verdict. Invalid artifacts remain validation errors.
+
+Pure L6 routes instability first to **INDETERMINATE/4**, then mechanical critical/high to **FAIL/1**, semantic residual to **ESCALATE/3** (`semantic_reasoner_unavailable`), and info-only or identical behavior to **PASS/0**. Harness failures retain Phase 3's conservative INDETERMINATE/4 behavior. No model can override a mechanical failure.
+
 ## Future seams and deliberately static work
 
 The differ knows no provider or application policy. Semantic records retain kind, pointer, normalized old/new, sink, graph association and optional ambiguity hint. L6 always bypasses semantic adjudication for proven mechanical failures. Original-old versus patched-new signatures work unchanged because code-version metadata is excluded from behavior.
