@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { relative } from 'node:path';
 import {
   artifactPaths,
+  needsSemanticReasoning,
   removeJsonArtifact,
   resolveVerdict,
   validateContract,
@@ -11,6 +12,7 @@ import {
   type FixturePair,
   type HarnessResult,
   type JsonValue,
+  type ReasoningRun,
   type RepairOutcome,
   type RepairVerification,
   type RepairVerificationInput,
@@ -20,12 +22,13 @@ import {
 import { checkDeterminism, diffSignatures } from '@isotope/differ';
 import { runHarness } from '@isotope/harness-ts';
 import { resolveBehavioralDependencyGraph } from '@isotope/resolver-ts';
+import { reasonAboutEntryPoint } from '@isotope/reasoner';
 
 interface PairEvidence { result: VerificationPairResult }
 
 function ref(root: string, path: string): string { return relative(root, path).split('\\').join('/'); }
 function passing(result: VerificationPairResult): boolean {
-  return result.stable && result.secondaryStable && result.baselineEquivalent && result.verdict.verdict === 'PASS';
+  return result.stable && result.secondaryStable && result.baselineEquivalent && (result.verdict.verdict === 'PASS' || result.verdict.verdict === 'PASS_REASONED');
 }
 
 async function verifyPair(input: RepairVerificationInput, fixture: FixturePair, original: HarnessResult, role: 'planning' | 'held_out', postBDG: BDG): Promise<PairEvidence> {
@@ -41,11 +44,22 @@ async function verifyPair(input: RepairVerificationInput, fixture: FixturePair, 
   const secondaryPath = paths.comparison(input.entryPoint.id, `patched:${input.repairId}`, fixture.id, 'secondary');
   await writeJsonArtifact(paths.root, baselinePath, 'DiffReport', baselineDiff);
   await writeJsonArtifact(paths.root, secondaryPath, 'DiffReport', secondaryDiff);
-  const verdict = resolveVerdict({ entryPoint: input.entryPoint, bdg: postBDG, diff: baselineDiff, reasoning: null, config: input.config });
+  let reasoning: ReasoningRun | null = null;
+  if (needsSemanticReasoning(baselineDiff) && input.config.reasoner.mode === 'on') {
+    const spec = input.selectedSpecs.specs[0]!;
+    const [oldPayload, newPayload] = await Promise.all([fixture.oldPath, fixture.newPath].map(async path => JSON.parse(await readFile(path, 'utf8')) as JsonValue));
+    const semantic = await reasonAboutEntryPoint({
+      repoRoot: input.workspaceRoot, artifactRoot: input.artifactRoot, spec, bdg: postBDG, entryPoint: input.entryPoint, diff: baselineDiff,
+      old: original.old[0], new: patched.new[0], oldPayload, newPayload, config: input.config, remainingInvocations: input.config.reasoner.maxInvocations,
+    });
+    reasoning = semantic.run;
+  }
+  const verdict = resolveVerdict({ entryPoint: input.entryPoint, bdg: postBDG, diff: baselineDiff, reasoning, config: input.config });
   const secondaryVerdict = resolveVerdict({ entryPoint: input.entryPoint, bdg: postBDG, diff: secondaryDiff, reasoning: null, config: input.config });
   const stable = checkDeterminism(patched.old).stable && checkDeterminism(patched.new).stable;
-  const secondaryStable = secondaryVerdict.verdict === 'PASS' && secondaryDiff.stable && !secondaryDiff.divergences.some(divergence => divergence.kind === 'unstable');
-  const baselineEquivalent = verdict.verdict === 'PASS' && baselineDiff.divergences.every(divergence => divergence.tier === 'mechanical' && divergence.severity === 'info');
+  const secondaryStable = (secondaryVerdict.verdict === 'PASS' || secondaryVerdict.verdict === 'PASS_REASONED') && secondaryDiff.stable && !secondaryDiff.divergences.some(divergence => divergence.kind === 'unstable');
+  const baselineEquivalent = (verdict.verdict === 'PASS' && baselineDiff.divergences.every(divergence => divergence.tier === 'mechanical' && divergence.severity === 'info'))
+    || verdict.verdict === 'PASS_REASONED';
   const signatureRef = (signature: HarnessResult['old'][number]) => ({ path: ref(paths.root, paths.signature(signature)), codeVersion: signature.codeVersion, payloadVersion: signature.payloadVersion, fixturePair: signature.fixturePair, runIndex: signature.runIndex });
   const result = validateContract('VerificationPairResult', {
     role, fixturePair: fixture.id, baseline: signatureRef(original.old[0]),

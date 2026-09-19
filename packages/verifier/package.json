@@ -18,6 +18,7 @@
     "@isotope/core": "workspace:*",
     "@isotope/differ": "workspace:*",
     "@isotope/harness-ts": "workspace:*",
-    "@isotope/resolver-ts": "workspace:*"
+    "@isotope/resolver-ts": "workspace:*",
+    "@isotope/reasoner": "workspace:*"
   }
 }
