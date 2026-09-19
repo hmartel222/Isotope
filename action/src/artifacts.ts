@@ -1,6 +1,6 @@
 import { lstat, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { readJsonArtifact, type BDG, type DiffReport, type IsotopeReport, type SelectedSpecs, type Signature } from '@isotope/core';
+import { readJsonArtifact, type BDG, type DiffReport, type IsotopeReport, type ReasoningResult, type SelectedSpecs, type Signature } from '@isotope/core';
 import type { ReportEvidence } from '@isotope/reporter';
 
 const MAX_TOTAL = 16 * 1024 * 1024;
@@ -24,6 +24,6 @@ export async function loadReportEvidence(rootInput: string): Promise<ReportEvide
   const bdg = report.bdgRef === 'not-run' ? null : await readJsonArtifact(root, join(root, report.bdgRef), 'BDG') as BDG;
   const diffs: DiffReport[] = []; for (const ref of report.diffReportRefs) diffs.push(await readJsonArtifact(root, join(root, ref), 'DiffReport') as DiffReport);
   const signatures: Signature[] = []; for (const ref of report.signatureRefs) signatures.push(await readJsonArtifact(root, join(root, ref), 'Signature') as Signature);
-  // Files are only parsed through registered JSON schemas above; artifact content is never executed.
-  return { report, selected, bdg, diffs, signatures };
+  const reasoning: ReasoningResult[] = []; for (const ref of report.reasoningRefs) reasoning.push(await readJsonArtifact(root, join(root, ref), 'ReasoningResult'));
+  return { report, selected, bdg, diffs, signatures, reasoning };
 }

@@ -1,8 +1,8 @@
-import type { BDG, DiffReport, IsotopeReport, JsonValue, SelectedSpecs, Signature, Verdict } from '@isotope/core';
+import type { BDG, DiffReport, IsotopeReport, JsonValue, ReasoningResult, SelectedSpecs, Signature, Verdict } from '@isotope/core';
 
 export const REPORT_MARKER = '<!-- isotope-report -->';
 const MAX_TEXT = 240;
-export interface ReportEvidence { report: IsotopeReport; selected: SelectedSpecs; bdg: BDG | null; diffs: DiffReport[]; signatures: Signature[]; }
+export interface ReportEvidence { report: IsotopeReport; selected: SelectedSpecs; bdg: BDG | null; diffs: DiffReport[]; signatures: Signature[]; reasoning?: ReasoningResult[] }
 export interface Annotation { path: string; start_line: number; end_line: number; annotation_level: 'failure' | 'warning' | 'notice'; title: string; message: string; }
 export type CheckConclusion = 'success' | 'failure' | 'neutral';
 
@@ -33,12 +33,15 @@ function ambiguityQuestion(evidence: ReportEvidence): string | null {
   return evidence.selected.specs.flatMap(s => s.changes).find(c => c.ambiguity)?.ambiguity?.question ?? null;
 }
 
+function firstReasoning(evidence: ReportEvidence): ReasoningResult | undefined { return evidence.reasoning?.[0]; }
+
 /** Pure, bounded Markdown rendering. SKIP intentionally returns null. */
 export function renderPrComment(evidence: ReportEvidence): string | null {
   const verdict = evidence.report.verdict.verdict;
   if (verdict === 'SKIP') return null;
   const lines = [REPORT_MARKER, ''];
-  if (verdict === 'FAIL' || verdict === 'FAIL_REASONED') {
+  const reasoned = firstReasoning(evidence);
+  if (verdict === 'FAIL') {
     lines.push('### ❌ Isotope — incompatibility detected', '', transition(evidence.selected));
     const at = location(evidence); if (at) lines.push('', `**${at}**`, 'silent break · mechanically determined');
     const divergence = firstDivergence(evidence);
@@ -54,13 +57,27 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
       const rejected = evidence.report.repairVerifications[0]!;
       lines.push('', `A candidate repair was evaluated but did not satisfy Isotope's verification criteria.`, `Reason: ${code(rejected.outcome)} — ${clean(rejected.reason, 500)}`);
     }
-  } else if (verdict === 'PASS' || verdict === 'PASS_REASONED') {
+  } else if (verdict === 'FAIL_REASONED') {
+    lines.push('### ❌ Isotope — semantic incompatibility', '', transition(evidence.selected));
+    if (reasoned) {
+      lines.push('', clean(reasoned.causalExplanation, 800), '', `Affected behavior: ${clean(reasoned.affectedBehavior, 400)}`, `Confidence: ${code(reasoned.confidence)}`);
+      if (reasoned.evidenceRefs.length) lines.push(`Evidence: ${reasoned.evidenceRefs.slice(0, 5).map(ref => code(ref.kind === 'code' ? `${ref.file}:${ref.line}` : ref.kind === 'dataflow' ? ref.nodeId : ref.kind === 'diff' ? ref.pointer : ref.path)).join(', ')}`);
+    }
+    lines.push('', 'Manual review required. The model repair planner is unavailable in this build.');
+  } else if (verdict === 'PASS') {
     lines.push('### ✅ Isotope — compatible', '', transition(evidence.selected), '', `${counts(evidence)}.`, 'No behavioral incompatibility found.');
+  } else if (verdict === 'PASS_REASONED') {
+    lines.push('### ✅ Isotope — reasoned benign adaptation', '', transition(evidence.selected), '', 'Behavior changed under the new provider contract, but independent semantic votes agreed it is a benign adaptation.');
+    if (reasoned) {
+      lines.push('', clean(reasoned.causalExplanation, 800), '', `Affected behavior: ${clean(reasoned.affectedBehavior, 400)}`, `Confidence: ${code(reasoned.confidence)}`);
+    }
+    lines.push('', 'Disabling the reasoner causes this class of change to escalate.');
   } else if (verdict === 'ESCALATE') {
     lines.push('### ⚠️ Isotope needs a decision', '', transition(evidence.selected), '', 'Behavior changed, but the change is not mechanically classifiable.');
     const divergence = firstDivergence(evidence); if (divergence) lines.push('', `Affected behavior: ${code(divergence.pointer)} changed from ${code(display(divergence.old))} to ${code(display(divergence.new))}.`);
-    const question = ambiguityQuestion(evidence); if (question) lines.push('', `Decision needed: ${clean(question, 500)}`);
-    lines.push('', 'Automated semantic reasoning is disabled in this build.', 'Manual review required.');
+    const question = reasoned?.humanQuestion ?? ambiguityQuestion(evidence); if (question) lines.push('', `Decision needed: ${clean(question, 500)}`);
+    if (!reasoned) lines.push('', 'Automated semantic reasoning was not applied. Manual review required.');
+    else lines.push('', 'Independent semantic votes did not authorize a reasoned pass or fail. Manual review required.');
   } else {
     lines.push('### ⚠️ Isotope could not establish stable behavior', '', 'The handler produced different results across repeated executions.', '', 'No compatibility verdict was inferred.');
   }

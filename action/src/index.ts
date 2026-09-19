@@ -24,7 +24,8 @@ async function prepareHarnessRuntime(): Promise<{ root: string; dispose(): Promi
 }
 async function main(): Promise<void> {
   const mode = input('mode', 'verify'); const reasoner = input('reasoner', 'off'); const repair = input('repair', 'off');
-  if (reasoner !== 'off' || !['on', 'off'].includes(repair)) throw new Error('Reasoner must be off and repair must be on or off');
+  if (reasoner !== 'off' && reasoner !== 'on') throw new Error('Reasoner must be on or off');
+  if (!['on', 'off'].includes(repair)) throw new Error('Repair must be on or off');
   if (input('fail-on', 'critical,high').replace(/\s/g, '') !== 'critical,high') throw new Error('Phase 8 supports only fail-on=critical,high');
   const context = await loadActionContext({ base: input('base'), head: input('head'), pullNumber: input('pr-number') });
   const repositoryRoot = resolve(process.env.GITHUB_WORKSPACE ?? process.cwd());
@@ -33,7 +34,8 @@ async function main(): Promise<void> {
   if (mode === 'verify') {
     runtime = await prepareHarnessRuntime(); process.once('exit', () => rmSync(runtime!.root, { recursive: true, force: true })); process.env.ISOTOPE_ACTION_RUNTIME_ROOT = join(runtime.root, 'runtime');
     const internalFixture = process.env.ISOTOPE_ACTION_TEST_MODE === '1' ? process.env.ISOTOPE_INTERNAL_TEST_FIXTURES : undefined;
-    const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), specsPath: input('specs-path', 'specs'), baseRef: context.baseSha, headRef: context.headSha, reasoner: 'off', repair: repair as 'on' | 'off',
+    const key = input('anthropic-api-key'); if (key) process.env.ANTHROPIC_API_KEY = key;
+    const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), specsPath: input('specs-path', 'specs'), baseRef: context.baseSha, headRef: context.headSha, reasoner: reasoner as 'on' | 'off', repair: repair as 'on' | 'off',
       ...(internalFixture ? { testFixtureDirectory: internalFixture } : {}) });
     artifactRoot = result.artifactRoot; console.log(result.output);
   } else if (mode !== 'report') throw new Error('mode must be verify or report');

@@ -4,9 +4,9 @@ inputs:
   specs-path: { description: ChangeSpec registry, default: specs }
   config: { description: Isotope configuration, default: isotope.yml }
   fail-on: { description: Reserved severity list, default: "critical,high" }
-  reasoner: { description: Must be off in Phase 8, default: "off" }
+  reasoner: { description: Enable bounded semantic reasoning, default: "off" }
   repair: { description: Enable isolated deterministic repair verification, default: "off" }
-  anthropic-api-key: { description: Reserved for a future phase, required: false }
+  anthropic-api-key: { description: Anthropic API key for optional L5 semantic reasoning, required: false }
   github-token: { description: Token for optional direct PR reporting, required: false }
   mode: { description: verify or report, default: verify }
   base: { description: Explicit base SHA outside pull_request events, required: false }

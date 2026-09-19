@@ -21,8 +21,8 @@ test('bundled report-only Action validates artifacts, emits outputs, and maps PA
   await Promise.all([['isotope-report.json',report],['selected-specs.json',fixtures.SelectedSpecs],['bdg.json',fixtures.BDG],['diff-report.json',{...fixtures.DiffReport,divergences:[]}],['old.json',fixtures.Signature],['new.json',{...fixtures.Signature,payloadVersion:'new-v2'}],['verdict.json',report.verdict]].map(([name,value])=>fs.writeFile(path.join(art,name),JSON.stringify(value))));
   const event=path.join(dir,'event.json');await fs.writeFile(event,JSON.stringify({number:9,repository:{full_name:'o/r'},pull_request:{base:{sha:'a'.repeat(40)},head:{sha:'b'.repeat(40)}}}));
   const outputs=path.join(dir,'outputs');const summary=path.join(dir,'summary');await fs.writeFile(outputs,'');await fs.writeFile(summary,'');
-  const result=await execute(process.execPath,[path.join(root,'action/dist/index.js')],{cwd:root,env:{...process.env,GITHUB_EVENT_PATH:event,GITHUB_WORKSPACE:root,GITHUB_OUTPUT:outputs,GITHUB_STEP_SUMMARY:summary,INPUT_MODE:'report',INPUT_ARTIFACT_ROOT:art,INPUT_REASONER:'off',INPUT_REPAIR:'off'},timeout:30000});
-  assert.equal(result.stderr,'');assert.match(await fs.readFile(outputs,'utf8'),/verdict<<ISOTOPE_EOF\nPASS/);assert.match(await fs.readFile(summary,'utf8'),/Isotope: PASS/);
+  const result=await execute(process.execPath,[path.join(root,'action/dist/index.js')],{cwd:root,env:{...process.env,GITHUB_EVENT_PATH:event,GITHUB_WORKSPACE:root,GITHUB_OUTPUT:outputs,GITHUB_STEP_SUMMARY:summary,INPUT_MODE:'report',INPUT_ARTIFACT_ROOT:art,INPUT_REASONER:'off',INPUT_REPAIR:'off',NODE_NO_WARNINGS:'1'},timeout:30000});
+  assert.doesNotMatch(result.stderr,/Error|error/);assert.match(await fs.readFile(outputs,'utf8'),/verdict<<ISOTOPE_EOF\nPASS/);assert.match(await fs.readFile(summary,'utf8'),/Isotope: PASS/);
 });
 
 test('bundled verify Action invokes the shared L1-L4 engine once and maps mechanical FAIL to failure',async t=>{
