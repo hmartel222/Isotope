@@ -60,6 +60,7 @@ export function handler(req,res) { const event=stripe.webhooks.constructEvent(re
   const result=await cli(directory,'verify',fixture);assert.equal(result.code,3,result.stderr);
   const {bdg,diffs,verdict}=await artifacts(directory);assert.equal(verdict.verdict,'ESCALATE');
   assert.ok(bdg.nodes.some(n=>n.kind==='transform'&&n.aggregation));assert.equal(diffs[0].divergences[0].kind,'value_changed');
+  assert.equal(diffs[0].divergences[0].ambiguityCandidate,true);
   assert.ok(diffs[0].divergences[0].bdgNodeId);assert.deepEqual([diffs[0].divergences[0].old,diffs[0].divergences[0].new],[100,200]);
 });
 test('Phase 5 wrong provider is skipped without executing unrelated code or requiring fixtures',async t=>{

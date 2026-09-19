@@ -1,0 +1,1 @@
+{"object":"event","id":"evt_internal_multi_new","type":"customer.subscription.updated","api_version":"2026-08-26.dahlia","data":{"object":{"object":"subscription","id":"sub_internal","items":{"data":[{"id":"si_a","current_period_end":200},{"id":"si_b","current_period_end":50}]}}}}

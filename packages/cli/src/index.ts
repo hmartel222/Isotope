@@ -6,8 +6,10 @@ import { selectChangeSpecs } from '@isotope/changespec';
 import { artifactPaths, writeJsonArtifact, validateContract, type IsotopeReport } from '@isotope/core';
 import { resolve } from 'node:path';
 import { realpath } from 'node:fs/promises';
+import { runDetectionMatrix } from './matrix';
 export { verifyWalkingSkeleton } from './walking-skeleton';
 export { scanProject } from './scan';
+export { runDetectionMatrix } from './matrix';
 
 function pending(stage: string): never { throw new NotImplementedStageError(stage); }
 export function createProgram(): Command {
@@ -50,7 +52,14 @@ export function createProgram(): Command {
   spec.command('draft').description('Draft a ChangeSpec').requiredOption('--url <url>', 'changelog URL').requiredOption('--provider <provider>', 'provider name').action(() => pending('spec draft'));
   spec.command('list').description('List ChangeSpecs').action(() => pending('spec list'));
   program.command('fixtures').description('Provider fixture management (stub)').command('normalize').option('--raw <path>', 'raw fixture directory').option('--out <path>', 'normalized fixture directory').action(() => pending('fixtures normalize'));
-  program.command('matrix').description('Run the acceptance matrix (stub)').action(() => pending('matrix'));
+  program.command('matrix').description('Run the deterministic detection acceptance matrix')
+    .option('--group <group>', 'matrix group', 'detection').option('--case <id>', 'run one case')
+    .option('--keep-artifacts', 'retain temporary case repositories').option('--allow-blocked', 'do not fail for unavailable cases')
+    .action(async (options: { group: string; case?: string; keepArtifacts?: boolean; allowBlocked?: boolean }) => {
+      if (options.group !== 'detection') throw new InvalidArgumentError('only --group detection is implemented');
+      const result = await runDetectionMatrix({ ...(options.case ? { caseId: options.case } : {}), keepArtifacts: options.keepArtifacts === true, allowBlocked: options.allowBlocked === true });
+      console.log(result.output); process.exitCode = result.exitCode;
+    });
   program.command('accuracy').description('Run the historical benchmark (stub)').action(() => pending('accuracy'));
   program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. ChangeSpec selection remains explicit; reasoner and repair remain unimplemented.');
   return program;

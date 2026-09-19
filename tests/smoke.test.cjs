@@ -33,7 +33,7 @@ test('CLI top-level help lists every required command form', () => {
   const result = cli(['--help']); assert.equal(result.status, 0, result.stderr);
   for (const command of ['scan', 'verify', 'repair', 'explain', 'fleet', 'spec', 'fixtures', 'matrix', 'accuracy', '--no-reasoner', '--no-repair', 'validate|draft|list', 'fixtures normalize', '--explain <repairId>']) assert.ok(result.stdout.includes(command), command);
 });
-const commands = [['repair','ep-test'], ['repair','--explain','r1'], ['explain','ep-test'], ['fleet','--repos','corpus/repos.json','--spec','test','--out','dashboard.html','--reason','--repair'], ['spec','validate'], ['spec','draft','--url','https://example.invalid','--provider','test'], ['spec','list'], ['fixtures','normalize'], ['matrix'], ['accuracy']];
+const commands = [['repair','ep-test'], ['repair','--explain','r1'], ['explain','ep-test'], ['fleet','--repos','corpus/repos.json','--spec','test','--out','dashboard.html','--reason','--repair'], ['spec','validate'], ['spec','draft','--url','https://example.invalid','--provider','test'], ['spec','list'], ['fixtures','normalize'], ['accuracy']];
 for (const args of commands) test(`CLI ${args.join(' ')} parses and fails explicitly`, () => {
   const result = cli(args); assert.equal(result.status, 12, result.stderr); assert.match(result.stderr, /not implemented yet/); assert.doesNotMatch(result.stdout, /PASS|verified repair/i);
 });
@@ -48,7 +48,10 @@ test('product fixture directories contain no invented payloads', () => {
       assert.doesNotMatch(text,/SYNTHETIC_ONLY/); assert.notEqual(JSON.parse(text).synthetic,true);
     }
   }
-  assert.deepEqual(readdirSync(path.join(root,'corpus')), ['README.md']);
+  for (const fixture of readdirSync(path.join(root,'corpus/cases/fixtures'))) {
+    const meta = JSON.parse(readFileSync(path.join(root,'corpus/cases/fixtures',fixture,'meta.json'),'utf8'));
+    assert.equal(meta.synthetic,true); assert.equal(meta.provenance,'internal-controlled');
+  }
 });
 
 test('Phase 2 verify flags parse and require a real configuration', () => {

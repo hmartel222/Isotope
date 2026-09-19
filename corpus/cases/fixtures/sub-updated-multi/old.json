@@ -1,0 +1,1 @@
+{"object":"event","id":"evt_internal_multi_old","type":"customer.subscription.updated","api_version":"2025-02-24.acacia","data":{"object":{"object":"subscription","id":"sub_internal","current_period_end":100,"items":{"data":[{"id":"si_a","current_period_end":100},{"id":"si_b","current_period_end":50}]}}}}

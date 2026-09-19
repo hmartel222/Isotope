@@ -31,6 +31,16 @@ function fixtureVersion(value: unknown, label: string): string {
   if (event.object !== 'event' || event.type !== 'customer.subscription.updated' || typeof event.api_version !== 'string' || !event.api_version || subscription.object !== 'subscription' || typeof subscription.id !== 'string') throw new Error(`${label}: expected a versioned Stripe subscription.updated event envelope`);
   return event.api_version;
 }
+function ambiguitySatisfied(payload: unknown, expression: string): boolean {
+  const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.length\s*>\s*(\d+)$/.exec(expression.trim());
+  if (!match) return false;
+  let value: unknown = asObject(asObject(asObject(payload, 'fixture').data, 'fixture.data').object, 'fixture.data.object');
+  for (const part of match[1]!.split('.')) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    value = (value as Record<string, unknown>)[part];
+  }
+  return Array.isArray(value) && value.length > Number(match[2]);
+}
 
 /** Compatibility API name; Phase 5 replaces the static graph with real L2. */
 export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Promise<WalkingSkeletonResult> {
@@ -124,7 +134,14 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
       await writeJsonArtifact(paths.root, path, 'Signature', signature);
       signatureRefs.push(ref(path));
     }
-    diff = diffSignatures({ old: signatures.old[0], new: signatures.new[0], bdg, selfComparisons: signatures });
+    const ambiguityChanges = spec.changes.filter((change, index) => change.ambiguity
+      && bdg.affectedSites.some(site => site.entryPointId === entryPoint.id && site.changeIndex === index)
+      && ambiguitySatisfied(payloads[1], change.ambiguity.when));
+    const aggregationSinks = new Set(bdg.sinks.filter(sink => bdg.nodes.some(node => node.id === sink.nodeId && node.entryPointId === entryPoint.id && node.aggregation === true)).map(sink => sink.name));
+    const affectedPointers = ambiguityChanges.length ? signatures.old[0].calls
+      .map((call, index) => aggregationSinks.has(call.mock) ? `/calls/${index}/args` : null).filter((value): value is string => value !== null) : [];
+    diff = diffSignatures({ old: signatures.old[0], new: signatures.new[0], bdg, selfComparisons: signatures,
+      ...(affectedPointers.length ? { changeContext: { ambiguitySatisfied: true, affectedPointers } } : {}) });
     await writeJsonArtifact(paths.root, paths.diffReport, 'DiffReport', diff);
     result = resolveVerdict({ entryPoint, bdg, diff, reasoning: null, config });
     log.push(`Determinism: old ${checkDeterminism(signatures.old).stable ? 'PASS' : 'UNSTABLE'}; new ${checkDeterminism(signatures.new).stable ? 'PASS' : 'UNSTABLE'}`);

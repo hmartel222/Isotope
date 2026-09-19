@@ -12,9 +12,10 @@ The [v3 specification](docs-v3-spec.md) is the architectural source of truth. Se
 - Phase 4: complete pure structural differ, mechanical verdict precedence, informational PASS, semantic residual ESCALATE, scoped ambiguity hints and enforced ≥90% differ branch coverage. See the [Phase 4 audit](docs/PHASE4.md).
 - Phase 5: real bounded TS/JS provider dataflow, deterministic BDGs, static-only `scan`, and generated-graph `verify`. See the [resolver documentation](packages/resolver-ts/README.md) and [Phase 5 audit](docs/PHASE5.md).
 - Phase 6: local Git dependency detector and human-verified ChangeSpec selector for npm/PyPI, resolved lockfile preference, threshold crossing, deterministic `selected-specs.json`, and SKIP-without-L2 for irrelevant revisions. See the [Phase 6 audit](docs/PHASE6.md).
+- Phase 7: reproducible five-case detection matrix with isolated Git histories and artifacts, covering mechanical FAIL, migrated PASS, provider no-op PASS, provenance-protected SKIP, and ambiguity ESCALATE. See the [Phase 7 audit](docs/PHASE7.md).
 - **Real-provider acceptance is blocked:** `fixtures/normalized/sub-updated-single/{old,new,meta}.json` is absent. Passing synthetic integration tests proves the plumbing only.
 
-Not yet implemented: dependency-based ChangeSpec selection, additional framework adapters, semantic reasoning, repair, Python execution, GitHub Action/reporting, fleet, or accuracy benchmarks.
+Not yet implemented: additional framework adapters, semantic reasoning, repair, Python execution, GitHub Action/reporting, fleet, or accuracy benchmarks.
 
 ## Package map
 
@@ -33,6 +34,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm isotope --help
+pnpm isotope matrix
 ```
 
 `pnpm typecheck` includes the specimen and compile-time contract rejection tests. `pnpm test` runs offline contract and end-to-end tests. No test requires credentials. Dependencies are installed separately; verification itself performs no provider network calls.
@@ -50,6 +52,6 @@ The specimen README documents explicitly labeled synthetic broken/PASS control c
 
 ## Next milestone
 
-Recommended Phase 6 starting point: bounded L5 semantic evidence packets and offline/replayed reasoning tests, preserving the mechanical-failure and instability bypass. ChangeSpec selection, configured entry points and the current verification fixture selection remain explicit. Semantic reasoning, repair and other deferred stages have not begun.
+Recommended Phase 8 starting point: bounded L5 semantic evidence packets and offline/replayed reasoning tests, preserving the mechanical-failure and instability bypass. Semantic reasoning, repair and other deferred stages have not begun.
 
 `pnpm coverage:differ` runs the independent pure-differ suite and enforces the coverage gate; `pnpm test` also includes that gate.

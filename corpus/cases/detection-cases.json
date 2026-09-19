@@ -1,0 +1,57 @@
+[
+  {
+    "id": "mechanical-break",
+    "description": "Legacy Stripe subscription field silently disappears after the Basil transition.",
+    "repositoryRoot": "corpus/cases/repositories/mechanical-break",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/sub-updated-single",
+    "expected": { "selectedSpecIds": ["stripe.basil.subscription-period"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["required", "internal", "mechanical"]
+  },
+  {
+    "id": "migrated-pass",
+    "description": "Already-migrated code consumes the item-level period across the breaking transition.",
+    "repositoryRoot": "corpus/cases/repositories/migrated-pass",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/sub-updated-migrated",
+    "expected": { "selectedSpecIds": ["stripe.basil.subscription-period"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "PASS", "exitCode": 0, "divergenceKinds": [], "reachesL3": true },
+    "tags": ["required", "internal", "migrated"]
+  },
+  {
+    "id": "noop-pass",
+    "description": "The provider versions differ while the observed subscription behavior remains equal.",
+    "repositoryRoot": "corpus/cases/repositories/noop-pass",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/sub-updated-noop",
+    "expected": { "selectedSpecIds": ["stripe.basil.subscription-period"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "PASS", "exitCode": 0, "divergenceKinds": [], "reachesL3": true },
+    "tags": ["required", "internal", "noop"]
+  },
+  {
+    "id": "wrong-provider-skip",
+    "description": "PAY.JP code contains current_period_end text but has no Stripe provenance.",
+    "repositoryRoot": "corpus/cases/repositories/wrong-provider-skip",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": null,
+    "expected": { "selectedSpecIds": ["stripe.basil.subscription-period"], "affectedSiteCount": 0, "minimumAuthoritativeSites": 0, "reachableSinkKinds": [], "verdict": "SKIP", "exitCode": 0, "divergenceKinds": [], "verdictReason": "no_taint_root", "reachesL3": false },
+    "tags": ["required", "internal", "provenance"]
+  },
+  {
+    "id": "ambiguity-escalate",
+    "description": "A multi-item period change remains valid-to-valid and requires semantic judgment.",
+    "repositoryRoot": "corpus/cases/repositories/ambiguity-escalate",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/sub-updated-multi",
+    "expected": { "selectedSpecIds": ["stripe.basil.subscription-period"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "ESCALATE", "exitCode": 3, "divergenceKinds": ["value_changed"], "verdictReason": "semantic_reasoner_unavailable", "ambiguityCandidate": true, "reachesL3": true },
+    "tags": ["required", "internal", "ambiguity"]
+  }
+]
