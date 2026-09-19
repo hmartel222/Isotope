@@ -10,9 +10,10 @@
   "scripts": {
     "build": "tsc -b && node tools/export-schemas.cjs",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
-    "test": "pnpm build && node --test tests/*.test.cjs",
+    "test": "pnpm build && c8 node --test tests/*.test.cjs",
     "isotope": "pnpm --silent build && node packages/cli/dist/bin.js",
-    "phase2:verify": "pnpm isotope --config examples/walking-skeleton/isotope.yml verify --no-reasoner --no-repair"
+    "phase2:verify": "pnpm isotope --config examples/walking-skeleton/isotope.yml verify --no-reasoner --no-repair",
+    "coverage:differ": "pnpm build && c8 node --test tests/phase4-differ.test.cjs"
   },
   "devDependencies": {
     "@isotope/changespec": "workspace:*",
@@ -29,6 +30,7 @@
     "@isotope/resolver-ts": "workspace:*",
     "@isotope/verifier": "workspace:*",
     "@types/node": "20.19.17",
+    "c8": "10.1.3",
     "stripe": "17.7.0",
     "typescript": "5.7.3"
   }

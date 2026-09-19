@@ -12,16 +12,18 @@ function component(value: string): string {
   // Encode delimiters too, so different ID tuples cannot overwrite each other.
   return encodeURIComponent(value).replace(/[.!'()*]/g, ch => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
 }
+/** Pure, portable reference construction; no platform, environment, cwd or filesystem reads. */
+export function signatureArtifactRef(key: { entryPointId: string; codeVersion: CodeVersion; fixturePair: string; payloadVersion: string; runIndex: number }): string {
+  if (!Number.isSafeInteger(key.runIndex) || key.runIndex < 0) throw new Error('runIndex must be a nonnegative safe integer');
+  return `signatures/${component(key.codeVersion)}/${component(key.fixturePair)}/${component(key.entryPointId)}.${component(key.payloadVersion)}.${key.runIndex}.json`;
+}
 export function artifactPaths(projectRoot: string) {
   const root = resolve(projectRoot, '.isotope');
   const at = (...parts: string[]) => assertWithinRoot(root, join(root, ...parts));
   return {
     root,
     selectedSpecs: at('selected-specs.json'), bdg: at('bdg.json'), diffReport: at('diff-report.json'), verdict: at('verdict.json'), report: at('isotope-report.json'),
-    signature: (key: { entryPointId: string; codeVersion: CodeVersion; fixturePair: string; payloadVersion: string; runIndex: number }) => {
-      if (!Number.isSafeInteger(key.runIndex) || key.runIndex < 0) throw new Error('runIndex must be a nonnegative safe integer');
-      return at('signatures', component(key.codeVersion), component(key.fixturePair), `${component(key.entryPointId)}.${component(key.payloadVersion)}.${key.runIndex}.json`);
-    },
+    signature: (key: Parameters<typeof signatureArtifactRef>[0]) => at(signatureArtifactRef(key)),
     evidencePacket: (ep: string, divergence: string) => at('evidence-packets', `${component(ep)}.${component(divergence)}.json`),
     reasoning: (ep: string, divergence: string, vote = 0) => {
       if (!Number.isSafeInteger(vote) || vote < 0) throw new Error('vote must be a nonnegative safe integer');

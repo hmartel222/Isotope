@@ -16,7 +16,7 @@ export interface WalkingSkeletonOptions {
   testFixtureDirectory?: string;
 }
 export interface WalkingSkeletonResult {
-  exitCode: 0 | 1 | 4; output: string; report: IsotopeReport;
+  exitCode: 0 | 1 | 3 | 4; output: string; report: IsotopeReport;
   signatures: HarnessResult | null; diff: DiffReport | null;
 }
 function asObject(value: unknown, label: string): Record<string, unknown> {
@@ -102,8 +102,9 @@ export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Pr
     if (signatures.old[0].threw === null && signatures.new[0].threw === null && isHttp200(signatures.old[0].returned) && isHttp200(signatures.new[0].returned)) log.push('Both executions returned 200.');
     for (const divergence of diff.divergences) {
       const display = (value: unknown) => value === '__undefined__' ? 'undefined' : JSON.stringify(value);
-      log.push(`${divergence.sinkKind ?? 'handler'} ${divergence.pointer}`, `  old: ${display(divergence.old)}`, `  new: ${display(divergence.new)}`, `  ${divergence.tier} / ${divergence.severity ?? 'unclassified'} / ${divergence.kind}`);
+      log.push(`${divergence.sinkKind ?? 'handler'} ${divergence.pointer}`, `  old: ${display(divergence.old)}`, `  new: ${display(divergence.new)}`, `  ${divergence.kind} / ${divergence.tier === 'semantic_question' ? 'semantic question' : `mechanical / ${divergence.severity ?? 'unstable'}`}`);
     }
+    if (result.verdict === 'ESCALATE') log.push('Semantic reasoner: unavailable in current build; decision required.');
   } catch (error) {
     if (!(error instanceof HarnessExecutionError)) throw error;
     result = validateContract('VerdictResult', { entryPointId: entryPoint.id, verdict: 'INDETERMINATE', provenance: 'mechanical', reason: error.reason,
@@ -119,6 +120,6 @@ export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Pr
   // Read the final artifact through the same public boundary used by later stages.
   await readJsonArtifact(paths.root, paths.report, 'IsotopeReport');
   log.push(`Verdict: ${result.verdict}`, `Reason: ${result.reason}`, `Artifacts: ${paths.root}`);
-  const exitCode = result.verdict === 'PASS' ? 0 : result.verdict === 'FAIL' ? 1 : 4;
+  const exitCode = result.verdict === 'PASS' ? 0 : result.verdict === 'FAIL' ? 1 : result.verdict === 'ESCALATE' ? 3 : 4;
   return { exitCode, output: log.join('\n'), report, signatures, diff };
 }
