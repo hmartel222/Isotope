@@ -1,0 +1,27 @@
+name: Isotope verify
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  behavioral-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ github.event.pull_request.head.sha }}"
+      - id: isotope
+        uses: hmartel222/hophacksf26/action@9f2ca965d957122b57a783a38f8767b20045e74b
+        with:
+          reasoner: off
+          repair: off
+      - name: Upload validated Isotope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isotope-report
+          path: .isotope/
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: true

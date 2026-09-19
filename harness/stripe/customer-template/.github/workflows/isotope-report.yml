@@ -1,0 +1,31 @@
+name: Isotope report
+on:
+  workflow_run:
+    workflows: ["Isotope verify"]
+    types: [completed]
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+  checks: write
+jobs:
+  report:
+    if: "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0] }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: isotope-report
+          path: .isotope
+          run-id: "${{ github.event.workflow_run.id }}"
+          github-token: "${{ github.token }}"
+      - uses: hmartel222/hophacksf26/action@9f2ca965d957122b57a783a38f8767b20045e74b
+        with:
+          mode: report
+          artifact-root: .isotope
+          base: "${{ github.event.workflow_run.pull_requests[0].base.sha }}"
+          head: "${{ github.event.workflow_run.pull_requests[0].head.sha }}"
+          pr-number: "${{ github.event.workflow_run.pull_requests[0].number }}"
+          github-token: "${{ github.token }}"
+          reasoner: off
+          repair: off
