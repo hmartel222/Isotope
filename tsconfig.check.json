@@ -46,6 +46,7 @@
   },
   "include": [
     "packages/*/src/**/*.ts",
-    "tests/types.ts"
+    "tests/types.ts",
+    "examples/walking-skeleton/src/**/*.ts"
   ]
 }

@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "entryPoints": [
+    {
+      "id": "ep_phase2",
+      "file": "src/webhook.ts",
+      "export": "handler",
+      "kind": "express_route",
+      "language": "ts"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_root",
+      "kind": "taint_root",
+      "entryPointId": "ep_phase2",
+      "location": {
+        "file": "src/webhook.ts",
+        "line": 11
+      },
+      "path": "event",
+      "label": "Stripe webhook event",
+      "provenance": {
+        "confidence": "high",
+        "provider": "stripe",
+        "specId": "stripe.basil.subscription-period",
+        "basis": "provider_call",
+        "rootNodeId": "n_root",
+        "evidenceRefs": [
+          "Manually authored Phase 2 BDG; not AST output"
+        ]
+      }
+    },
+    {
+      "id": "n_subscription",
+      "kind": "binding",
+      "entryPointId": "ep_phase2",
+      "location": {
+        "file": "src/webhook.ts",
+        "line": 13
+      },
+      "path": "data.object",
+      "label": "subscription = event.data.object",
+      "provenance": {
+        "confidence": "high",
+        "provider": "stripe",
+        "specId": "stripe.basil.subscription-period",
+        "basis": "provider_call",
+        "rootNodeId": "n_root",
+        "evidenceRefs": [
+          "Manually authored Phase 2 BDG; not AST output"
+        ]
+      }
+    },
+    {
+      "id": "n_period",
+      "kind": "binding",
+      "entryPointId": "ep_phase2",
+      "location": {
+        "file": "src/webhook.ts",
+        "line": 16
+      },
+      "path": "current_period_end",
+      "label": "subscription.current_period_end",
+      "provenance": {
+        "confidence": "high",
+        "provider": "stripe",
+        "specId": "stripe.basil.subscription-period",
+        "basis": "provider_call",
+        "rootNodeId": "n_root",
+        "evidenceRefs": [
+          "Manually authored Phase 2 BDG; not AST output"
+        ]
+      }
+    },
+    {
+      "id": "n_db",
+      "kind": "sink",
+      "entryPointId": "ep_phase2",
+      "location": {
+        "file": "src/webhook.ts",
+        "line": 14
+      },
+      "path": "data.renewalDate",
+      "label": "db.subscription.update",
+      "provenance": {
+        "confidence": "high",
+        "provider": "stripe",
+        "specId": "stripe.basil.subscription-period",
+        "basis": "provider_call",
+        "rootNodeId": "n_root",
+        "evidenceRefs": [
+          "Manually authored Phase 2 BDG; not AST output"
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n_root",
+      "to": "n_subscription",
+      "kind": "flows_to",
+      "pathSuffix": ".data.object"
+    },
+    {
+      "from": "n_subscription",
+      "to": "n_period",
+      "kind": "flows_to",
+      "pathSuffix": ".current_period_end"
+    },
+    {
+      "from": "n_period",
+      "to": "n_db",
+      "kind": "flows_to",
+      "pathSuffix": ".data.renewalDate"
+    }
+  ],
+  "sinks": [
+    {
+      "nodeId": "n_db",
+      "kind": "db_write",
+      "name": "db.subscription.update",
+      "location": {
+        "file": "src/webhook.ts",
+        "line": 14
+      }
+    }
+  ],
+  "affectedSites": [
+    {
+      "id": "site_period",
+      "entryPointId": "ep_phase2",
+      "nodeId": "n_period",
+      "specId": "stripe.basil.subscription-period",
+      "changeIndex": 0,
+      "location": {
+        "file": "src/webhook.ts",
+        "line": 16
+      },
+      "sinkNodeIds": [
+        "n_db"
+      ],
+      "provenance": {
+        "confidence": "high",
+        "provider": "stripe",
+        "specId": "stripe.basil.subscription-period",
+        "basis": "provider_call",
+        "rootNodeId": "n_root",
+        "evidenceRefs": [
+          "Manually authored Phase 2 BDG; not AST output"
+        ]
+      }
+    }
+  ],
+  "skipped": []
+}

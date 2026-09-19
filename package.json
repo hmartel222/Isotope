@@ -2,7 +2,7 @@
   "name": "isotope",
   "version": "0.1.0",
   "private": true,
-  "description": "Isotope Phase 1: contracts and scaffold only",
+  "description": "Isotope: Phase 2 explicit TypeScript behavioral verification walking skeleton",
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": "20.x"
@@ -11,23 +11,25 @@
     "build": "tsc -b && node tools/export-schemas.cjs",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
     "test": "pnpm build && node --test tests/*.test.cjs",
-    "isotope": "pnpm --silent build && node packages/cli/dist/bin.js"
+    "isotope": "pnpm --silent build && node packages/cli/dist/bin.js",
+    "phase2:verify": "pnpm isotope --config examples/walking-skeleton/isotope.yml verify --no-reasoner --no-repair"
   },
   "devDependencies": {
-    "typescript": "5.7.3",
-    "@types/node": "20.17.30",
-    "@isotope/core": "workspace:*",
     "@isotope/changespec": "workspace:*",
-    "@isotope/resolver-ts": "workspace:*",
-    "@isotope/resolver-py": "workspace:*",
-    "@isotope/harness-ts": "workspace:*",
-    "@isotope/harness-py": "workspace:*",
+    "@isotope/cli": "workspace:*",
+    "@isotope/core": "workspace:*",
     "@isotope/differ": "workspace:*",
+    "@isotope/fleet": "workspace:*",
+    "@isotope/harness-py": "workspace:*",
+    "@isotope/harness-ts": "workspace:*",
     "@isotope/reasoner": "workspace:*",
     "@isotope/repair": "workspace:*",
-    "@isotope/verifier": "workspace:*",
     "@isotope/reporter": "workspace:*",
-    "@isotope/fleet": "workspace:*",
-    "@isotope/cli": "workspace:*"
+    "@isotope/resolver-py": "workspace:*",
+    "@isotope/resolver-ts": "workspace:*",
+    "@isotope/verifier": "workspace:*",
+    "@types/node": "20.19.17",
+    "stripe": "17.7.0",
+    "typescript": "5.7.3"
   }
 }

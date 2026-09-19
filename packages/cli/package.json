@@ -16,7 +16,11 @@
   },
   "dependencies": {
     "@isotope/core": "workspace:*",
-    "commander": "12.1.0"
+    "commander": "12.1.0",
+    "yaml": "2.7.1",
+    "@isotope/changespec": "workspace:*",
+    "@isotope/harness-ts": "workspace:*",
+    "@isotope/differ": "workspace:*"
   },
   "bin": {
     "isotope": "bin/isotope.cjs"

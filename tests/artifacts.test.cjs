@@ -80,3 +80,16 @@ test('I/O rejects lexical escape and symlinked parents or files', async t => {
   await assert.rejects(core.writeJsonArtifact(p.root, p.verdict, 'Verdict', 'PASS'), /symlink/);
   assert.equal(await fs.readFile(external, 'utf8'), '"FAIL"');
 });
+
+test('stale-artifact removal rejects escapes and symlinks', async t => {
+  const dir = await temporary(t); const p = core.artifactPaths(dir);
+  await core.writeJsonArtifact(p.root,p.verdict,'Verdict','PASS');
+  await core.removeJsonArtifact(p.root,p.verdict);
+  await assert.rejects(fs.access(p.verdict), {code:'ENOENT'});
+  await core.removeJsonArtifact(p.root,p.verdict);
+  const outside=path.join(dir,'outside.json'); await fs.writeFile(outside,'keep');
+  await fs.symlink(outside,p.verdict);
+  await assert.rejects(core.removeJsonArtifact(p.root,p.verdict),/symlink/);
+  await assert.rejects(core.removeJsonArtifact(p.root,outside),/below/);
+  assert.equal(await fs.readFile(outside,'utf8'),'keep');
+});

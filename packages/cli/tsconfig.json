@@ -11,6 +11,15 @@
   "references": [
     {
       "path": "../core"
+    },
+    {
+      "path": "../changespec"
+    },
+    {
+      "path": "../harness-ts"
+    },
+    {
+      "path": "../differ"
     }
   ]
 }

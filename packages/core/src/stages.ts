@@ -47,5 +47,5 @@ export type DraftSpec = (input: DraftSpecInput) => Promise<ChangeSpec>;
 export type NormalizeFixtures = (input: NormalizeFixturesInput) => Promise<{ pairId: string; metadata: JsonValue }>;
 
 // L6 belongs here per v3 §2.5; placeholders contain no resolution/business logic.
-export const resolveVerdict: ResolveVerdict = (_input) => { throw new NotImplementedStageError('L6 verdict resolver'); };
+export { resolveVerdict } from './verdict';
 export const resolveAggregateVerdict: ResolveAggregateVerdict = (_input) => { throw new NotImplementedStageError('L6 aggregate verdict resolver'); };

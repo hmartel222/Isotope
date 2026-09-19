@@ -1,0 +1,5 @@
+{
+  "synthetic": true,
+  "purpose": "Internal software plumbing test only. NOT produced by Stripe.",
+  "pair": "synthetic-broken"
+}

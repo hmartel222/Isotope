@@ -1,4 +1,4 @@
-import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { dirname, parse, relative, resolve, sep } from 'node:path';
 import { constants } from 'node:fs';
 import { artifactPaths, assertWithinRoot } from './artifact-paths';
@@ -61,4 +61,11 @@ export async function readJsonArtifact<N extends ContractName>(root: string, pat
   try { value = JSON.parse(await readFile(target, 'utf8')) as unknown; }
   catch (error) { throw new Error(`Cannot read ${contract} artifact ${target}: ${(error as Error).message}`, { cause: error }); }
   return validateContract(contract, value);
+}
+
+/** Explicitly discard one stale runtime artifact, with the same containment checks as writes. */
+export async function removeJsonArtifact(root: string, path: string): Promise<void> {
+  const target = assertWithinRoot(root, path);
+  await checkNoSymlinks(target);
+  await rm(target, { force: true });
 }

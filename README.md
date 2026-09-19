@@ -1,30 +1,24 @@
 # HopHacks Fall 2026 — Isotope
 
-Isotope traces upstream provider contract changes through application code, compares isolated old/new execution, and offers bounded repairs only after independent verification against the original behavior and a held-out fixture. It runs locally or inside the customer’s runner, with no hosted service or autonomous Git operations.
+Isotope traces provider contract changes through application code, compares isolated old/new execution, and ultimately offers bounded repairs only after independent verification against the original behavior and a held-out fixture. It runs in the customer’s runner, without a hosted service or autonomous Git operations.
 
-**Current status: Phase 1 contracts/scaffold only.** No provider analysis, handler execution, semantic reasoning, or repair is implemented. Product commands fail explicitly; help works.
+The [v3 specification](docs-v3-spec.md) is the architectural source of truth. See [contract notes](docs/CONTRACTS.md) and the [Phase 2 specimen](examples/walking-skeleton/README.md).
 
-The [Isotope v3 specification](docs-v3-spec.md) is the architectural source of truth. [Contract notes](docs/CONTRACTS.md) describe the frozen interfaces and Phase 1 decisions.
+## Implementation status
 
-## Packages
+- Phase 1: monorepo, shared types/schemas, validation, artifact helpers, and package/CLI boundaries.
+- Phase 2 implementation: real TypeScript handler execution, mocked Stripe/DB boundaries, side-effect capture, four independent runs, metadata-free determinism comparison, mechanical silent-break detection, and local CLI artifacts/verdicts.
+- **Real-provider acceptance is blocked:** `fixtures/normalized/sub-updated-single/{old,new,meta}.json` is absent. Passing synthetic integration tests proves the plumbing only.
 
-- `core`: shared TypeBox schemas, inferred types, validators, artifact paths/I/O, stage interfaces, L6 stubs.
-- `changespec`: L0/L1 registry seams and drafting/normalization stubs.
-- `resolver-ts`, `resolver-py`: L2 resolver stubs.
-- `harness-ts`, `harness-py`: L3 harness stubs.
-- `differ`: L4 structural comparison stub.
-- `reasoner`: L5 reasoning stub.
-- `repair`: L7–L9 eligibility, deterministic candidate, planner, and application stubs.
-- `verifier`: L10 repair verification stub.
-- `reporter`: L11 reporting stub.
-- `fleet`: L12 batch stub.
-- `cli`: final command surface, argument parsing, and explicit unavailable-stage errors.
+Not yet implemented: dependency-based ChangeSpec selection, AST/BDG generation, generic/framework-wide harnessing, complete differ, semantic reasoning, repair, Python execution, GitHub Action/reporting, fleet, or accuracy benchmarks.
 
-`py-runner/`, `action/`, `specs/`, `fixtures/`, and `corpus/` reserve later implementation locations. Product fixture directories contain no invented payloads. All synthetic examples are under `tests/fixtures/`.
+## Package map
 
-## Setup
+`core` owns schemas, artifact I/O, stage contracts and the mechanical verdict subset. `changespec` explicitly loads the known spec. `harness-ts` executes the specimen using Vitest. `differ` owns behavioral comparison. `cli` orchestrates those packages. The other v3 packages (`resolver-ts`, `resolver-py`, `harness-py`, `reasoner`, `repair`, `verifier`, `reporter`, `fleet`) remain stubs. Core has no subsystem dependency; only the CLI orchestrates peers.
 
-Use Node.js 20 and pnpm 9.15.9 (pinned in `package.json`). With nvm and Corepack installed:
+## Local setup
+
+Use Node.js **20.19 or newer within Node 20**, and pnpm **9.15.9**. With nvm and Corepack available:
 
 ```sh
 nvm use
@@ -37,8 +31,18 @@ pnpm build
 pnpm isotope --help
 ```
 
-`pnpm isotope` builds before running, so it works after a clean install. `pnpm test` builds, then runs offline Node test-runner tests. `pnpm typecheck` includes compile-time contract rejection tests. No credentials are required. This project rejects unsupported Node versions during install.
+`pnpm typecheck` includes the specimen and compile-time contract rejection tests. `pnpm test` runs offline contract and end-to-end tests. No test requires credentials. Dependencies are installed separately; verification itself performs no provider network calls.
+
+## Walking skeleton
+
+```sh
+pnpm phase2:verify
+```
+
+This invokes the normal CLI with `examples/walking-skeleton/isotope.yml`. It requires the real normalized fixture pair and currently reports the missing-fixture blocker (exit 10). With the intended real pair supplied, the expected result is a mechanical **FAIL**, exit **1**: both handlers can return 200 while their attempted DB writes differ. There is no automatic capture or synthetic fallback.
+
+The specimen README documents explicitly labeled synthetic broken/PASS control commands. Their fixture files live only under `packages/harness-ts/test-fixtures/` and are not real-world evaluation evidence.
 
 ## Next milestone
 
-Phase 2 starts at `packages/harness-ts/src/index.ts`: execute one hardcoded TypeScript handler against real old/new provider fixtures, twice each, and emit validated `Signature` artifacts through the core helpers. First prove repeatability, then connect one mechanical divergence and one unchanged case through `differ` and the CLI. Do not introduce the resolver, models, or repairs to unblock that walking skeleton.
+Phase 3 should harden `packages/harness-ts/runtime/specimen.test.mjs`: replace the fixed Stripe/DB mock shapes with validated configured boundaries, strengthen egress/process cleanup and deterministic clock/UUID/random handling, and broaden serializer coverage. Keep the behavioral-view and artifact contracts unchanged. Phase 3 has not started.

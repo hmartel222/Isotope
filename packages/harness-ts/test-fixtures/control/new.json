@@ -1,0 +1,20 @@
+{
+  "object": "event",
+  "id": "evt_SYNTHETIC_ONLY",
+  "type": "customer.subscription.updated",
+  "api_version": "2026-08-26.dahlia",
+  "data": {
+    "object": {
+      "object": "subscription",
+      "id": "sub_SYNTHETIC_ONLY",
+      "current_period_end": 1700000123,
+      "items": {
+        "data": [
+          {
+            "id": "si_SYNTHETIC_ONLY"
+          }
+        ]
+      }
+    }
+  }
+}
