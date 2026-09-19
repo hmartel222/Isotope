@@ -122,7 +122,7 @@ export type RepairPacket = Static<typeof RepairPacketSchema>;
 export const CandidatePatchEditSchema = object({ anchor: str(), replacement: Type.String() });
 export type CandidatePatchEdit = Static<typeof CandidatePatchEditSchema>;
 const patchFields = {
-  confidence: ConfidenceSchema, summary: str(), causalChain: str(), assumptions: strings(), evidenceRefs: Type.Array(EvidenceRefSchema), humanQuestion: nullable(str()), suspectedInjection: Type.Boolean(), abstain: Type.Boolean(), origin: choices('deterministic', 'model'),
+  repairId: str(), confidence: ConfidenceSchema, summary: str(), causalChain: str(), assumptions: strings(), evidenceRefs: Type.Array(EvidenceRefSchema), humanQuestion: nullable(str()), suspectedInjection: Type.Boolean(), abstain: Type.Boolean(), origin: choices('deterministic', 'model'),
 };
 /** Proposals have no authority. Only an independent verification can produce VerifiedRepair. */
 const repairCandidateSchema = object({ ...patchFields, classification: Type.Literal('repair_candidate'), patch: object({ files: Type.Array(object({ path: str(), edits: Type.Array(CandidatePatchEditSchema, { minItems: 1 }) }), { minItems: 1, maxItems: 3 }) }) });
@@ -132,6 +132,7 @@ export const CandidatePatchSchema = Type.Union([
 ]);
 export type CandidatePatch = Static<typeof CandidatePatchSchema>;
 export const RepairOutcomeSchema = choices('verified', 'overfit_rejected', 'did_not_restore_behavior', 'ambiguity_after_patch', 'patch_introduced_nondeterminism', 'patch_invalid', 'degenerate_patch');
+export type RepairOutcome = Static<typeof RepairOutcomeSchema>;
 const signatureRef = object({ path: str(), codeVersion: CodeVersionSchema, payloadVersion: str(), fixturePair: str(), runIndex: natural() });
 export const VerificationPairResultSchema = object({
   role: FixtureRoleSchema, fixturePair: str(),

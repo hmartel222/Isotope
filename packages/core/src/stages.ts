@@ -18,13 +18,13 @@ export interface DiffInput { old: Signature; new: Signature; bdg?: BDG; selfComp
 export interface ReasoningInput { packet: EvidencePacket; config: IsotopeConfig['reasoner'] }
 export interface ReasoningRun { status: 'completed' | 'unavailable' | 'errored' | 'disagreed' | 'abstained'; results: ReasoningResult[]; packetRef: string; responseRefs: string[]; error?: string }
 export interface VerdictInput { entryPoint: EntryPoint; bdg: BDG; diff: DiffReport; reasoning: ReasoningRun | null; config: IsotopeConfig }
-export interface RepairEligibilityInput { verdict: VerdictResult; bdg: BDG; selectedSpecs: SelectedSpecs; config: IsotopeConfig; fixture: FixturePair }
-export interface RepairEligibility { eligible: boolean; route: 'deterministic' | 'model' | 'none'; reason: string }
+export interface RepairEligibilityInput { verdict: VerdictResult; bdg: BDG; selectedSpecs: SelectedSpecs; config: IsotopeConfig; fixture: FixturePair; newPayload: JsonValue }
+export interface RepairEligibility { eligible: boolean; route: 'deterministic' | 'model' | 'none'; reason: string; siteIds: string[]; changeIndex: number | null }
 export interface RepairPlanInput { packet: RepairPacket; config: IsotopeConfig['repair'] }
-export interface PatchApplicationInput { repoRoot: string; temporaryRoot: string; repairId: string; candidate: CandidatePatch; allowedPaths: string[]; maxFiles: number; maxChangedLines: number }
+export interface PatchApplicationInput { repoRoot: string; temporaryRoot?: string; repairId: string; candidate: CandidatePatch; allowedPaths: string[]; maxFiles: number; maxChangedLines: number }
 /** Future implementation must release the workspace in a finally block. */
-export interface AppliedCandidate { repairId: string; workspaceRoot: string; diff: string; dispose(): Promise<void> }
-export interface RepairVerificationInput { repairId: string; workspaceRoot: string; candidate: CandidatePatch; config: IsotopeConfig; selectedSpecs: SelectedSpecs; originalBDG: BDG; entryPoint: EntryPoint; originalVerdict: VerdictResult; planning: { fixture: FixturePair; original: HarnessResult }; heldOut: { fixture: FixturePair; original: HarnessResult } }
+export interface AppliedCandidate { repairId: string; workspaceRoot: string; diff: string; changedFiles: string[]; linesAdded: number; linesRemoved: number; dispose(): Promise<void> }
+export interface RepairVerificationInput { repairId: string; workspaceRoot: string; artifactRoot: string; candidate: CandidatePatch; candidateDiff: string; config: IsotopeConfig; selectedSpecs: SelectedSpecs; originalBDG: BDG; entryPoint: EntryPoint; originalVerdict: VerdictResult; planning: { fixture: FixturePair; original: HarnessResult }; heldOut: { fixture: FixturePair; original: HarnessResult } }
 export interface RepairVerificationResult { verification: RepairVerification; verifiedRepair: VerifiedRepair | null }
 export interface ReportOutput { markdown: string; report: IsotopeReport }
 export interface FleetInput { repositories: { id: string; path: string }[]; selectedSpecs: SelectedSpecs; config: IsotopeConfig; outPath: string }

@@ -49,6 +49,7 @@ test('paths cover the chain and keep signature versions, pairs, runs and reasoni
   assert.equal(p.evidencePacket('ep','d'), '/repo/.isotope/evidence-packets/ep.d.json');
   assert.equal(p.reasoning('ep','d'), '/repo/.isotope/reasoning/ep.d.0.json');
   assert.equal(p.repairPacket('r1'), '/repo/.isotope/repair/packets/r1.json');
+  assert.equal(p.candidate('r1'), '/repo/.isotope/repair/candidates/r1.json');
   assert.equal(p.proposal('r1'), '/repo/.isotope/repair/proposals/r1.json');
   assert.equal(p.verification('r1'), '/repo/.isotope/repair/verification/r1.json');
   assert.equal(p.verifiedRepair, '/repo/.isotope/repair/verified-repair.json');

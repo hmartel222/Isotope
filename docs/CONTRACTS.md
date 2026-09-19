@@ -21,6 +21,7 @@ All paths are owned by `packages/core/src/artifact-paths.ts`:
   reasoning/<entryPoint>.<divergence>.<vote>.json
   verdict.json
   repair/packets/<repairId>.json
+  repair/candidates/<repairId>.json
   repair/proposals/<repairId>.json
   repair/verification/<repairId>.json
   repair/verified-repair.json
@@ -45,7 +46,7 @@ JSON output is UTF-8, recursively key-sorted, two-space indented, and newline-te
 
 ## Verification boundaries
 
-`RepairVerification` distinguishes planning and held-out evidence and all seven outcomes. Successful records require passing verdicts, baseline equivalence, stability, and all structural checks. Original baselines and patched signature references are explicitly recorded. Runtime relational validation additionally checks repair IDs, fixture IDs, distinct held-out pairs, and self-comparison run indices. `VerifiedRepair` can contain only an eligible candidate and a successful verification, and is always `offeredOnly: true`. Schema acceptance validates the shape of recorded evidence; it is not proof that execution actually happened. Only the future L10 implementation may produce real verification results.
+`RepairVerification` distinguishes planning and held-out evidence and all seven outcomes. Successful records require passing verdicts, baseline equivalence, stability, and all structural checks. Original baselines and patched signature references are explicitly recorded. Runtime relational validation additionally checks repair IDs, fixture IDs, distinct held-out pairs, and self-comparison run indices. `VerifiedRepair` can contain only an eligible candidate and a successful verification, and is always `offeredOnly: true`. Schema acceptance validates shape; Phase 9's L10 implementation supplies authority by independently rebuilding and re-executing the patched workspace.
 
 The repair packet intentionally has no held-out field. Its builder must later enforce v3’s stronger exclusion of held-out payloads, signatures, and identifiers from every string/fragment; a shape schema alone cannot establish information provenance. Packet line/token budgets, policy predicates, verdict authority, and post-patch structural checks are interfaces/recorded constraints here, not implementations.
 
