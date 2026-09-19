@@ -1,0 +1,21 @@
+{
+  "captureTool": "tools/capture-server.js",
+  "captureToolVersion": 1,
+  "versionLabel": "acacia",
+  "requestPath": "/acacia",
+  "receivedAt": "2026-09-19T23:00:24.563Z",
+  "rawFile": "invoice.payment_succeeded.2026-09-19T23-00-24-563Z.5c07384d.json",
+  "rawSha256": "5c07384dd246cb01dbe072d49af7b1c4e4cc2f113fa0978e2735e93de9d3c970",
+  "rawBytes": 11871,
+  "stripeSignature": "t=1789858824,v1=a3b63ea68883288c88a5b95b632c94bf6dc492cb28d19921ed34175ba6f25038,v0=39dbd2cb21b67cd1107158491c3110e64493ef659350d256def3459555aca785",
+  "userAgent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)",
+  "contentType": "application/json; charset=utf-8",
+  "payloadApiVersion": "2025-02-24.acacia",
+  "eventId": "evt_1UHXF6BYq8SRmcbOYjPgy7DR",
+  "eventType": "invoice.payment_succeeded",
+  "objectType": "invoice",
+  "objectId": "in_1UHXDNBYq8SRmcbOpgVBVZ3Q",
+  "envelope": "provider",
+  "parseOk": true,
+  "parseError": null
+}

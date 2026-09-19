@@ -1,0 +1,21 @@
+{
+  "captureTool": "tools/capture-server.js",
+  "captureToolVersion": 1,
+  "versionLabel": "dahlia",
+  "requestPath": "/dahlia",
+  "receivedAt": "2026-09-19T23:00:24.567Z",
+  "rawFile": "invoice.payment_succeeded.2026-09-19T23-00-24-567Z.6f05fc25.json",
+  "rawSha256": "6f05fc25788902b06c164dd06d8c3aeb512d6902520ae09077c2c7b84b6f6253",
+  "rawBytes": 6940,
+  "stripeSignature": "t=1789858824,v1=9ef89a693106d27daf8d49c6d30bf4d5a179fb99a954d6d2830060cbe55d8961,v0=b6d1b227384a9848b82c0d2997e8185fb6d8433f8a219e020269ca1f70d999ed",
+  "userAgent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)",
+  "contentType": "application/json; charset=utf-8",
+  "payloadApiVersion": "2026-08-26.dahlia",
+  "eventId": "evt_1UHXF6BYq8SRmcbOYjPgy7DR",
+  "eventType": "invoice.payment_succeeded",
+  "objectType": "invoice",
+  "objectId": "in_1UHXDNBYq8SRmcbOpgVBVZ3Q",
+  "envelope": "provider",
+  "parseOk": true,
+  "parseError": null
+}

@@ -1,0 +1,21 @@
+{
+  "captureTool": "tools/capture-server.js",
+  "captureToolVersion": 1,
+  "versionLabel": "acacia",
+  "requestPath": "/acacia",
+  "receivedAt": "2026-09-19T22:58:40.157Z",
+  "rawFile": "customer.subscription.updated.2026-09-19T22-58-40-157Z.41e69ad2.json",
+  "rawSha256": "41e69ad2faecc6f3baeb21fe470137a3c1c15dad18c4ecaf27bf15c9fa84e0c6",
+  "rawBytes": 7657,
+  "stripeSignature": "t=1789858719,v1=376f795b295a591a882fa8c32f3ca263dd0d2d8fc30e7697c34abbfa396599cb,v0=2529d258cf2fa2915d88f452de0e50b0ef6c508764ca437532d8deb2752d69ca",
+  "userAgent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)",
+  "contentType": "application/json; charset=utf-8",
+  "payloadApiVersion": "2025-02-24.acacia",
+  "eventId": "evt_1UHXDPBYq8SRmcbOznfVcQnc",
+  "eventType": "customer.subscription.updated",
+  "objectType": "subscription",
+  "objectId": "sub_1UHXDNBYq8SRmcbOW7w0H80w",
+  "envelope": "provider",
+  "parseOk": true,
+  "parseError": null
+}

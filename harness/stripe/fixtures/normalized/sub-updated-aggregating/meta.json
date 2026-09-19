@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "pair": "sub-updated-aggregating",
+  "role": "auxiliary",
+  "envelope": "provider",
+  "captureMethod": "B",
+  "aliasNamespace": "D",
+  "normalizer": {
+    "tool": "tools/normalize-fixtures.js",
+    "version": 1,
+    "normalizedAt": "2026-09-19T23:03:29.008Z"
+  },
+  "operations": [
+    "record api/version metadata",
+    "replace provider identifiers with pair-scoped deterministic aliases",
+    "emit normalized JSON preserving key order, array order and all scalars",
+    "record sha256 of each raw input"
+  ],
+  "old": {
+    "apiVersion": "2025-02-24.acacia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/acacia/customer.subscription.updated.2026-09-19T22-58-40-157Z.41e69ad2.json",
+    "rawSha256": "41e69ad2faecc6f3baeb21fe470137a3c1c15dad18c4ecaf27bf15c9fa84e0c6",
+    "rawBytes": 7657
+  },
+  "new": {
+    "apiVersion": "2026-08-26.dahlia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/dahlia/customer.subscription.updated.2026-09-19T22-58-39-881Z.3a7fafae.json",
+    "rawSha256": "3a7fafaef47b5afb94ffe54cdac858e164aad89a7f33ae9bfb25d63ac2b4f267",
+    "rawBytes": 7422
+  },
+  "observed": {
+    "old": {
+      "subscriptionLevelPeriodEndPresent": true,
+      "subscriptionLevelPeriodEnd": 1792450717,
+      "itemCount": 2,
+      "itemLevelPeriodEnds": [
+        1792450717,
+        1821394717
+      ]
+    },
+    "new": {
+      "subscriptionLevelPeriodEndPresent": false,
+      "subscriptionLevelPeriodEnd": null,
+      "itemCount": 2,
+      "itemLevelPeriodEnds": [
+        1792450717,
+        1821394717
+      ]
+    }
+  },
+  "aliases": {
+    "evt_1UHXDPBYq8SRmcbOznfVcQnc": "evt_D1",
+    "sub_1UHXDNBYq8SRmcbOW7w0H80w": "sub_D1",
+    "cus_VI7S9IJMf6f2SO": "cus_D1",
+    "si_VI7SL57ueQ54ID": "si_D1",
+    "price_1UHXCiBYq8SRmcbOWjN7C7VQ": "price_D1",
+    "prod_VI7RqRn2P8gLLO": "prod_D1",
+    "tax_behavior": "tax_D1",
+    "tax_rates": "tax_D2",
+    "si_VI7SIBejpdRkMj": "si_D2",
+    "price_1UHXCjBYq8SRmcbOYpTNvuui": "price_D2",
+    "in_1UHXDNBYq8SRmcbOpgVBVZ3Q": "in_D1",
+    "req_PgqJNWcaY8s2xN": "req_D1"
+  }
+}

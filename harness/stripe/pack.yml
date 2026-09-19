@@ -16,7 +16,7 @@ trigger:
 fixtures:
   planning: sub-updated-single
   heldOut: sub-updated-single-B
-  requiredPendingCapture:
+  auxiliary:
     - sub-updated-multi
     - sub-updated-aggregating
     - sub-updated-noop

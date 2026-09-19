@@ -9919,6 +9919,7 @@ var require_contracts = __commonJS({
     exports2.IsotopeConfigSchema = object({
       version: typebox_1.Type.Literal(1),
       language: choices("ts", "py", "auto"),
+      fixturePair: opt(str()),
       entryPoints: typebox_1.Type.Array(object({ file: str(), export: str(), kind: adapter }), { minItems: 1 }),
       mocks: typebox_1.Type.Array(typebox_1.Type.Union([
         object({
@@ -320004,8 +320005,9 @@ var require_repair_flow = __commonJS({
       if (!result || result.verdict !== "FAIL" && result.verdict !== "FAIL_REASONED")
         throw new Error("isotope repair requires an existing FAIL or FAIL_REASONED artifact");
       const spec = selected.specs[0];
-      const fixtureDirectory = options.testFixtureDirectory ?? (0, node_path_1.join)(projectRoot, "fixtures/normalized", spec.fixtures.pair);
-      const loaded = await (0, fixtures_1.loadFixturePair)({ directory: fixtureDirectory, spec, pairId: spec.fixtures.pair, role: "planning", synthetic: Boolean(options.testFixtureDirectory) });
+      const pairId = config.fixturePair ?? spec.fixtures.pair;
+      const fixtureDirectory = options.testFixtureDirectory ?? (0, node_path_1.join)(projectRoot, "fixtures/normalized", pairId);
+      const loaded = await (0, fixtures_1.loadFixturePair)({ directory: fixtureDirectory, spec, pairId, role: "planning", synthetic: Boolean(options.testFixtureDirectory) });
       const { fixture, payloads: [oldPayload, newPayload] } = loaded;
       const signatures = [];
       for (const artifactRef of report.signatureRefs)
@@ -320143,8 +320145,9 @@ var require_walking_skeleton = __commonJS({
         return { exitCode: incomplete ? 4 : 0, report: report2, signatures: null, diff: null, output: [`ChangeSpec: ${spec.id}`, ...(0, scan_1.graphSummary)(bdg), `Verdict: ${verdict2.verdict}`, `Reason: ${verdict2.results[0].reason}`, `Artifacts: ${paths.root}`].join("\n") };
       }
       const synthetic = options.testFixtureDirectory !== void 0;
-      const fixtureDirectory = options.testFixtureDirectory ?? (0, node_path_1.join)(options.fixtureRoot ?? (0, node_path_1.join)(sourceRoot, "fixtures/normalized"), spec.fixtures.pair);
-      const loaded = await (0, fixtures_1.loadFixturePair)({ directory: fixtureDirectory, spec, pairId: spec.fixtures.pair, role: "planning", synthetic });
+      const pairId = config.fixturePair ?? spec.fixtures.pair;
+      const fixtureDirectory = options.testFixtureDirectory ?? (0, node_path_1.join)(options.fixtureRoot ?? (0, node_path_1.join)(sourceRoot, "fixtures/normalized"), pairId);
+      const loaded = await (0, fixtures_1.loadFixturePair)({ directory: fixtureDirectory, spec, pairId, role: "planning", synthetic });
       const { fixture, payloads } = loaded;
       const { oldVersion, newVersion } = fixture;
       const ref = (path) => (0, node_path_1.relative)(paths.root, path);

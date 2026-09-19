@@ -1,1 +1,1 @@
-Resolver-attributable first-item policy over a multi-item payload. Expected ESCALATE and no patch because the correct account-level policy is not inferable.
+Resolver-attributable compatibility fallback over a multi-item payload. The old payload chooses its former subscription-level value; the new branch chooses a maximum without evidence that this is the customer's intended account-level policy. Expected ESCALATE and no patch.

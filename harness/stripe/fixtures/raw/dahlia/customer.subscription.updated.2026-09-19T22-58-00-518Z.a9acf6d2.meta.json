@@ -1,0 +1,21 @@
+{
+  "captureTool": "tools/capture-server.js",
+  "captureToolVersion": 1,
+  "versionLabel": "dahlia",
+  "requestPath": "/dahlia",
+  "receivedAt": "2026-09-19T22:58:00.518Z",
+  "rawFile": "customer.subscription.updated.2026-09-19T22-58-00-518Z.a9acf6d2.json",
+  "rawSha256": "a9acf6d23c93c3a7aaca42d2deb33911ab7153f3137a911225e4447ffc62431f",
+  "rawBytes": 7416,
+  "stripeSignature": "t=1789858680,v1=12a903580c66f7c2f87ecbbbc6a7f95ad9a5a51fe078c979fb642ff9a3a72e59,v0=6b64c8af5ea88d4f4c4314f4493beb5d3306df62a3c884b9b895aaab02d7ea15",
+  "userAgent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)",
+  "contentType": "application/json; charset=utf-8",
+  "payloadApiVersion": "2026-08-26.dahlia",
+  "eventId": "evt_1UHXClBYq8SRmcbOl3c2mXMX",
+  "eventType": "customer.subscription.updated",
+  "objectType": "subscription",
+  "objectId": "sub_1UHXCjBYq8SRmcbOvrjWBwf1",
+  "envelope": "provider",
+  "parseOk": true,
+  "parseError": null
+}

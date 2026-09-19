@@ -1,0 +1,21 @@
+{
+  "captureTool": "tools/capture-server.js",
+  "captureToolVersion": 1,
+  "versionLabel": "noop-new",
+  "requestPath": "/noop-new",
+  "receivedAt": "2026-09-19T23:01:14.858Z",
+  "rawFile": "customer.subscription.updated.2026-09-19T23-01-14-858Z.e3f518e0.json",
+  "rawSha256": "e3f518e0c34e652b9a0882b733c478960b91b5685a28120820b4793167f46723",
+  "rawBytes": 5823,
+  "stripeSignature": "t=1789858874,v1=066ed1b69a811335e4cc9181b61450bacc8ce1fe8b76292828e5a004c1114273,v0=52c6ff9e8f7c16c5a9fe99c5f6e12e77d1a4d24b4d4cd2974331e92fc38ebf9f",
+  "userAgent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)",
+  "contentType": "application/json; charset=utf-8",
+  "payloadApiVersion": "2026-08-26.dahlia",
+  "eventId": "evt_1UHXFuBYq8SRmcbOIfi5zNPE",
+  "eventType": "customer.subscription.updated",
+  "objectType": "subscription",
+  "objectId": "sub_1UHXFsBYq8SRmcbOpYaa0qmR",
+  "envelope": "provider",
+  "parseOk": true,
+  "parseError": null
+}

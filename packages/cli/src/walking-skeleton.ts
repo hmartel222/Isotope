@@ -98,8 +98,9 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
     return { exitCode: incomplete ? 4 : 0, report, signatures: null, diff: null, output: [`ChangeSpec: ${spec.id}`, ...graphSummary(bdg), `Verdict: ${verdict.verdict}`, `Reason: ${verdict.results[0]!.reason}`, `Artifacts: ${paths.root}`].join('\n') };
   }
   const synthetic = options.testFixtureDirectory !== undefined;
-  const fixtureDirectory = options.testFixtureDirectory ?? join(options.fixtureRoot ?? join(sourceRoot, 'fixtures/normalized'), spec.fixtures.pair);
-  const loaded = await loadFixturePair({ directory: fixtureDirectory, spec, pairId: spec.fixtures.pair, role: 'planning', synthetic });
+  const pairId = config.fixturePair ?? spec.fixtures.pair;
+  const fixtureDirectory = options.testFixtureDirectory ?? join(options.fixtureRoot ?? join(sourceRoot, 'fixtures/normalized'), pairId);
+  const loaded = await loadFixturePair({ directory: fixtureDirectory, spec, pairId, role: 'planning', synthetic });
   const { fixture, payloads } = loaded;
   const { oldVersion, newVersion } = fixture;
   const ref = (path: string) => relative(paths.root, path);
