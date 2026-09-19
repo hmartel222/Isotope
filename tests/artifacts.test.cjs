@@ -53,6 +53,7 @@ test('paths cover the chain and keep signature versions, pairs, runs and reasoni
   assert.equal(p.proposal('r1'), '/repo/.isotope/repair/proposals/r1.json');
   assert.equal(p.verification('r1'), '/repo/.isotope/repair/verification/r1.json');
   assert.equal(p.verifiedRepair, '/repo/.isotope/repair/verified-repair.json');
+  assert.equal(p.cache('abc'), '/repo/.isotope/cache/abc.json');
   const paths = new Set();
   for (const codeVersion of ['original', 'patched:r1']) for (const fixturePair of ['planning', 'heldout']) for (const payloadVersion of ['old', 'new']) for (const runIndex of [0, 1]) paths.add(p.signature({ entryPointId: 'ep', codeVersion, fixturePair, payloadVersion, runIndex }));
   assert.equal(paths.size, 16);

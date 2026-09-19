@@ -29,13 +29,14 @@ export function artifactPaths(projectRoot: string) {
       if (!Number.isSafeInteger(vote) || vote < 0) throw new Error('vote must be a nonnegative safe integer');
       return at('reasoning', `${component(ep)}.${component(divergence)}.${vote}.json`);
     },
+    cache: (key: string) => at('cache', `${component(key)}.json`),
     comparison: (ep: string, code: CodeVersion, pair: string, kind: 'baseline' | 'secondary' | 'original') => at('diffs', component(code), component(pair), `${component(ep)}.${component(kind)}.json`),
     repairPacket: (id: string) => at('repair', 'packets', `${component(id)}.json`),
     candidate: (id: string) => at('repair', 'candidates', `${component(id)}.json`),
     proposal: (id: string) => at('repair', 'proposals', `${component(id)}.json`),
     verification: (id: string) => at('repair', 'verification', `${component(id)}.json`),
     verifiedRepair: at('repair', 'verified-repair.json'),
-    directories: ['signatures', 'diffs', 'evidence-packets', 'reasoning', 'repair/packets', 'repair/candidates', 'repair/proposals', 'repair/verification'].map(dir => at(dir)),
+    directories: ['signatures', 'diffs', 'evidence-packets', 'reasoning', 'cache', 'repair/packets', 'repair/candidates', 'repair/proposals', 'repair/verification'].map(dir => at(dir)),
   };
 }
 export type ArtifactPaths = ReturnType<typeof artifactPaths>;

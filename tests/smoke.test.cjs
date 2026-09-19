@@ -9,11 +9,13 @@ const packages = ['core','changespec','resolver-ts','resolver-py','harness-ts','
 for (const name of packages) test(`package ${name} imports and stubs never fake success`, () => {
   const api = require(`@isotope/${name}`);
   assert.ok(Object.keys(api).length);
-  if (!['core', 'cli', 'harness-ts', 'differ', 'changespec', 'resolver-ts', 'repair', 'verifier', 'reporter'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
+  if (!['core', 'cli', 'harness-ts', 'differ', 'changespec', 'resolver-ts', 'repair', 'verifier', 'reporter', 'reasoner'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
 });
-test('aggregate verdict resolution remains explicitly unimplemented', () => {
+test('aggregate verdict resolution implements FAIL > FAIL_REASONED > ESCALATE > INDETERMINATE > PASS_REASONED > PASS > SKIP', () => {
   const core = require('@isotope/core');
-  assert.throws(() => core.resolveAggregateVerdict([]), NotImplementedStageError);
+  const r = verdict => ({ entryPointId: 'ep', verdict, provenance: 'mechanical', reason: 't', divergenceIds: [], reasoningRefs: [], evidenceRefs: [], suspectedInjection: false });
+  assert.equal(core.resolveAggregateVerdict([r('PASS_REASONED'), r('FAIL')]).verdict, 'FAIL');
+  assert.equal(core.resolveAggregateVerdict([]).verdict, 'SKIP');
 });
 test('package graph is acyclic; CLI orchestrates while subsystems depend only on core', () => {
   const manifests = Object.fromEntries(packages.map(p => [p, JSON.parse(readFileSync(path.join(root, 'packages',p,'package.json'),'utf8'))]));
@@ -24,7 +26,7 @@ test('package graph is acyclic; CLI orchestrates while subsystems depend only on
     for (const dependency of Object.keys(manifests[p].dependencies || {})) if (dependency.startsWith('@isotope/')) {
       assert.notEqual(p, 'core');
       if (!['cli','verifier'].includes(p)) assert.equal(dependency, '@isotope/core');
-      if (p === 'verifier') assert.ok(['@isotope/core','@isotope/differ','@isotope/harness-ts','@isotope/resolver-ts'].includes(dependency));
+      if (p === 'verifier') assert.ok(['@isotope/core','@isotope/differ','@isotope/harness-ts','@isotope/resolver-ts','@isotope/reasoner'].includes(dependency));
       visit(dependency.slice(9));
     }
     active.delete(p); done.add(p);

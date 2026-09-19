@@ -15,9 +15,17 @@ export interface HarnessResult { old: [Signature, Signature]; new: [Signature, S
 /** Caller-evaluated ambiguity facts, scoped to behavioral JSON Pointer subtrees. No expressions. */
 export interface ChangeContext { ambiguitySatisfied: boolean; affectedPointers: string[] }
 export interface DiffInput { old: Signature; new: Signature; bdg?: BDG; selfComparisons: { old: [Signature, Signature]; new: [Signature, Signature] }; changeContext?: ChangeContext }
-export interface ReasoningInput { packet: EvidencePacket; config: IsotopeConfig['reasoner'] }
-export interface ReasoningRun { status: 'completed' | 'unavailable' | 'errored' | 'disagreed' | 'abstained'; results: ReasoningResult[]; packetRef: string; responseRefs: string[]; error?: string }
+export interface ReasoningInput { packet: EvidencePacket; config: IsotopeConfig['reasoner']; modelId?: string; artifactRoot?: string; entryPointId: string; remainingInvocations?: number }
+export interface ReasoningRun {
+  status: 'completed' | 'unavailable' | 'errored' | 'disagreed' | 'abstained';
+  results: ReasoningResult[]; packetRef: string; responseRefs: string[]; error?: string;
+  packetHash?: string; promptVersion?: number; model?: string; cacheHit?: boolean; apiAttempts?: number; primaryDivergenceId?: string;
+}
 export interface VerdictInput { entryPoint: EntryPoint; bdg: BDG; diff: DiffReport; reasoning: ReasoningRun | null; config: IsotopeConfig }
+export interface ReasoningEligibilityInput {
+  diff: DiffReport; bdg: BDG; entryPoint: EntryPoint; config: IsotopeConfig; credentialsAvailable: boolean; remainingInvocations: number;
+}
+export interface ReasoningEligibility { eligible: boolean; reason: string; primaryDivergenceId: string | null; divergenceIds: string[] }
 export interface RepairEligibilityInput { verdict: VerdictResult; bdg: BDG; selectedSpecs: SelectedSpecs; config: IsotopeConfig; fixture: FixturePair; newPayload: JsonValue }
 export interface RepairEligibility { eligible: boolean; route: 'deterministic' | 'model' | 'none'; reason: string; siteIds: string[]; changeIndex: number | null }
 export interface RepairPlanInput { packet: RepairPacket; config: IsotopeConfig['repair'] }
@@ -49,5 +57,4 @@ export type DraftSpec = (input: DraftSpecInput) => Promise<ChangeSpec>;
 export type NormalizeFixtures = (input: NormalizeFixturesInput) => Promise<{ pairId: string; metadata: JsonValue }>;
 
 // L6 belongs here per v3 §2.5; placeholders contain no resolution/business logic.
-export { resolveVerdict, hasMechanicalFailure, needsSemanticReasoning } from './verdict';
-export const resolveAggregateVerdict: ResolveAggregateVerdict = (_input) => { throw new NotImplementedStageError('L6 aggregate verdict resolver'); };
+export { resolveVerdict, resolveAggregateVerdict, hasMechanicalFailure, needsSemanticReasoning, VERDICT_PRECEDENCE } from './verdict';
