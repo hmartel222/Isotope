@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { access, cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -22,6 +22,12 @@ await rm(out, { recursive: true, force: true }); await mkdir(out, { recursive: t
 await run(['action/src/index.ts', '--bundle', '--platform=node', '--target=node20', '--format=cjs', '--outfile=action/dist/index.js', '--log-level=warning']);
 await run(['action/src/context.ts', '--bundle', '--platform=node', '--target=node20', '--format=cjs', '--outfile=action/dist/context.cjs', '--log-level=warning']);
 
+const registry = resolve(root, 'action/registry');
+await rm(registry, { recursive: true, force: true });
+await mkdir(registry, { recursive: true });
+await cp(resolve(root, 'specs'), resolve(registry, 'specs'), { recursive: true });
+await cp(resolve(root, 'fixtures/normalized'), resolve(registry, 'fixtures'), { recursive: true });
+
 // Keep the committed child runtime synchronized and portable across the macOS
 // development host and GitHub's Linux runner.
 const archive = resolve(root, 'action/vendor/vitest-runtime.tgz');
@@ -33,6 +39,7 @@ try {
   await cp(resolve(root, 'packages/harness-ts/block-net.cjs'), resolve(staging, 'block-net.cjs'), { force: true });
   for (const platform of ['darwin-arm64', 'linux-x64']) {
     const source = resolve(root, `node_modules/.pnpm/@esbuild+${platform}@0.28.2/node_modules/@esbuild/${platform}`);
+    try { await access(source); } catch { continue; }
     await cp(source, resolve(staging, `node_modules/@esbuild/${platform}`), { recursive: true, force: true });
   }
   await command('tar', ['-czf', archive, '.'], staging);

@@ -320330,10 +320330,15 @@ var require_verify_repository = __commonJS({
     var changespec_1 = require_dist3();
     var core_1 = require_dist();
     var walking_skeleton_1 = require_walking_skeleton();
+    function resolveOutsideOrInside(repositoryRoot, candidate, label) {
+      if (!candidate.trim())
+        throw new Error(`${label} is required`);
+      return (0, node_path_1.isAbsolute)(candidate) ? candidate : (0, node_path_1.resolve)(repositoryRoot, candidate);
+    }
     async function verifyRepository2(options) {
       const repositoryRoot = await (0, promises_1.realpath)((0, node_path_1.resolve)(options.repositoryRoot));
       const configPath = await (0, promises_1.realpath)((0, node_path_1.resolve)(repositoryRoot, options.configPath));
-      const specsPath = await (0, promises_1.realpath)((0, node_path_1.resolve)(repositoryRoot, options.specsPath));
+      const specsPath = await (0, promises_1.realpath)(resolveOutsideOrInside(repositoryRoot, options.specsPath, "specsPath"));
       const selection = await (0, changespec_1.selectChangeSpecs)({ repositoryRoot, baseRef: options.baseRef, headRef: options.headRef, specsRoot: specsPath });
       if (options.specId) {
         const specs = selection.selected.specs.filter((spec) => spec.id === options.specId);
@@ -320357,12 +320362,13 @@ var require_verify_repository = __commonJS({
         return { exitCode: 0, output: `${selectionOutput}
 Verdict: SKIP`, report, selection, artifactRoot: paths.root, execution: null };
       }
+      const fixtureRoot = options.fixturesPath?.trim() ? resolveOutsideOrInside(repositoryRoot, options.fixturesPath, "fixturesPath") : (0, node_path_1.resolve)(repositoryRoot, "fixtures/normalized");
       const execution = await (0, walking_skeleton_1.verifyWalkingSkeleton)({
         configPath,
         disableReasoner: options.reasoner === "off",
         disableRepair: options.repair === "off",
         selectedSpecs: selection.selected,
-        fixtureRoot: (0, node_path_1.resolve)(options.fixturesPath ?? (0, node_path_1.resolve)(repositoryRoot, "fixtures/normalized")),
+        fixtureRoot,
         ...options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}
       });
       return { exitCode: execution.exitCode, output: `${selectionOutput}
@@ -321290,7 +321296,9 @@ async function loadReportEvidence(rootInput) {
 
 // action/src/index.ts
 function input(name, fallback = "") {
-  return (process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] ?? fallback).trim();
+  const raw = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`];
+  const value = raw === void 0 ? "" : String(raw).trim();
+  return value || fallback;
 }
 async function output(name, value) {
   const path = process.env.GITHUB_OUTPUT;
@@ -321336,11 +321344,15 @@ async function main() {
     const internalFixture = process.env.ISOTOPE_ACTION_TEST_MODE === "1" ? process.env.ISOTOPE_INTERNAL_TEST_FIXTURES : void 0;
     const key = input("gemini-api-key");
     if (key) process.env.GEMINI_API_KEY = key;
+    const specsPath = input("specs-path", (0, import_node_path2.resolve)(__dirname, "../registry/specs"));
+    const fixturesPath = input("fixtures-path", (0, import_node_path2.resolve)(__dirname, "../registry/fixtures"));
+    console.log(`ChangeSpec registry: ${specsPath}`);
+    console.log(`Fixture registry: ${fixturesPath}`);
     const result = await (0, import_cli.verifyRepository)({
       repositoryRoot,
       configPath: input("config", "isotope.yml"),
-      specsPath: input("specs-path", (0, import_node_path2.resolve)(__dirname, "../../specs")),
-      fixturesPath: input("fixtures-path", (0, import_node_path2.resolve)(__dirname, "../../fixtures/normalized")),
+      specsPath,
+      fixturesPath,
       baseRef: context.baseSha,
       headRef: context.headSha,
       reasoner,

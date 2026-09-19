@@ -1,0 +1,19 @@
+id: contoso.generate.score-move
+provider: contoso
+title: Generated score moved into result
+source: https://example.invalid/contoso/generate-score
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "3.4.0", to: "4.0.0" }
+semantics: Controlled invented-provider specimen for proving provider-neutral Python analysis and execution.
+detection:
+  ecosystems:
+    pypi: { packages: [contoso-ai], breaking_from: "4.0.0" }
+  taint_roots:
+    - { kind: call, language: py, pattern: "$CONTOSO.generate($$$)" }
+changes:
+  - object: generation
+    removed_path: legacy_score
+    replacement: { path: result.score, cardinality: one }
+    codemod: { kind: unsupported }
+fixtures: { pair: contoso-generate }

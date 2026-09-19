@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "pair": "invoice-paid",
+  "role": "auxiliary",
+  "envelope": "provider",
+  "captureMethod": "B",
+  "aliasNamespace": "F",
+  "normalizer": {
+    "tool": "tools/normalize-fixtures.js",
+    "version": 1,
+    "normalizedAt": "2026-09-19T23:03:29.063Z"
+  },
+  "operations": [
+    "record api/version metadata",
+    "replace provider identifiers with pair-scoped deterministic aliases",
+    "emit normalized JSON preserving key order, array order and all scalars",
+    "record sha256 of each raw input"
+  ],
+  "old": {
+    "apiVersion": "2025-02-24.acacia",
+    "eventType": "invoice.payment_succeeded",
+    "objectType": "invoice",
+    "rawPath": "fixtures/raw/acacia/invoice.payment_succeeded.2026-09-19T23-00-24-563Z.5c07384d.json",
+    "rawSha256": "5c07384dd246cb01dbe072d49af7b1c4e4cc2f113fa0978e2735e93de9d3c970",
+    "rawBytes": 11871
+  },
+  "new": {
+    "apiVersion": "2026-08-26.dahlia",
+    "eventType": "invoice.payment_succeeded",
+    "objectType": "invoice",
+    "rawPath": "fixtures/raw/dahlia/invoice.payment_succeeded.2026-09-19T23-00-24-567Z.6f05fc25.json",
+    "rawSha256": "6f05fc25788902b06c164dd06d8c3aeb512d6902520ae09077c2c7b84b6f6253",
+    "rawBytes": 6940
+  },
+  "observed": {
+    "old": {
+      "subscriptionLevelPeriodEndPresent": false,
+      "subscriptionLevelPeriodEnd": null,
+      "itemCount": null,
+      "itemLevelPeriodEnds": null
+    },
+    "new": {
+      "subscriptionLevelPeriodEndPresent": false,
+      "subscriptionLevelPeriodEnd": null,
+      "itemCount": null,
+      "itemLevelPeriodEnds": null
+    }
+  },
+  "aliases": {
+    "evt_1UHXF6BYq8SRmcbOYjPgy7DR": "evt_F1",
+    "in_1UHXDNBYq8SRmcbOpgVBVZ3Q": "in_F1",
+    "cus_VI7S9IJMf6f2SO": "cus_F1",
+    "acct_1UGrBfBYq8SRmcbO": "acct_F1",
+    "il_1UHXDNBYq8SRmcbOnNwHaW5e": "il_F1",
+    "sub_1UHXDNBYq8SRmcbOW7w0H80w": "sub_F1",
+    "si_VI7SL57ueQ54ID": "si_F1",
+    "price_details": "price_F1",
+    "price_1UHXCiBYq8SRmcbOWjN7C7VQ": "price_F2",
+    "prod_VI7RqRn2P8gLLO": "prod_F1",
+    "tax_behavior": "tax_F1",
+    "tax_amounts": "tax_F2",
+    "tax_rates": "tax_F3",
+    "il_1UHXDOBYq8SRmcbOvDSpqRrV": "il_F2",
+    "si_VI7SIBejpdRkMj": "si_F2",
+    "price_1UHXCjBYq8SRmcbOYpTNvuui": "price_F3",
+    "ch_3UHXDOBYq8SRmcbO1lwmj3QA": "ch_F1",
+    "pi_3UHXDOBYq8SRmcbO1Y53KN7l": "pi_F1",
+    "req_eVQGXe9IHpHQwu": "req_F1"
+  }
+}
