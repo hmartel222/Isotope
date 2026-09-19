@@ -1,14 +1,16 @@
 import { Command, InvalidArgumentError } from 'commander';
 import { NotImplementedStageError } from '@isotope/core';
 import { verifyWalkingSkeleton } from './walking-skeleton';
+import { scanProject } from './scan';
 export { verifyWalkingSkeleton } from './walking-skeleton';
+export { scanProject } from './scan';
 
 function pending(stage: string): never { throw new NotImplementedStageError(stage); }
 export function createProgram(): Command {
-  const program = new Command().exitOverride().name('isotope').description('Isotope — Phase 2 walking skeleton').version('0.1.0');
+  const program = new Command().exitOverride().name('isotope').description('Isotope — provider dataflow and behavioral verification').version('0.1.0');
   program.option('--config <path>', 'configuration file', 'isotope.yml');
-  program.command('scan').description('L2: inspect the BDG and affected sites (stub)').action(() => pending('scan'));
-  program.command('verify').description('Verify the explicitly configured Phase 2 webhook').option('--no-reasoner', 'mechanical verification only').option('--no-repair', 'stop after detection and verdict').action(async (options: { reasoner: boolean; repair: boolean }) => {
+  program.command('scan').description('L2: analyze configured entry points and write the BDG').action(async () => console.log(await scanProject(program.opts<{ config: string }>().config)));
+  program.command('verify').description('Analyze and verify explicitly configured entry points').option('--no-reasoner', 'mechanical verification only').option('--no-repair', 'stop after detection and verdict').action(async (options: { reasoner: boolean; repair: boolean }) => {
     const testFixtureDirectory = process.env.ISOTOPE_TEST_FIXTURES;
     const result = await verifyWalkingSkeleton({ configPath: program.opts<{ config: string }>().config, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
     console.log(result.output);
@@ -27,6 +29,6 @@ export function createProgram(): Command {
   program.command('fixtures').description('Provider fixture management (stub)').command('normalize').option('--raw <path>', 'raw fixture directory').option('--out <path>', 'normalized fixture directory').action(() => pending('fixtures normalize'));
   program.command('matrix').description('Run the acceptance matrix (stub)').action(() => pending('matrix'));
   program.command('accuracy').description('Run the historical benchmark (stub)').action(() => pending('accuracy'));
-  program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nverify executes the explicit Phase 2 specimen. Other commands remain stubs; no AST, reasoner, or repair runs.');
+  program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. ChangeSpec selection remains explicit; reasoner and repair remain unimplemented.');
   return program;
 }

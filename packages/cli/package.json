@@ -20,7 +20,8 @@
     "yaml": "2.7.1",
     "@isotope/changespec": "workspace:*",
     "@isotope/harness-ts": "workspace:*",
-    "@isotope/differ": "workspace:*"
+    "@isotope/differ": "workspace:*",
+    "@isotope/resolver-ts": "workspace:*"
   },
   "bin": {
     "isotope": "bin/isotope.cjs"

@@ -20,6 +20,9 @@
     },
     {
       "path": "../differ"
+    },
+    {
+      "path": "../resolver-ts"
     }
   ]
 }

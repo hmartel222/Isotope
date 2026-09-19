@@ -1,9 +1,8 @@
-import { readFile, realpath } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
-import { parse } from 'yaml';
+import { readFile } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
 import { artifactPaths, readJsonArtifact, removeJsonArtifact, writeJsonArtifact, validateContract, resolveVerdict,
-  type DiffReport, type FixturePair, type HarnessResult, type IsotopeReport, type VerdictResult } from '@isotope/core';
-import { loadWalkingSkeletonSpec } from '@isotope/changespec';
+  type DiffReport, type EntryPoint, type FixturePair, type HarnessResult, type IsotopeReport, type VerdictResult } from '@isotope/core';
+import { analyzeConfiguredProject, graphSummary } from './scan';
 import { createTsHarnessPlan, runTsHarness, HarnessExecutionError } from '@isotope/harness-ts';
 import { checkDeterminism, diffSignatures } from '@isotope/differ';
 
@@ -32,22 +31,52 @@ function fixtureVersion(value: unknown, label: string): string {
   return event.api_version;
 }
 
-/** PHASE 2: spec selection, explicit scope and BDG are static; execution/verdict are real. */
+/** Compatibility API name; Phase 5 replaces the static graph with real L2. */
 export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Promise<WalkingSkeletonResult> {
-  const configPath = await realpath(resolve(options.configPath));
-  const projectRoot = dirname(configPath);
+  const analysis = await analyzeConfiguredProject(options.configPath);
+  const results: WalkingSkeletonResult[] = [];
+  for (const entry of analysis.bdg.entryPoints) {
+    const artifactProjectRoot = analysis.bdg.entryPoints.length === 1 ? options.artifactProjectRoot
+      : join(options.artifactProjectRoot ?? analysis.projectRoot, '.isotope/entries', entry.id);
+    results.push(await verifyEntry({ ...options, ...(artifactProjectRoot ? { artifactProjectRoot } : {}) }, analysis, entry));
+  }
+  if (results.length === 1) return results[0]!;
+  const paths = artifactPaths(options.artifactProjectRoot ?? analysis.projectRoot);
+  await removeJsonArtifact(paths.root, paths.diffReport);
+  const rank = ['SKIP','PASS','PASS_REASONED','INDETERMINATE','ESCALATE','FAIL_REASONED','FAIL'];
+  const verdicts = results.flatMap(r => r.report.verdict.results);
+  const worst = [...verdicts].sort((a,b) => rank.indexOf(b.verdict) - rank.indexOf(a.verdict))[0]!;
+  const verdict = validateContract('VerdictReport', { schemaVersion: 1, verdict: worst.verdict, results: verdicts });
+  const refs = (key: 'signatureRefs' | 'diffReportRefs') => results.flatMap((r,i) => r.report[key].map(ref => `entries/${analysis.bdg.entryPoints[i]!.id}/.isotope/${ref}`));
+  const report = validateContract('IsotopeReport', { ...results[0]!.report, verdict, bdgRef: 'bdg.json', signatureRefs: refs('signatureRefs'), diffReportRefs: refs('diffReportRefs') });
+  await writeJsonArtifact(paths.root, paths.selectedSpecs, 'SelectedSpecs', analysis.selected);
+  await writeJsonArtifact(paths.root, paths.bdg, 'BDG', analysis.bdg);
+  await writeJsonArtifact(paths.root, paths.verdict, 'VerdictReport', verdict);
+  await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
+  return { exitCode: worst.verdict === 'FAIL' ? 1 : worst.verdict === 'ESCALATE' ? 3 : worst.verdict === 'INDETERMINATE' ? 4 : 0, report, signatures: null, diff: null,
+    output: [...results.map(r => r.output), `Aggregate verdict: ${worst.verdict}`].join('\n') };
+}
+
+async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<ReturnType<typeof analyzeConfiguredProject>>, entryPoint: EntryPoint): Promise<WalkingSkeletonResult> {
+  const { projectRoot, config, selected, bdg } = analysis;
   const sourceRoot = resolve(__dirname, '../../..');
-  const config = validateContract('IsotopeConfig', parse(await readFile(configPath, 'utf8')) as unknown);
   if (options.disableReasoner) config.reasoner.mode = 'off';
   if (options.disableRepair) config.repair.mode = 'off';
-  if (config.language !== 'ts' || config.entryPoints.length !== 1) throw new Error('Phase 2 verify requires exactly one explicit TypeScript entry point');
-  if (config.reasoner.mode !== 'off' || config.repair.mode !== 'off') throw new Error('Phase 2 verify requires reasoner.mode: off and repair.mode: off; neither stage is implemented');
-  const selected = await loadWalkingSkeletonSpec(join(sourceRoot, 'specs'));
+  if (config.reasoner.mode !== 'off' || config.repair.mode !== 'off') throw new Error('Phase 5 verify requires reasoner.mode: off and repair.mode: off; neither stage is implemented');
   const spec = selected.specs[0]!;
-  const bdg = validateContract('BDG', JSON.parse(await readFile(join(projectRoot, 'bdg.stub.json'), 'utf8')) as unknown);
-  const entryPoint = bdg.entryPoints[0]; const configured = config.entryPoints[0]!;
-  if (bdg.entryPoints.length !== 1 || !entryPoint || entryPoint.file !== configured.file || entryPoint.export !== configured.export || entryPoint.kind !== configured.kind || entryPoint.kind !== 'express_route' || entryPoint.language !== 'ts') throw new Error('Static Phase 2 BDG must match the single configured express_route entry point');
-  if (!bdg.affectedSites.length || bdg.affectedSites.some(site => site.specId !== spec.id || site.entryPointId !== entryPoint.id)) throw new Error('Static BDG affected sites must reference the selected spec and entry point');
+  const paths = artifactPaths(options.artifactProjectRoot ?? projectRoot);
+  const roots = bdg.nodes.filter(n => n.entryPointId === entryPoint.id && n.kind === 'taint_root' && n.provenance.confidence !== 'low');
+  if (!roots.length) {
+    const incomplete = bdg.skipped.some(d => /^(file_limit|analysis_budget|source_not_found|ignored_or_outside|unsupported_|unresolved_or_ignored|reexport_limit|local_call_limit|invalid_tsconfig|loop_bound)/.test(d.reason));
+    const verdict = validateContract('VerdictReport', { schemaVersion: 1, verdict: incomplete ? 'INDETERMINATE' : 'SKIP', results: [{ entryPointId: entryPoint.id, verdict: incomplete ? 'INDETERMINATE' : 'SKIP', provenance: 'mechanical', reason: incomplete ? 'incomplete_static_analysis' : 'no_taint_root', divergenceIds: [], reasoningRefs: [], evidenceRefs: [], suspectedInjection: false }] });
+    const report = validateContract('IsotopeReport', { schemaVersion: 1, selectedSpecs: selected, bdgRef: 'bdg.json', signatureRefs: [], diffReportRefs: [], evidencePacketRefs: [], reasoningRefs: [], verdict, repairPacketRefs: [], candidateRefs: [], repairVerifications: [], verifiedRepairs: [], audit: [] });
+    await removeJsonArtifact(paths.root, paths.diffReport);
+    await writeJsonArtifact(paths.root, paths.selectedSpecs, 'SelectedSpecs', selected);
+    await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
+    await writeJsonArtifact(paths.root, paths.verdict, 'VerdictReport', verdict);
+    await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
+    return { exitCode: incomplete ? 4 : 0, report, signatures: null, diff: null, output: [`ChangeSpec: ${spec.id}`, ...graphSummary(bdg), `Verdict: ${verdict.verdict}`, `Reason: ${verdict.results[0]!.reason}`, `Artifacts: ${paths.root}`].join('\n') };
+  }
   const synthetic = options.testFixtureDirectory !== undefined;
   const fixtureDirectory = options.testFixtureDirectory ?? join(sourceRoot, 'fixtures/normalized', spec.fixtures.pair);
   const oldPath = resolve(fixtureDirectory, 'old.json'); const newPath = resolve(fixtureDirectory, 'new.json');
@@ -66,7 +95,6 @@ export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Pr
   const oldVersion = fixtureVersion(payloads[0], 'old fixture'); const newVersion = fixtureVersion(payloads[1], 'new fixture');
   if (oldVersion === newVersion) throw new Error('Fixture envelopes need distinct API-version labels to preserve both execution artifacts');
   const fixture: FixturePair = { id: synthetic ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair, role: 'planning', oldPath, newPath, oldVersion, newVersion };
-  const paths = artifactPaths(options.artifactProjectRoot ?? projectRoot);
   const ref = (path: string) => relative(paths.root, path);
   // Clear only this invocation's known outputs so a failed re-run cannot leave stale evidence.
   for (const target of [paths.diffReport, paths.verdict, paths.report,
@@ -77,7 +105,7 @@ export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Pr
   await writeJsonArtifact(paths.root, paths.selectedSpecs, 'SelectedSpecs', selected);
   await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
   const log = ['Isotope verify', `ChangeSpec: ${spec.id}`, `Entry point: ${join(projectRoot, entryPoint.file)}#${entryPoint.export}`,
-    'Scope: explicit Phase 2 entry point', 'BDG: static walking-skeleton artifact', 'AST resolver: not implemented in this phase',
+    'Scope: explicit configured entry point', ...graphSummary(bdg),
     synthetic ? 'Fixtures: SYNTHETIC TEST-ONLY — not Stripe-produced; not product acceptance' : 'Fixtures: supplied provider fixture pair',
     `Fixture pair: ${fixture.id}`, `Old: ${oldVersion}`, `New: ${newVersion}`, 'Semantic reasoner: not invoked', 'Repair: not invoked'];
   let signatures: HarnessResult | null = null;
