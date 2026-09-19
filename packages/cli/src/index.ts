@@ -6,6 +6,7 @@ import { verifyRepository } from './verify-repository';
 import { resolve } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { runDetectionMatrix } from './matrix';
+import { repairExistingFailure } from './repair-flow';
 export { verifyWalkingSkeleton } from './walking-skeleton';
 export { scanProject } from './scan';
 export { runDetectionMatrix } from './matrix';
@@ -23,16 +24,18 @@ export function createProgram(): Command {
     if (options.base && options.head) {
       const configAbsolute = await realpath(resolve(configPath)); const root = resolve(configAbsolute, '..');
       const result = await verifyRepository({ repositoryRoot: root, configPath: configAbsolute, specsPath: resolve(__dirname, '../../../specs'),
-        baseRef: options.base, headRef: options.head, reasoner: 'off', repair: 'off', ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
+        baseRef: options.base, headRef: options.head, reasoner: 'off', repair: options.repair === false ? 'off' : 'on', ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
       console.log(result.output); process.exitCode = result.exitCode; return;
     }
     const result = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
     console.log(result.output);
     process.exitCode = result.exitCode;
   });
-  program.command('repair [entry-point]').description('Propose a repair or inspect an existing repair (stub)').option('--explain <repairId>', 'explain an existing repair').action((entry: string | undefined, options: { explain?: string }) => {
+  program.command('repair [entry-point]').description('Verify a deterministic repair for an existing mechanical FAIL').option('--explain <repairId>', 'explain an existing repair').action(async (entry: string | undefined, options: { explain?: string }) => {
     if ((!entry && !options.explain) || (entry && options.explain)) throw new InvalidArgumentError('provide either an entry-point or --explain <repairId>');
-    pending('repair');
+    if (options.explain) pending('repair --explain');
+    const result = await repairExistingFailure({ configPath: program.opts<{ config: string }>().config, entryPoint: entry!, ...(process.env.ISOTOPE_TEST_FIXTURES ? { testFixtureDirectory: process.env.ISOTOPE_TEST_FIXTURES } : {}) });
+    console.log(result.output); process.exitCode = result.exitCode;
   });
   program.command('explain <entry-point>').description('Inspect signatures, diff, and reasoning (stub)').action(() => pending('explain'));
   program.command('fleet').description('Run batch analysis and produce a static dashboard (stub)').option('--repos <path>', 'repository manifest').option('--spec <id>', 'ChangeSpec identifier').option('--out <path>', 'dashboard file').option('--reason', 'enable reasoning').option('--repair', 'enable repair').action(() => pending('fleet'));
@@ -50,6 +53,6 @@ export function createProgram(): Command {
       console.log(result.output); process.exitCode = result.exitCode;
     });
   program.command('accuracy').description('Run the historical benchmark (stub)').action(() => pending('accuracy'));
-  program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. ChangeSpec selection remains explicit; reasoner and repair remain unimplemented.');
+  program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. Deterministic repairs are isolated and independently verified; semantic reasoning and model repair remain unavailable.');
   return program;
 }

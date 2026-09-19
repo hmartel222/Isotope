@@ -21,7 +21,9 @@
     "@isotope/changespec": "workspace:*",
     "@isotope/harness-ts": "workspace:*",
     "@isotope/differ": "workspace:*",
-    "@isotope/resolver-ts": "workspace:*"
+    "@isotope/resolver-ts": "workspace:*",
+    "@isotope/repair": "workspace:*",
+    "@isotope/verifier": "workspace:*"
   },
   "bin": {
     "isotope": "bin/isotope.cjs"

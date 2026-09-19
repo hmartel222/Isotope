@@ -5,6 +5,7 @@ import { artifactPaths, readJsonArtifact, removeJsonArtifact, writeJsonArtifact,
 import { analyzeConfiguredProject, graphSummary } from './scan';
 import { createTsHarnessPlan, runTsHarness, HarnessExecutionError } from '@isotope/harness-ts';
 import { checkDeterminism, diffSignatures } from '@isotope/differ';
+import { attemptDeterministicRepair } from './repair-flow';
 
 export interface WalkingSkeletonOptions {
   configPath: string;
@@ -18,7 +19,7 @@ export interface WalkingSkeletonOptions {
   selectedSpecs?: SelectedSpecs;
 }
 export interface WalkingSkeletonResult {
-  exitCode: 0 | 1 | 3 | 4; output: string; report: IsotopeReport;
+  exitCode: 0 | 1 | 3 | 4 | 5; output: string; report: IsotopeReport;
   signatures: HarnessResult | null; diff: DiffReport | null;
 }
 function asObject(value: unknown, label: string): Record<string, unknown> {
@@ -75,7 +76,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
   const sourceRoot = resolve(__dirname, '../../..');
   if (options.disableReasoner) config.reasoner.mode = 'off';
   if (options.disableRepair) config.repair.mode = 'off';
-  if (config.reasoner.mode !== 'off' || config.repair.mode !== 'off') throw new Error('Phase 5 verify requires reasoner.mode: off and repair.mode: off; neither stage is implemented');
+  if (config.reasoner.mode !== 'off') throw new Error('Semantic reasoner is unavailable in the current build');
   const spec = selected.specs[0]!;
   const paths = artifactPaths(options.artifactProjectRoot ?? projectRoot);
   const roots = bdg.nodes.filter(n => n.entryPointId === entryPoint.id && n.kind === 'taint_root' && n.provenance.confidence !== 'low');
@@ -120,7 +121,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
   const log = ['Isotope verify', `ChangeSpec: ${spec.id}`, `Entry point: ${join(projectRoot, entryPoint.file)}#${entryPoint.export}`,
     'Scope: explicit configured entry point', ...graphSummary(bdg),
     synthetic ? 'Fixtures: SYNTHETIC TEST-ONLY — not Stripe-produced; not product acceptance' : 'Fixtures: supplied provider fixture pair',
-    `Fixture pair: ${fixture.id}`, `Old: ${oldVersion}`, `New: ${newVersion}`, 'Semantic reasoner: not invoked', 'Repair: not invoked'];
+    `Fixture pair: ${fixture.id}`, `Old: ${oldVersion}`, `New: ${newVersion}`, 'Semantic reasoner: not invoked'];
   let signatures: HarnessResult | null = null;
   let diff: DiffReport | null = null;
   let result: VerdictResult;
@@ -162,13 +163,28 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
   }
   const verdict = validateContract('VerdictReport', { schemaVersion: 1, verdict: result.verdict, results: [result] });
   await writeJsonArtifact(paths.root, paths.verdict, 'VerdictReport', verdict);
-  const report = validateContract('IsotopeReport', { schemaVersion: 1, selectedSpecs: selected, bdgRef: ref(paths.bdg), signatureRefs,
+  let report = validateContract('IsotopeReport', { schemaVersion: 1, selectedSpecs: selected, bdgRef: ref(paths.bdg), signatureRefs,
     diffReportRefs: diff ? [ref(paths.diffReport)] : [], evidencePacketRefs: [], reasoningRefs: [], verdict,
     repairPacketRefs: [], candidateRefs: [], repairVerifications: [], verifiedRepairs: [], audit: [] });
   await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
   // Read the final artifact through the same public boundary used by later stages.
   await readJsonArtifact(paths.root, paths.report, 'IsotopeReport');
-  log.push(`Verdict: ${result.verdict}`, `Reason: ${result.reason}`, `Artifacts: ${paths.root}`);
-  const exitCode = result.verdict === 'PASS' ? 0 : result.verdict === 'FAIL' ? 1 : result.verdict === 'ESCALATE' ? 3 : 4;
+  log.push(`Verdict: ${result.verdict}`, `Reason: ${result.reason}`);
+  let verified = false;
+  if (result.verdict === 'FAIL' && config.repair.mode === 'on' && signatures && diff) {
+    const repair = await attemptDeterministicRepair({ projectRoot, artifactProjectRoot: options.artifactProjectRoot ?? projectRoot,
+      config, selected, bdg, entryPoint, originalVerdict: result,
+      planning: { fixture, original: signatures, newPayload: payloads[1] as import('@isotope/core').JsonValue },
+      fixtureRoot: options.fixtureRoot ?? join(sourceRoot, 'fixtures/normalized'),
+      ...(options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}) });
+    log.push(...repair.output); verified = repair.verifiedRepair !== null;
+    report = validateContract('IsotopeReport', { ...report,
+      candidateRefs: repair.candidateRef ? [repair.candidateRef] : [],
+      repairVerifications: repair.verification ? [repair.verification] : [],
+      verifiedRepairs: repair.verifiedRepair ? [repair.verifiedRepair] : [] });
+    await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
+  } else log.push(`Repair: ${config.repair.mode === 'off' ? 'disabled' : 'not eligible for non-FAIL verdict'}`);
+  log.push(`Artifacts: ${paths.root}`);
+  const exitCode = verified ? 5 : result.verdict === 'PASS' ? 0 : result.verdict === 'FAIL' ? 1 : result.verdict === 'ESCALATE' ? 3 : 4;
   return { exitCode, output: log.join('\n'), report, signatures, diff };
 }

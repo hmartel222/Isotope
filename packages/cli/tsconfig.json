@@ -23,6 +23,12 @@
     },
     {
       "path": "../resolver-ts"
+    },
+    {
+      "path": "../repair"
+    },
+    {
+      "path": "../verifier"
     }
   ]
 }
