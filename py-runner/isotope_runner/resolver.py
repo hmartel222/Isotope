@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +18,8 @@ def _slash(path: str) -> str:
 
 
 def _call_members(pattern: str) -> list[str]:
-    text = pattern.replace("$$$", "x").replace("$EL.", "EL.").replace("$STRIPE.", "STRIPE.")
+    text = pattern.replace("$$$", "x")
+    text = re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", r"\1", text)
     try:
         tree = ast.parse(text, mode="eval")
     except SyntaxError:
@@ -46,7 +48,11 @@ class _Analyzer(ast.NodeVisitor):
             "schemaVersion": 1, "entryPoints": [], "nodes": [], "edges": [], "sinks": [], "affectedSites": [], "skipped": []
         }
         self.nodes: dict[str, dict[str, Any]] = {}
-        self.patterns = [_call_members(r["pattern"]) for r in self.spec["detection"]["taint_roots"] if r.get("language") == "py" and r.get("kind") == "call"]
+        roots = [r["pattern"] for r in self.spec["detection"]["taint_roots"] if r.get("language") == "py" and r.get("kind") == "call"]
+        self.patterns = [_call_members(pattern) for pattern in roots]
+        malformed = [pattern for pattern, members in zip(roots, self.patterns) if not members]
+        if malformed:
+            raise ValueError(f"unsupported taint-root pattern: {malformed[0]}")
         self.removed = [c.get("removed_path") or c.get("removed_symbol") or "" for c in self.spec["changes"]]
         self.ep: dict[str, Any] | None = None
         self.source = ""
@@ -143,7 +149,7 @@ class _Analyzer(ast.NodeVisitor):
         if fn is None:
             self.graph["skipped"].append({"file": self.ep["file"], "reason": "unresolved_or_ignored"})
             return
-        mocks = {m["module"].split(".")[-1]: m for m in self.config.get("mocks", []) if "exports" in m}
+        mocks = {m["module"].split(".")[-1]: m for m in self.config.get("mocks", []) if "exports" in m and "strategy" not in m}
         env: dict[str, dict[str, Any]] = {}
         for stmt in fn.body:
             self._stmt(stmt, imports, mocks, env)

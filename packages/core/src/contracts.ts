@@ -169,7 +169,12 @@ export const IsotopeConfigSchema = object({
   version: Type.Literal(1), language: choices('ts', 'py', 'auto'),
   entryPoints: Type.Array(object({ file: str(), export: str(), kind: adapter }), { minItems: 1 }),
   mocks: Type.Array(Type.Union([
-    object({ module: str(), strategy: Type.Literal('provider') }),
+    object({
+      module: str(), strategy: Type.Literal('provider'), adapter: opt(str()),
+      intercept: opt(Type.Array(str(), { minItems: 1, uniqueItems: true })), exports: opt(strings()),
+      requestHeaders: opt(Type.Record(Type.String({ minLength: 1 }), str())),
+      records: opt(Type.Record(Type.String({ minLength: 1 }), SinkKindSchema)),
+    }),
     object({ module: str(), exports: Type.Record(str(), Type.Literal('recordAll'), { minProperties: 1 }), sinkKind: SinkKindSchema }),
   ])), returns: Type.Record(Type.String(), json), failOn: Type.Array(SeveritySchema, { uniqueItems: true }),
   reasoner: object({ mode: choices('on', 'off'), maxInvocations: Type.Integer({ minimum: 0, maximum: 10 }), redact: Type.Boolean() }),

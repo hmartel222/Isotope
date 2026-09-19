@@ -2,26 +2,33 @@ import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep, extname } from 'node:path';
 import type { EntryPoint, HarnessInput, IsotopeConfig, Signature } from '@isotope/core';
 import { HarnessExecutionError } from './errors';
+import { resolveProviderAdapter, type ProviderAdapterDescriptor, type ProviderMockConfig } from './provider-adapters';
+type RecorderMock = Exclude<IsotopeConfig['mocks'][number], { strategy: 'provider' }>;
+export type PlannedMock = RecorderMock | (ProviderMockConfig & { providerAdapter?: ProviderAdapterDescriptor });
 export interface TsHarnessPlan {
   repositoryRoot: string;
   entryPoint: { id: string; file: string; exportName: string; kind: EntryPoint['kind'] };
   fixture: { pairId: string; side: 'old' | 'new'; payloadVersion: string; payloadPath: string };
   codeVersion: Signature['codeVersion'];
-  mocks: IsotopeConfig['mocks'];
+  mocks: PlannedMock[];
   mockReturns: IsotopeConfig['returns'];
-  provider: { requireWebhookInterception: boolean };
+  requestHeaders: Record<string, string>;
   runIndex: number;
   /** Optional authoritative artifact destination, relative to repositoryRoot. */
   outputPath?: string;
 }
 export function createTsHarnessPlan(input: Omit<HarnessInput, 'bdg'>, side: 'old' | 'new', runIndex: number): TsHarnessPlan {
+  const mocks: PlannedMock[] = input.config.mocks.map(mock => 'strategy' in mock
+    ? { ...mock, providerAdapter: resolveProviderAdapter(mock) }
+    : mock);
+  const requestHeaders = Object.assign({}, ...mocks.filter((mock): mock is ProviderMockConfig & { providerAdapter: ProviderAdapterDescriptor } => 'strategy' in mock && Boolean(mock.providerAdapter))
+    .map(mock => mock.providerAdapter.requestHeaders));
   return {
     repositoryRoot: input.repoRoot,
     entryPoint: { id: input.entryPoint.id, file: input.entryPoint.file, exportName: input.entryPoint.export, kind: input.entryPoint.kind },
     fixture: { pairId: input.fixture.id, side, payloadVersion: side === 'old' ? input.fixture.oldVersion : input.fixture.newVersion,
       payloadPath: side === 'old' ? input.fixture.oldPath : input.fixture.newPath },
-    codeVersion: input.codeVersion, mocks: input.config.mocks, mockReturns: input.config.returns, runIndex,
-    provider: { requireWebhookInterception: input.entryPoint.kind !== 'plain' && input.config.mocks.some(m => 'strategy' in m && m.module === 'stripe') },
+    codeVersion: input.codeVersion, mocks, mockReturns: input.config.returns, requestHeaders, runIndex,
   };
 }
 export function assertWithin(root: string, target: string): string {
