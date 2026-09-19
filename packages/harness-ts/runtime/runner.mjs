@@ -1,6 +1,7 @@
 import { startVitest } from 'vitest/node';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+(async () => {
 process.env.ISOTOPE_RUN_PLAN = process.argv[2];
 const plan = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 // Bare configured packages need no actual SDK installation. Never load their real module.
@@ -27,3 +28,4 @@ try {
   writeFileSync(plan.resultPath, JSON.stringify({ error: { reason: 'harness_could_not_run', message: String(error) } }));
   process.exitCode = 1;
 } finally { await context?.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

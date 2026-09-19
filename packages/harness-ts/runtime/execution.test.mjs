@@ -2,13 +2,13 @@ import { test, vi } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire, syncBuiltinESMExports } from 'node:module';
 import crypto from 'node:crypto';
-const require = createRequire(import.meta.url);
-const { serializeBehavior } = require('../dist/serialize.js');
-const { createRecorder } = require('../dist/mocks.js');
-const { getAdapter } = require('../dist/adapters.js');
-const { HarnessExecutionError } = require('../dist/errors.js');
-const { validateContract } = require('@isotope/core');
-const network = require('../block-net.cjs');
+const localRequire = createRequire(import.meta.url);
+const { serializeBehavior } = localRequire('../dist/serialize.js');
+const { createRecorder } = localRequire('../dist/mocks.js');
+const { getAdapter } = localRequire('../dist/adapters.js');
+const { HarnessExecutionError } = localRequire('../dist/errors.js');
+const { validateContract } = localRequire('@isotope/core');
+const network = localRequire('../block-net.cjs');
 
 test('execute one isolated configured entry point', async () => {
   const plan = JSON.parse(readFileSync(process.env.ISOTOPE_RUN_PLAN, 'utf8'));

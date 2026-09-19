@@ -1,0 +1,21 @@
+name: Isotope verify
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  behavioral-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: corepack enable && pnpm install --frozen-lockfile
+      - id: isotope
+        uses: ./action
+        with: { reasoner: off, repair: off }
+      - name: Upload validated Isotope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: isotope-report, path: .isotope/, if-no-files-found: error, retention-days: 14 }

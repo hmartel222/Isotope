@@ -14,6 +14,10 @@ export { createTsHarnessPlan } from './plan';
 export type { TsHarnessPlan } from './plan';
 export type { HandlerAdapter, AdapterContext, AdapterResult } from './adapters';
 export const DEFAULT_TIMEOUT_MS = 20_000;
+function runtimeAsset(name: string): string {
+  if (process.env.ISOTOPE_ACTION_RUNTIME_ROOT) return name === 'block-net.cjs' ? resolve(process.env.ISOTOPE_ACTION_RUNTIME_ROOT, '..', name) : resolve(process.env.ISOTOPE_ACTION_RUNTIME_ROOT, name);
+  return name === 'block-net.cjs' ? resolve(__dirname, '..', name) : resolve(__dirname, '../runtime', name);
+}
 
 /** Validate the protocol and its association with this execution, not just its shape. */
 export function acceptChildResult(value: unknown, plan: TsHarnessPlan): Signature {
@@ -69,13 +73,13 @@ async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: numb
     const key = createHash('sha256').update(JSON.stringify([plan.entryPoint, plan.fixture, plan.codeVersion, plan.runIndex])).digest('hex').slice(0, 24);
     specPath = join(generated, `${key}.${plan.fixture.side}.${plan.runIndex}.spec.ts`);
     // Exclusive creation prevents concurrent invocations with the same identity from racing.
-    await writeFile(specPath, `// Generated execution wrapper; not an authoritative artifact.\nimport ${JSON.stringify(resolve(__dirname, '../runtime/execution.test.mjs'))};\n`, { flag: 'wx' });
+    await writeFile(specPath, `// Generated execution wrapper; not an authoritative artifact.\nimport ${JSON.stringify(runtimeAsset('execution.test.mjs'))};\n`, { flag: 'wx' });
     ownsSpec = true;
     const resultPath = join(directory, 'result.json');
     const planPath = join(directory, 'plan.json');
     await writeFile(planPath, JSON.stringify({ ...plan, repositoryRoot: root, entryFile, mocks, fixturePath, resultPath, specPath }), { mode: 0o600 });
-    const runtime = resolve(__dirname, '../runtime/runner.mjs');
-    const preload = resolve(__dirname, '../block-net.cjs');
+    const runtime = runtimeAsset('runner.mjs');
+    const preload = runtimeAsset('block-net.cjs');
     const outcome = await new Promise<{ code: number | null; signal: string | null; stdout: string; stderr: string; timedOut: boolean }>((done, reject) => {
       const child = spawn(process.execPath, [runtime, planPath], {
         cwd: root, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],

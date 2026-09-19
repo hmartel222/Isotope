@@ -9,7 +9,7 @@ const packages = ['core','changespec','resolver-ts','resolver-py','harness-ts','
 for (const name of packages) test(`package ${name} imports and stubs never fake success`, () => {
   const api = require(`@isotope/${name}`);
   assert.ok(Object.keys(api).length);
-  if (!['core', 'cli', 'harness-ts', 'differ', 'changespec', 'resolver-ts'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
+  if (!['core', 'cli', 'harness-ts', 'differ', 'changespec', 'resolver-ts', 'reporter'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
 });
 test('aggregate verdict resolution remains explicitly unimplemented', () => {
   const core = require('@isotope/core');

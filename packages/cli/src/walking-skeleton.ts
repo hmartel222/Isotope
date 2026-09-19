@@ -13,6 +13,8 @@ export interface WalkingSkeletonOptions {
   disableRepair?: boolean;
   /** Internal tests only. Must contain meta.synthetic=true; never falls back implicitly. */
   testFixtureDirectory?: string;
+  /** Product fixture registry. Defaults to this monorepo's fixtures for compatibility. */
+  fixtureRoot?: string;
   selectedSpecs?: SelectedSpecs;
 }
 export interface WalkingSkeletonResult {
@@ -89,7 +91,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
     return { exitCode: incomplete ? 4 : 0, report, signatures: null, diff: null, output: [`ChangeSpec: ${spec.id}`, ...graphSummary(bdg), `Verdict: ${verdict.verdict}`, `Reason: ${verdict.results[0]!.reason}`, `Artifacts: ${paths.root}`].join('\n') };
   }
   const synthetic = options.testFixtureDirectory !== undefined;
-  const fixtureDirectory = options.testFixtureDirectory ?? join(sourceRoot, 'fixtures/normalized', spec.fixtures.pair);
+  const fixtureDirectory = options.testFixtureDirectory ?? join(options.fixtureRoot ?? join(sourceRoot, 'fixtures/normalized'), spec.fixtures.pair);
   const oldPath = resolve(fixtureDirectory, 'old.json'); const newPath = resolve(fixtureDirectory, 'new.json');
   const metaPath = resolve(fixtureDirectory, 'meta.json');
   let payloads: [unknown, unknown]; let meta: Record<string, unknown>;
@@ -156,6 +158,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
     result = validateContract('VerdictResult', { entryPointId: entryPoint.id, verdict: 'INDETERMINATE', provenance: 'mechanical', reason: error.reason,
       divergenceIds: [], reasoningRefs: [], evidenceRefs: [], suspectedInjection: false });
     log.push(`Harness could not produce trustworthy behavior: ${error.message}`);
+    if (typeof error.diagnostics.stderr === 'string' && error.diagnostics.stderr) log.push(`Harness diagnostic: ${error.diagnostics.stderr.slice(-2000).replace(/[\r\n]+/g, ' ')}`);
   }
   const verdict = validateContract('VerdictReport', { schemaVersion: 1, verdict: result.verdict, results: [result] });
   await writeJsonArtifact(paths.root, paths.verdict, 'VerdictReport', verdict);

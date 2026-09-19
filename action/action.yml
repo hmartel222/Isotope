@@ -1,0 +1,23 @@
+name: Isotope behavioral verification
+description: Verify dependency upgrade behavior without modifying pull request source
+inputs:
+  specs-path: { description: ChangeSpec registry, default: specs }
+  config: { description: Isotope configuration, default: isotope.yml }
+  fail-on: { description: Reserved severity list, default: "critical,high" }
+  reasoner: { description: Must be off in Phase 8, default: "off" }
+  repair: { description: Must be off in Phase 8, default: "off" }
+  anthropic-api-key: { description: Reserved for a future phase, required: false }
+  github-token: { description: Token for optional direct PR reporting, required: false }
+  mode: { description: verify or report, default: verify }
+  base: { description: Explicit base SHA outside pull_request events, required: false }
+  head: { description: Explicit head SHA outside pull_request events, required: false }
+  pr-number: { description: Explicit PR number outside pull_request events, required: false }
+  artifact-root: { description: Artifact directory in report mode, default: .isotope }
+outputs:
+  verdict: { description: Isotope product verdict }
+  report-path: { description: Path to isotope-report.json }
+  selected-spec-count: { description: Number of selected ChangeSpecs }
+  affected-site-count: { description: Number of affected source sites }
+runs:
+  using: node20
+  main: dist/index.js
