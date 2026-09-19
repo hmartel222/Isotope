@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { artifactPaths, readJsonArtifact, type BDG, type DiffReport, type IsotopeReport, type Verdict } from '@isotope/core';
 import { checkDeterminism } from '@isotope/differ';
-import { selectChangeSpecs } from '@isotope/changespec';
+import { loadHumanSpecs, selectChangeSpecs } from '@isotope/changespec';
 import { verifyWalkingSkeleton } from './walking-skeleton';
 
 const execute = promisify(execFile);
@@ -72,6 +72,18 @@ async function loadCases(): Promise<DetectionCase[]> {
   return value as DetectionCase[];
 }
 async function git(cwd: string, ...args: string[]): Promise<void> { await execute('git', args, { cwd }); }
+async function caseDependency(caseDef: DetectionCase): Promise<{ ecosystem: 'npm' | 'pypi'; package: string; from: string; to: string }> {
+  if (caseDef.dependency) return { ecosystem: caseDef.ecosystem ?? 'npm', ...caseDef.dependency };
+  const specId = caseDef.expected.selectedSpecIds[0];
+  const spec = (await loadHumanSpecs(join(sourceRoot(), 'specs'))).find(item => item.id === specId);
+  if (!spec) throw new Error(`Matrix case ${caseDef.id} needs a dependency or one known ChangeSpec`);
+  const ecosystem = caseDef.ecosystem ?? (spec.detection.ecosystems.npm ? 'npm' : 'pypi');
+  const rule = spec.detection.ecosystems[ecosystem];
+  if (!rule) throw new Error(`Matrix case ${caseDef.id} has no ${ecosystem} rule`);
+  const major = Number.parseInt(rule.breaking_from.split('.')[0] ?? '', 10);
+  const from = Number.isFinite(major) && major > 0 ? `${major - 1}.999.0` : '0.0.0';
+  return { ecosystem, package: rule.packages[0]!, from, to: rule.breaking_from };
+}
 async function materializeCase(caseDef: DetectionCase): Promise<string> {
   const root = await realpath(await mkdtemp(join(tmpdir(), `isotope-matrix-${caseDef.id}-`)));
   const template = resolve(sourceRoot(), caseDef.repositoryRoot);
@@ -79,17 +91,17 @@ async function materializeCase(caseDef: DetectionCase): Promise<string> {
   await git(root, 'init', '--quiet');
   await git(root, 'config', 'user.email', 'acceptance@isotope.local');
   await git(root, 'config', 'user.name', 'Isotope Acceptance');
-  if (caseDef.ecosystem === 'pypi') {
-    const dep = caseDef.dependency ?? { package: 'elevenlabs', from: '0.2.27', to: '1.0.0' };
+  const dep = await caseDependency(caseDef);
+  if (dep.ecosystem === 'pypi') {
     await writeFile(join(root, 'requirements.txt'), `${dep.package}==${dep.from}\n`);
     await git(root, 'add', '.'); await git(root, 'commit', '--quiet', '-m', 'acceptance base'); await git(root, 'tag', caseDef.baseRef);
     await writeFile(join(root, 'requirements.txt'), `${dep.package}==${dep.to}\n`);
     await git(root, 'add', 'requirements.txt'); await git(root, 'commit', '--quiet', '-m', `upgrade ${dep.package}`); await git(root, 'tag', caseDef.headRef);
   } else {
-    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '17.7.0' } }, null, 2) + '\n');
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { [dep.package]: dep.from } }, null, 2) + '\n');
     await git(root, 'add', '.'); await git(root, 'commit', '--quiet', '-m', 'acceptance base'); await git(root, 'tag', caseDef.baseRef);
-    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '18.1.0' } }, null, 2) + '\n');
-    await git(root, 'add', 'package.json'); await git(root, 'commit', '--quiet', '-m', 'upgrade stripe'); await git(root, 'tag', caseDef.headRef);
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { [dep.package]: dep.to } }, null, 2) + '\n');
+    await git(root, 'add', 'package.json'); await git(root, 'commit', '--quiet', '-m', `upgrade ${dep.package}`); await git(root, 'tag', caseDef.headRef);
   }
   try {
     const cfgPath = join(root, caseDef.configPath);

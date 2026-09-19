@@ -9921,7 +9921,15 @@ var require_contracts = __commonJS({
       language: choices("ts", "py", "auto"),
       entryPoints: typebox_1.Type.Array(object({ file: str(), export: str(), kind: adapter }), { minItems: 1 }),
       mocks: typebox_1.Type.Array(typebox_1.Type.Union([
-        object({ module: str(), strategy: typebox_1.Type.Literal("provider") }),
+        object({
+          module: str(),
+          strategy: typebox_1.Type.Literal("provider"),
+          adapter: opt(str()),
+          intercept: opt(typebox_1.Type.Array(str(), { minItems: 1, uniqueItems: true })),
+          exports: opt(strings()),
+          requestHeaders: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), str())),
+          records: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), exports2.SinkKindSchema))
+        }),
         object({ module: str(), exports: typebox_1.Type.Record(str(), typebox_1.Type.Literal("recordAll"), { minProperties: 1 }), sinkKind: exports2.SinkKindSchema })
       ])),
       returns: typebox_1.Type.Record(typebox_1.Type.String(), json),
@@ -24787,6 +24795,25 @@ var require_selection = __commonJS({
   }
 });
 
+// packages/changespec/dist/specimen.js
+var require_specimen = __commonJS({
+  "packages/changespec/dist/specimen.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.loadWalkingSkeletonSpec = loadWalkingSkeletonSpec;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var yaml_1 = require_dist2();
+    var core_1 = require_dist();
+    async function loadWalkingSkeletonSpec(registryRoot) {
+      const spec = (0, core_1.validateContract)("ChangeSpec", (0, yaml_1.parse)(await (0, promises_1.readFile)((0, node_path_1.join)(registryRoot, "stripe/basil-subscription-period.yaml"), "utf8")));
+      if (spec.verified_by !== "human" || !spec.verified_at)
+        throw new Error("Walking-skeleton spec must be human verified");
+      return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
+    }
+  }
+});
+
 // packages/changespec/dist/index.js
 var require_dist3 = __commonJS({
   "packages/changespec/dist/index.js"(exports2) {
@@ -24808,14 +24835,17 @@ var require_dist3 = __commonJS({
       for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports3, p)) __createBinding(exports3, m, p);
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.normalizeFixtures = exports2.draftSpec = exports2.loadSelectedSpecs = void 0;
+    exports2.normalizeFixtures = exports2.draftSpec = exports2.loadSelectedSpecs = exports2.loadWalkingSkeletonSpec = void 0;
     exports2.listSpecFiles = listSpecFiles;
     exports2.loadHumanSpecs = loadHumanSpecs;
     exports2.loadSpecById = loadSpecById;
-    exports2.loadWalkingSkeletonSpec = loadWalkingSkeletonSpec;
     exports2.loadSpecsForProject = loadSpecsForProject;
     exports2.renderDraftYaml = renderDraftYaml;
     __exportStar(require_selection(), exports2);
+    var specimen_1 = require_specimen();
+    Object.defineProperty(exports2, "loadWalkingSkeletonSpec", { enumerable: true, get: function() {
+      return specimen_1.loadWalkingSkeletonSpec;
+    } });
     var node_crypto_1 = require("node:crypto");
     var promises_1 = require("node:fs/promises");
     var node_path_1 = require("node:path");
@@ -24840,12 +24870,6 @@ var require_dist3 = __commonJS({
           return spec;
       throw new Error(`Unknown human-verified ChangeSpec: ${id}`);
     }
-    async function loadWalkingSkeletonSpec(registryRoot) {
-      const spec = (0, core_1.validateContract)("ChangeSpec", (0, yaml_1.parse)(await (0, promises_1.readFile)((0, node_path_1.join)(registryRoot, "stripe/basil-subscription-period.yaml"), "utf8")));
-      if (spec.verified_by !== "human" || !spec.verified_at)
-        throw new Error("Walking-skeleton spec must be human verified");
-      return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
-    }
     function mentions(text, pkg) {
       const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return new RegExp(`(?:from\\s+${escaped}|import\\s+${escaped}|['"]${escaped}['"])`, "i").test(text);
@@ -24853,16 +24877,15 @@ var require_dist3 = __commonJS({
     async function loadSpecsForProject(registryRoot, sources, config) {
       const text = sources.join("\n");
       const humans = await loadHumanSpecs(registryRoot);
-      const matched = humans.filter((spec) => Object.values(spec.detection.ecosystems).some((rule) => rule.packages.some((pkg) => mentions(text, pkg))));
+      const configuredModules = config.mocks.map((mock) => mock.module);
+      const matched = humans.filter((spec) => Object.values(spec.detection.ecosystems).some((rule) => rule.packages.some((pkg) => mentions(text, pkg) || configuredModules.includes(pkg))));
       const language = config.language === "py" || config.language === "auto" && config.entryPoints.every((e) => e.file.endsWith(".py")) ? "py" : "ts";
       const scoped = matched.filter((spec) => spec.detection.taint_roots.some((root) => root.language === language));
       const chosen = (scoped.length ? scoped : matched).slice().sort((a, b) => a.id.localeCompare(b.id));
       if (!chosen.length)
-        return loadWalkingSkeletonSpec(registryRoot);
-      if (chosen.length > 1) {
-        const preferred = chosen.find((spec) => language === "py" ? spec.provider !== "stripe" : spec.provider === "stripe");
-        return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [preferred ?? chosen[0]] });
-      }
+        return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [] });
+      if (chosen.length > 1)
+        throw new Error(`Ambiguous ChangeSpecs for configured sources: ${chosen.map((spec) => spec.id).join(", ")}`);
       return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: chosen });
     }
     var loadSelectedSpecs = async (input2) => {
@@ -315911,7 +315934,9 @@ ${await (0, promises_1.readFile)((0, node_path_1.resolve)(projectRoot, e.file), 
           return e.file;
         }
       }));
-      const selected = selectedOverride ?? await (0, changespec_1.loadSpecsForProject)((0, node_path_1.resolve)(__dirname, "../../../specs"), sources, config).catch(() => (0, changespec_1.loadWalkingSkeletonSpec)((0, node_path_1.resolve)(__dirname, "../../../specs")));
+      const selected = selectedOverride ?? await (0, changespec_1.loadSpecsForProject)((0, node_path_1.resolve)(__dirname, "../../../specs"), sources, config);
+      if (selected.specs.length !== 1)
+        throw new Error("No matching human-verified ChangeSpec for configured sources");
       const python = usesPython(config);
       const bdg = python ? await (0, resolver_py_1.resolveBehavioralDependencyGraph)({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0] }) : await (0, resolver_ts_1.resolveBehavioralDependencyGraph)({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0] });
       return { projectRoot, config, selected, bdg, python };
@@ -315967,6 +315992,66 @@ var require_errors3 = __commonJS({
   }
 });
 
+// packages/harness-ts/dist/provider-adapters/stripe.js
+var require_stripe = __commonJS({
+  "packages/harness-ts/dist/provider-adapters/stripe.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.stripeAdapter = void 0;
+    exports2.stripeAdapter = {
+      id: "stripe-webhook",
+      module: "stripe",
+      exports: ["default", "Stripe"],
+      intercept: ["webhooks.constructEvent", "webhooks.constructEventAsync"],
+      requestHeaders: { "stripe-signature": "isotope-mocked-signature" },
+      records: { "subscriptions.retrieve": "http_out" },
+      errorPatterns: ["StripeSignatureVerificationError", "signature verification", "webhook signature"]
+    };
+  }
+});
+
+// packages/harness-ts/dist/provider-adapters/index.js
+var require_provider_adapters = __commonJS({
+  "packages/harness-ts/dist/provider-adapters/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.resolveProviderAdapter = resolveProviderAdapter;
+    var errors_1 = require_errors3();
+    var stripe_1 = require_stripe();
+    var builtins = [stripe_1.stripeAdapter];
+    function unique(values, label) {
+      const result = [...new Set(values.filter(Boolean))];
+      if (!result.length)
+        throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `${label} must not be empty`);
+      return result;
+    }
+    function resolveProviderAdapter(mock) {
+      if (mock.adapter === "fixture-call") {
+        return {
+          id: "fixture-call",
+          module: mock.module,
+          exports: unique(mock.exports ?? ["default"], "provider exports"),
+          intercept: unique(mock.intercept ?? [], "provider intercept paths"),
+          requestHeaders: { ...mock.requestHeaders ?? {} },
+          records: { ...mock.records ?? {} },
+          errorPatterns: []
+        };
+      }
+      const adapter = builtins.find((item) => item.id === mock.adapter || !mock.adapter && item.module === mock.module);
+      if (!adapter)
+        throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `Unknown provider adapter for module ${mock.module}`);
+      return {
+        ...adapter,
+        module: mock.module,
+        requestHeaders: { ...adapter.requestHeaders, ...mock.requestHeaders ?? {} },
+        intercept: mock.intercept ? unique(mock.intercept, "provider intercept paths") : [...adapter.intercept],
+        exports: mock.exports ? unique(mock.exports, "provider exports") : [...adapter.exports],
+        records: { ...adapter.records, ...mock.records ?? {} }
+      };
+    }
+  }
+});
+
 // packages/harness-ts/dist/plan.js
 var require_plan = __commonJS({
   "packages/harness-ts/dist/plan.js"(exports2) {
@@ -315979,7 +316064,10 @@ var require_plan = __commonJS({
     var promises_1 = require("node:fs/promises");
     var node_path_1 = require("node:path");
     var errors_1 = require_errors3();
+    var provider_adapters_1 = require_provider_adapters();
     function createTsHarnessPlan(input2, side, runIndex) {
+      const mocks = input2.config.mocks.map((mock) => "strategy" in mock ? { ...mock, providerAdapter: (0, provider_adapters_1.resolveProviderAdapter)(mock) } : mock);
+      const requestHeaders = Object.assign({}, ...mocks.filter((mock) => "strategy" in mock && Boolean(mock.providerAdapter)).map((mock) => mock.providerAdapter.requestHeaders));
       return {
         repositoryRoot: input2.repoRoot,
         entryPoint: { id: input2.entryPoint.id, file: input2.entryPoint.file, exportName: input2.entryPoint.export, kind: input2.entryPoint.kind },
@@ -315990,10 +316078,10 @@ var require_plan = __commonJS({
           payloadPath: side === "old" ? input2.fixture.oldPath : input2.fixture.newPath
         },
         codeVersion: input2.codeVersion,
-        mocks: input2.config.mocks,
+        mocks,
         mockReturns: input2.config.returns,
-        runIndex,
-        provider: { requireWebhookInterception: input2.entryPoint.kind !== "plain" && input2.config.mocks.some((m) => "strategy" in m && m.module === "stripe") }
+        requestHeaders,
+        runIndex
       };
     }
     function assertWithin(root, target) {
@@ -316046,7 +316134,7 @@ var require_adapters = __commonJS({
       }
       return { returned: snapshot(output2), threw: null };
     } };
-    var express = { async invoke({ handler, fixture, snapshot }) {
+    var express = { async invoke({ handler, fixture, requestHeaders = {}, snapshot }) {
       let status = 200;
       let body = "__undefined__";
       let sent = false;
@@ -316082,20 +316170,20 @@ var require_adapters = __commonJS({
       let output2;
       let threw = null;
       try {
-        output2 = await handler({ body: rawBody, rawBody, headers: { "stripe-signature": "isotope-mocked-signature" } }, res);
+        output2 = await handler({ body: rawBody, rawBody, headers: { ...requestHeaders } }, res);
       } catch (error) {
         threw = customerError(error);
       }
       return { returned: sent ? { status, body } : snapshot(output2), threw };
     } };
-    var nextApp = { async invoke({ handler, fixture, snapshot }) {
+    var nextApp = { async invoke({ handler, fixture, requestHeaders = {}, snapshot }) {
       const request = {
         method: "POST",
         json: async () => fixture,
         text: async () => JSON.stringify(fixture),
         body: JSON.stringify(fixture),
         headers: { get(name) {
-          return name.toLowerCase() === "stripe-signature" ? "isotope-mocked-signature" : null;
+          return requestHeaders[name.toLowerCase()] ?? null;
         } }
       };
       let output2;
@@ -316276,6 +316364,7 @@ var require_dist6 = __commonJS({
     var errors_1 = require_errors3();
     var plan_1 = require_plan();
     var adapters_1 = require_adapters();
+    var provider_adapters_1 = require_provider_adapters();
     var serialize_1 = require_serialize();
     Object.defineProperty(exports2, "serializeBehavior", { enumerable: true, get: function() {
       return serialize_1.serializeBehavior;
@@ -316345,11 +316434,15 @@ var require_dist6 = __commonJS({
       const entryFile = await (0, plan_1.projectFile)(root, plan.entryPoint.file);
       const fixturePath = await (0, promises_1.realpath)((0, node_path_1.resolve)(root, plan.fixture.payloadPath));
       const mocks = await Promise.all(plan.mocks.map(async (mock) => {
-        if ("strategy" in mock && mock.module !== "stripe")
-          throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `Unsupported provider: ${mock.module}`);
-        if (mock.module.startsWith("node:"))
+        const normalized = "strategy" in mock && !mock.providerAdapter ? { ...mock, providerAdapter: (0, provider_adapters_1.resolveProviderAdapter)(mock) } : mock;
+        if ("strategy" in normalized) {
+          const descriptor = normalized.providerAdapter;
+          if (!descriptor || descriptor.module !== normalized.module)
+            throw new errors_1.HarnessExecutionError("unsupported_harness_plan", `Invalid provider adapter for module ${normalized.module}`);
+        }
+        if (normalized.module.startsWith("node:"))
           throw new errors_1.HarnessExecutionError("unsupported_harness_plan", "Built-in modules cannot be configured as observable mocks");
-        return { ...mock, module: (0, plan_1.isLocalModule)(mock.module) ? await (0, plan_1.projectFile)(root, mock.module) : mock.module };
+        return { ...normalized, module: (0, plan_1.isLocalModule)(normalized.module) ? await (0, plan_1.projectFile)(root, normalized.module) : normalized.module };
       }));
       if (new Set(mocks.map((m) => m.module)).size !== mocks.length)
         throw new errors_1.HarnessExecutionError("unsupported_harness_plan", "Duplicate mock modules");
@@ -316358,8 +316451,8 @@ var require_dist6 = __commonJS({
       let ownsSpec = false;
       try {
         const generated = await generatedDirectory(root);
-        const key = (0, node_crypto_1.createHash)("sha256").update(JSON.stringify([plan.entryPoint, plan.fixture, plan.codeVersion, plan.runIndex])).digest("hex").slice(0, 24);
-        specPath = (0, node_path_1.join)(generated, `${key}.${plan.fixture.side}.${plan.runIndex}.spec.ts`);
+        const key = (0, node_crypto_1.createHash)("sha256").update(JSON.stringify([plan.entryPoint, plan.fixture, plan.codeVersion, plan.runIndex])).digest("hex").slice(0, 16);
+        specPath = (0, node_path_1.join)(generated, `${key}.${(0, node_crypto_1.randomUUID)()}.${plan.fixture.side}.${plan.runIndex}.spec.ts`);
         await (0, promises_1.writeFile)(specPath, `// Generated execution wrapper; not an authoritative artifact.
 import ${JSON.stringify(runtimeAsset("execution.test.mjs"))};
 `, { flag: "wx" });
@@ -316395,7 +316488,13 @@ import ${JSON.stringify(runtimeAsset("execution.test.mjs"))};
               else
                 child.kill("SIGKILL");
             } catch (error) {
-              if (error.code !== "ESRCH")
+              const code = error.code;
+              if (code === "EPERM") {
+                try {
+                  child.kill("SIGKILL");
+                } catch {
+                }
+              } else if (code !== "ESRCH")
                 throw error;
             }
           };
@@ -316552,6 +316651,7 @@ var require_dist7 = __commonJS({
       const entryFile = await (0, promises_1.realpath)((0, node_path_1.resolve)(root, input2.entryPoint.file));
       const payloadPath = side === "old" ? input2.fixture.oldPath : input2.fixture.newPath;
       const fixturePayload = JSON.parse(await (0, promises_1.readFile)(payloadPath, "utf8"));
+      const requestHeaders = Object.assign({}, ...input2.config.mocks.filter((mock) => "strategy" in mock).map((mock) => mock.requestHeaders ?? {}));
       const plan = {
         repositoryRoot: root,
         entryFile,
@@ -316561,6 +316661,7 @@ var require_dist7 = __commonJS({
         codeVersion: input2.codeVersion,
         mocks: input2.config.mocks,
         mockReturns: input2.config.returns,
+        requestHeaders,
         runIndex
       };
       const result = await python({ command: "harness", plan });
@@ -316825,14 +316926,13 @@ var require_redact = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.redactSource = redactSource;
     var ts_morph_1 = require_ts_morph();
-    var PRESERVED = /current_period|subscription|items|renewal|stripe|basil|period/i;
     function redactSource(source, keepLiterals) {
       const project = new ts_morph_1.Project({ useInMemoryFileSystem: true, skipAddingFilesFromTsConfig: true });
       const file = project.createSourceFile("slice.ts", source, { overwrite: true });
       let destroyedDecisionEvidence = false;
       for (const literal of [...file.getDescendantsOfKind(ts_morph_1.SyntaxKind.StringLiteral)].reverse()) {
         const value = literal.getLiteralValue();
-        if (!value || PRESERVED.test(value) || keepLiterals.has(value))
+        if (!value || keepLiterals.has(value))
           continue;
         const parent = literal.getParent();
         const decision = parent && (ts_morph_1.Node.isBinaryExpression(parent) || ts_morph_1.Node.isIfStatement(parent) || ts_morph_1.Node.isSwitchStatement(parent) || ts_morph_1.Node.isCaseClause(parent) || ts_morph_1.Node.isConditionalExpression(parent));
@@ -317105,7 +317205,7 @@ var require_prompt = __commonJS({
     exports2.schemaRetryMessage = schemaRetryMessage;
     exports2.REASONER_PROMPT_VERSION = 1;
     exports2.REASONING_SCHEMA_VERSION = 1;
-    exports2.DEFAULT_REASONER_MODEL = "gemini-2.5-flash";
+    exports2.DEFAULT_REASONER_MODEL = "gemini-3.6-flash";
     exports2.REASONER_SYSTEM_PROMPT = `You are Isotope's semantic reasoner. Classify one bounded provider-integration behavior change.
 Allowed classifications: incompatibility | benign_adaptation | human_decision_required.
 Choose benign_adaptation only when the code demonstrably implements the provider's new semantics and the observed behavioral change directly follows from that implementation.
@@ -318676,7 +318776,7 @@ var require_prompt2 = __commonJS({
     exports2.plannerSchemaRetryMessage = plannerSchemaRetryMessage;
     exports2.PLANNER_PROMPT_VERSION = 1;
     exports2.PLANNER_SCHEMA_VERSION = 1;
-    exports2.DEFAULT_PLANNER_MODEL = "gemini-2.5-flash";
+    exports2.DEFAULT_PLANNER_MODEL = "gemini-3.6-flash";
     exports2.PLANNER_SYSTEM_PROMPT = `You are Isotope's repair planner. You propose the smallest behavior-preserving edit from bounded evidence. You do not verify patches.
 Allowed classifications: repair_candidate | human_decision_required | no_safe_repair.
 A repair_candidate must be a specific anchored edit derivable from the supplied evidence and documented provider semantics.
@@ -319583,6 +319683,97 @@ var require_dist12 = __commonJS({
   }
 });
 
+// packages/cli/dist/provider-fixtures/stripe.js
+var require_stripe2 = __commonJS({
+  "packages/cli/dist/provider-fixtures/stripe.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.stripeFixtureValidator = void 0;
+    exports2.stripeFixtureValidator = {
+      provider: "stripe",
+      validate(payload, side) {
+        if (!payload || typeof payload !== "object" || Array.isArray(payload))
+          throw new Error(`${side} Stripe fixture must be an event object`);
+        const event = payload;
+        const data = event.data;
+        if (!data || typeof data !== "object" || Array.isArray(data) || !data.object) {
+          throw new Error(`${side} Stripe fixture requires data.object`);
+        }
+      }
+    };
+  }
+});
+
+// packages/cli/dist/provider-fixtures/index.js
+var require_provider_fixtures = __commonJS({
+  "packages/cli/dist/provider-fixtures/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.validateProviderFixtures = validateProviderFixtures;
+    var stripe_1 = require_stripe2();
+    var validators = [stripe_1.stripeFixtureValidator];
+    function validateProviderFixtures(provider, payloads) {
+      const validator = validators.find((candidate) => candidate.provider === provider);
+      if (!validator)
+        return;
+      validator.validate(payloads[0], "old");
+      validator.validate(payloads[1], "new");
+    }
+  }
+});
+
+// packages/cli/dist/fixtures.js
+var require_fixtures = __commonJS({
+  "packages/cli/dist/fixtures.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.loadFixturePair = loadFixturePair;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var provider_fixtures_1 = require_provider_fixtures();
+    function object(value, label) {
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        throw new Error(`${label} must be an object`);
+      return value;
+    }
+    async function loadFixturePair(input2) {
+      const oldPath = (0, node_path_1.resolve)(input2.directory, "old.json");
+      const newPath = (0, node_path_1.resolve)(input2.directory, "new.json");
+      const metaPath = (0, node_path_1.resolve)(input2.directory, "meta.json");
+      let files;
+      try {
+        files = await Promise.all([oldPath, newPath, metaPath].map((path) => (0, promises_1.readFile)(path, "utf8")));
+      } catch (error) {
+        if (error.code === "ENOENT")
+          throw new Error(`BLOCKER: provider fixture pair ${input2.pairId} is absent.
+Expected:
+${oldPath}
+${newPath}
+${metaPath}`);
+        throw error;
+      }
+      const payloads = [JSON.parse(files[0]), JSON.parse(files[1])];
+      (0, provider_fixtures_1.validateProviderFixtures)(input2.spec.provider, payloads);
+      const metadata = object(JSON.parse(files[2]), "fixture metadata");
+      if (input2.synthetic && metadata.synthetic !== true)
+        throw new Error("Internal test fixtures must explicitly declare meta.synthetic: true");
+      if (!input2.synthetic && metadata.synthetic === true)
+        throw new Error("Synthetic fixtures are forbidden in product fixture directories");
+      if (typeof metadata.provenance !== "string" || !metadata.provenance)
+        throw new Error("Fixture metadata requires provenance");
+      const oldVersion = typeof metadata.oldVersion === "string" && metadata.oldVersion ? metadata.oldVersion : input2.spec.versions.from;
+      const newVersion = typeof metadata.newVersion === "string" && metadata.newVersion ? metadata.newVersion : input2.spec.versions.to;
+      if (oldVersion === newVersion)
+        throw new Error("Fixture metadata needs distinct old/new version labels");
+      return {
+        fixture: { id: input2.synthetic ? `synthetic-${input2.pairId}` : input2.pairId, role: input2.role, oldPath, newPath, oldVersion, newVersion },
+        payloads,
+        metadata
+      };
+    }
+  }
+});
+
 // packages/cli/dist/repair-flow.js
 var require_repair_flow = __commonJS({
   "packages/cli/dist/repair-flow.js"(exports2) {
@@ -319601,44 +319792,14 @@ var require_repair_flow = __commonJS({
     var harness_ts_1 = require_dist6();
     var repair_1 = require_dist11();
     var verifier_1 = require_dist12();
-    function asObject(value, label) {
-      if (!value || typeof value !== "object" || Array.isArray(value))
-        throw new Error(`${label} must be an object`);
-      return value;
-    }
-    function fixtureVersion(value, label) {
-      const event = asObject(value, label);
-      const data = asObject(event.data, `${label}.data`);
-      const object = asObject(data.object, `${label}.data.object`);
-      if (event.object !== "event" || event.type !== "customer.subscription.updated" || typeof event.api_version !== "string" || !event.api_version || object.object !== "subscription")
-        throw new Error(`${label}: expected Stripe subscription event`);
-      return event.api_version;
-    }
+    var fixtures_1 = require_fixtures();
     async function heldOutFixture(input2) {
       const spec = input2.selected.specs[0];
       const id = spec.fixtures.heldout_pair;
       if (!id)
         throw new Error("held_out_fixture_required");
       const directory = input2.testFixtureDirectory ? (0, node_path_1.join)((0, node_path_1.dirname)(input2.testFixtureDirectory), id) : (0, node_path_1.join)(input2.fixtureRoot, id);
-      const oldPath = (0, node_path_1.resolve)(directory, "old.json");
-      const newPath = (0, node_path_1.resolve)(directory, "new.json");
-      const metaPath = (0, node_path_1.resolve)(directory, "meta.json");
-      const [oldText, newText, metaText] = await Promise.all([oldPath, newPath, metaPath].map((path) => (0, promises_1.readFile)(path, "utf8")));
-      const old = JSON.parse(oldText);
-      const next = JSON.parse(newText);
-      const meta = asObject(JSON.parse(metaText), "held-out metadata");
-      if (input2.testFixtureDirectory && meta.synthetic !== true)
-        throw new Error("Test held-out fixtures must declare meta.synthetic: true");
-      if (!input2.testFixtureDirectory && meta.synthetic === true)
-        throw new Error("Synthetic held-out fixtures are forbidden in product fixture directories");
-      return {
-        id: input2.testFixtureDirectory ? `synthetic-${id}` : id,
-        role: "held_out",
-        oldPath,
-        newPath,
-        oldVersion: fixtureVersion(old, "held-out old fixture"),
-        newVersion: fixtureVersion(next, "held-out new fixture")
-      };
+      return (await (0, fixtures_1.loadFixturePair)({ directory, spec, pairId: id, role: "held_out", synthetic: Boolean(input2.testFixtureDirectory) })).fixture;
     }
     function rejected(input2, repairId, reason, origin) {
       return (0, core_1.validateContract)("RepairVerification", {
@@ -319918,17 +320079,8 @@ var require_repair_flow = __commonJS({
         throw new Error("isotope repair requires an existing FAIL or FAIL_REASONED artifact");
       const spec = selected.specs[0];
       const fixtureDirectory = options.testFixtureDirectory ?? (0, node_path_1.join)(projectRoot, "fixtures/normalized", spec.fixtures.pair);
-      const oldPath = (0, node_path_1.resolve)(fixtureDirectory, "old.json");
-      const newPath = (0, node_path_1.resolve)(fixtureDirectory, "new.json");
-      const [oldPayload, newPayload] = await Promise.all([oldPath, newPath].map(async (path) => JSON.parse(await (0, promises_1.readFile)(path, "utf8"))));
-      const fixture = {
-        id: options.testFixtureDirectory ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair,
-        role: "planning",
-        oldPath,
-        newPath,
-        oldVersion: fixtureVersion(oldPayload, "old fixture"),
-        newVersion: fixtureVersion(newPayload, "new fixture")
-      };
+      const loaded = await (0, fixtures_1.loadFixturePair)({ directory: fixtureDirectory, spec, pairId: spec.fixtures.pair, role: "planning", synthetic: Boolean(options.testFixtureDirectory) });
+      const { fixture, payloads: [oldPayload, newPayload] } = loaded;
       const signatures = [];
       for (const artifactRef of report.signatureRefs)
         signatures.push(await (0, core_1.readJsonArtifact)(paths.root, (0, node_path_1.resolve)(paths.root, artifactRef), "Signature"));
@@ -319975,7 +320127,6 @@ var require_walking_skeleton = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.verifyWalkingSkeleton = verifyWalkingSkeleton;
-    var promises_1 = require("node:fs/promises");
     var node_path_1 = require("node:path");
     var core_1 = require_dist();
     var scan_1 = require_scan3();
@@ -319984,43 +320135,36 @@ var require_walking_skeleton = __commonJS({
     var differ_1 = require_dist8();
     var repair_flow_1 = require_repair_flow();
     var reasoner_1 = require_dist10();
-    function asObject(value, label) {
-      if (!value || typeof value !== "object" || Array.isArray(value))
-        throw new Error(`${label} must be an object`);
-      return value;
-    }
+    var fixtures_1 = require_fixtures();
     function isHttp200(value) {
       return value !== null && typeof value === "object" && "status" in value && value.status === 200;
-    }
-    function fixtureVersion(value, label, meta, side) {
-      try {
-        const event = asObject(value, label);
-        const data = asObject(event.data, `${label}.data`);
-        const subscription = asObject(data.object, `${label}.data.object`);
-        if (event.object !== "event" || event.type !== "customer.subscription.updated" || typeof event.api_version !== "string" || !event.api_version || subscription.object !== "subscription" || typeof subscription.id !== "string")
-          throw new Error("not stripe");
-        return event.api_version;
-      } catch {
-        const key = side === "new" ? "newVersion" : "oldVersion";
-        const labeled = meta?.[key];
-        if (typeof labeled === "string" && labeled)
-          return labeled;
-        const api = meta?.api_version;
-        if (typeof api === "string" && api)
-          return `${api}-${side ?? "old"}`;
-        throw new Error(`${label}: expected a versioned Stripe subscription.updated event envelope or meta.oldVersion/meta.newVersion`);
-      }
     }
     function ambiguitySatisfied(payload, expression) {
       const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.length\s*>\s*(\d+)$/.exec(expression.trim());
       if (!match)
         return false;
-      let value = asObject(asObject(asObject(payload, "fixture").data, "fixture.data").object, "fixture.data.object");
-      for (const part of match[1].split(".")) {
-        if (!value || typeof value !== "object" || Array.isArray(value))
-          return false;
-        value = value[part];
-      }
+      const parts = match[1].split(".");
+      const locate = (value2, depth = 0) => {
+        if (depth > 20 || !value2 || typeof value2 !== "object")
+          return void 0;
+        let current = value2;
+        for (const part of parts) {
+          if (!current || typeof current !== "object" || Array.isArray(current) || !(part in current)) {
+            current = void 0;
+            break;
+          }
+          current = current[part];
+        }
+        if (current !== void 0)
+          return current;
+        for (const child of Array.isArray(value2) ? value2 : Object.values(value2)) {
+          const found = locate(child, depth + 1);
+          if (found !== void 0)
+            return found;
+        }
+        return void 0;
+      };
+      const value = locate(payload);
       return Array.isArray(value) && value.length > Number(match[2]);
     }
     async function verifyWalkingSkeleton(options) {
@@ -320074,33 +320218,9 @@ var require_walking_skeleton = __commonJS({
       }
       const synthetic = options.testFixtureDirectory !== void 0;
       const fixtureDirectory = options.testFixtureDirectory ?? (0, node_path_1.join)(options.fixtureRoot ?? (0, node_path_1.join)(sourceRoot, "fixtures/normalized"), spec.fixtures.pair);
-      const oldPath = (0, node_path_1.resolve)(fixtureDirectory, "old.json");
-      const newPath = (0, node_path_1.resolve)(fixtureDirectory, "new.json");
-      const metaPath = (0, node_path_1.resolve)(fixtureDirectory, "meta.json");
-      let payloads;
-      let meta;
-      try {
-        const files = await Promise.all([oldPath, newPath, metaPath].map((path) => (0, promises_1.readFile)(path, "utf8")));
-        payloads = [JSON.parse(files[0]), JSON.parse(files[1])];
-        meta = asObject(JSON.parse(files[2]), "fixture metadata");
-      } catch (error) {
-        if (error.code === "ENOENT")
-          throw new Error(`BLOCKER: real provider-produced sub-updated-single fixture pair is absent.
-Expected:
-${oldPath}
-${newPath}
-${metaPath}`);
-        throw error;
-      }
-      if (synthetic && meta.synthetic !== true)
-        throw new Error("Internal test fixtures must explicitly declare meta.synthetic: true");
-      if (!synthetic && meta.synthetic === true)
-        throw new Error("Synthetic fixtures are forbidden in product fixture directories");
-      const oldVersion = fixtureVersion(payloads[0], "old fixture", meta, "old");
-      const newVersion = fixtureVersion(payloads[1], "new fixture", meta, "new");
-      if (oldVersion === newVersion)
-        throw new Error("Fixture envelopes need distinct API-version labels to preserve both execution artifacts");
-      const fixture = { id: synthetic ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair, role: "planning", oldPath, newPath, oldVersion, newVersion };
+      const loaded = await (0, fixtures_1.loadFixturePair)({ directory: fixtureDirectory, spec, pairId: spec.fixtures.pair, role: "planning", synthetic });
+      const { fixture, payloads } = loaded;
+      const { oldVersion, newVersion } = fixture;
       const ref = (path) => (0, node_path_1.relative)(paths.root, path);
       for (const target of [
         paths.diffReport,
@@ -320118,7 +320238,7 @@ ${metaPath}`);
         `Entry point: ${(0, node_path_1.join)(projectRoot, entryPoint.file)}#${entryPoint.export}`,
         "Scope: explicit configured entry point",
         ...(0, scan_1.graphSummary)(bdg),
-        synthetic ? "Fixtures: SYNTHETIC TEST-ONLY \u2014 not Stripe-produced; not product acceptance" : "Fixtures: supplied provider fixture pair",
+        synthetic ? "Fixtures: SYNTHETIC TEST-ONLY \u2014 not provider-produced; not product acceptance" : "Fixtures: supplied provider fixture pair",
         `Fixture pair: ${fixture.id}`,
         `Old: ${oldVersion}`,
         `New: ${newVersion}`,
@@ -320363,6 +320483,21 @@ var require_matrix = __commonJS({
     async function git(cwd, ...args) {
       await execute("git", args, { cwd });
     }
+    async function caseDependency(caseDef) {
+      if (caseDef.dependency)
+        return { ecosystem: caseDef.ecosystem ?? "npm", ...caseDef.dependency };
+      const specId = caseDef.expected.selectedSpecIds[0];
+      const spec = (await (0, changespec_1.loadHumanSpecs)((0, node_path_1.join)(sourceRoot(), "specs"))).find((item) => item.id === specId);
+      if (!spec)
+        throw new Error(`Matrix case ${caseDef.id} needs a dependency or one known ChangeSpec`);
+      const ecosystem = caseDef.ecosystem ?? (spec.detection.ecosystems.npm ? "npm" : "pypi");
+      const rule = spec.detection.ecosystems[ecosystem];
+      if (!rule)
+        throw new Error(`Matrix case ${caseDef.id} has no ${ecosystem} rule`);
+      const major = Number.parseInt(rule.breaking_from.split(".")[0] ?? "", 10);
+      const from = Number.isFinite(major) && major > 0 ? `${major - 1}.999.0` : "0.0.0";
+      return { ecosystem, package: rule.packages[0], from, to: rule.breaking_from };
+    }
     async function materializeCase(caseDef) {
       const root = await (0, promises_1.realpath)(await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), `isotope-matrix-${caseDef.id}-`)));
       const template = (0, node_path_1.resolve)(sourceRoot(), caseDef.repositoryRoot);
@@ -320370,8 +320505,8 @@ var require_matrix = __commonJS({
       await git(root, "init", "--quiet");
       await git(root, "config", "user.email", "acceptance@isotope.local");
       await git(root, "config", "user.name", "Isotope Acceptance");
-      if (caseDef.ecosystem === "pypi") {
-        const dep = caseDef.dependency ?? { package: "elevenlabs", from: "0.2.27", to: "1.0.0" };
+      const dep = await caseDependency(caseDef);
+      if (dep.ecosystem === "pypi") {
         await (0, promises_1.writeFile)((0, node_path_1.join)(root, "requirements.txt"), `${dep.package}==${dep.from}
 `);
         await git(root, "add", ".");
@@ -320383,13 +320518,13 @@ var require_matrix = __commonJS({
         await git(root, "commit", "--quiet", "-m", `upgrade ${dep.package}`);
         await git(root, "tag", caseDef.headRef);
       } else {
-        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { stripe: "17.7.0" } }, null, 2) + "\n");
+        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { [dep.package]: dep.from } }, null, 2) + "\n");
         await git(root, "add", ".");
         await git(root, "commit", "--quiet", "-m", "acceptance base");
         await git(root, "tag", caseDef.baseRef);
-        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { stripe: "18.1.0" } }, null, 2) + "\n");
+        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { [dep.package]: dep.to } }, null, 2) + "\n");
         await git(root, "add", "package.json");
-        await git(root, "commit", "--quiet", "-m", "upgrade stripe");
+        await git(root, "commit", "--quiet", "-m", `upgrade ${dep.package}`);
         await git(root, "tag", caseDef.headRef);
       }
       try {

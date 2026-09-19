@@ -56,7 +56,7 @@ test('Phase 5 aggregation graph accompanies semantic ESCALATE',async t=>{
 export function handler(req,res) { const event=stripe.webhooks.constructEvent(req.rawBody,'',''); const renewal=Math.max(...event.data.object.items.data.map(item=>item.current_period_end)); db.subscription.update({data:{renewalDate:renewal}}); return res.status(200).json({received:true}); }`);
   const fixture=path.join(directory,'synthetic');await fs.mkdir(fixture);
   for(const side of ['old','new']) { const event=JSON.parse(await fs.readFile(path.join(root,'packages/harness-ts/test-fixtures/control',side+'.json'),'utf8')); event.data.object.items={data:[{current_period_end:side==='old'?100:200},{current_period_end:50}]}; await fs.writeFile(path.join(fixture,side+'.json'),JSON.stringify(event)); }
-  await fs.writeFile(path.join(fixture,'meta.json'),JSON.stringify({synthetic:true}));
+  await fs.writeFile(path.join(fixture,'meta.json'),JSON.stringify({synthetic:true,provenance:'internal-controlled'}));
   const result=await cli(directory,'verify',fixture);assert.equal(result.code,3,result.stderr);
   const {bdg,diffs,verdict}=await artifacts(directory);assert.equal(verdict.verdict,'ESCALATE');
   assert.ok(bdg.nodes.some(n=>n.kind==='transform'&&n.aggregation));assert.equal(diffs[0].divergences[0].kind,'value_changed');

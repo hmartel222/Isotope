@@ -1,4 +1,5 @@
 export * from './selection';
+export { loadWalkingSkeletonSpec } from './specimen';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -24,12 +25,6 @@ export async function loadSpecById(registryRoot: string, id: string): Promise<Ch
   throw new Error(`Unknown human-verified ChangeSpec: ${id}`);
 }
 
-export async function loadWalkingSkeletonSpec(registryRoot: string): Promise<SelectedSpecs> {
-  const spec = validateContract('ChangeSpec', parse(await readFile(join(registryRoot, 'stripe/basil-subscription-period.yaml'), 'utf8')) as unknown);
-  if (spec.verified_by !== 'human' || !spec.verified_at) throw new Error('Walking-skeleton spec must be human verified');
-  return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
-}
-
 function mentions(text: string, pkg: string): boolean {
   const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(?:from\\s+${escaped}|import\\s+${escaped}|['"]${escaped}['"])`, 'i').test(text);
@@ -38,15 +33,14 @@ function mentions(text: string, pkg: string): boolean {
 export async function loadSpecsForProject(registryRoot: string, sources: string[], config: IsotopeConfig): Promise<SelectedSpecs> {
   const text = sources.join('\n');
   const humans = await loadHumanSpecs(registryRoot);
-  const matched = humans.filter(spec => Object.values(spec.detection.ecosystems).some(rule => rule.packages.some(pkg => mentions(text, pkg))));
+  const configuredModules = config.mocks.map(mock => mock.module);
+  const matched = humans.filter(spec => Object.values(spec.detection.ecosystems).some(rule =>
+    rule.packages.some(pkg => mentions(text, pkg) || configuredModules.includes(pkg))));
   const language = config.language === 'py' || (config.language === 'auto' && config.entryPoints.every(e => e.file.endsWith('.py'))) ? 'py' : 'ts';
   const scoped = matched.filter(spec => spec.detection.taint_roots.some(root => root.language === language));
   const chosen = (scoped.length ? scoped : matched).slice().sort((a, b) => a.id.localeCompare(b.id));
-  if (!chosen.length) return loadWalkingSkeletonSpec(registryRoot);
-  if (chosen.length > 1) {
-    const preferred = chosen.find(spec => language === 'py' ? spec.provider !== 'stripe' : spec.provider === 'stripe');
-    return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [preferred ?? chosen[0]!] });
-  }
+  if (!chosen.length) return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [] });
+  if (chosen.length > 1) throw new Error(`Ambiguous ChangeSpecs for configured sources: ${chosen.map(spec => spec.id).join(', ')}`);
   return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: chosen });
 }
 
