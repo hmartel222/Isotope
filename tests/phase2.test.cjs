@@ -32,9 +32,10 @@ async function inputAt(directory, fixtureKind = 'broken') {
     fixture: { id: 'synthetic-sub-updated-single', role: 'planning', oldPath: path.join(testFixtures(fixtureKind), 'old.json'), newPath: path.join(testFixtures(fixtureKind), 'new.json'), oldVersion: '2025-02-24.acacia', newVersion: '2026-08-26.dahlia' } };
 }
 async function singleAt(directory, exportName = 'handler') {
-  return { entryFile: path.join(directory,'src/webhook.ts'), dbFile: path.join(directory,'src/db.ts'), exportName,
-    fixture: JSON.parse(await fs.readFile(path.join(testFixtures('broken'),'old.json'),'utf8')),
-    dbReturn: { id: 'fixed' }, entryPointId: 'ep_phase2', codeVersion: 'original', payloadVersion: 'old', fixturePair: 'synthetic', runIndex: 0 };
+  const input = await inputAt(directory);
+  input.entryPoint.export = exportName;
+  input.config.returns['db.subscription.update'] = { id: 'fixed' };
+  return harness.createTsHarnessPlan(input, 'old', 0);
 }
 function diffInput(old = clone(fixtures.Signature), next = clone(old)) {
   return { old, new: next, bdg: fixtures.BDG, selfComparisons: { old: [clone(old), { ...clone(old), runIndex: 1, durationMs: 999 }], new: [clone(next), { ...clone(next), runIndex: 1, durationMs: 777 }] } };
@@ -44,8 +45,8 @@ function verdict(diff) { return core.resolveVerdict({ entryPoint: fixtures.Entry
 test('phase2 serializer preserves undefined, null, dates, array order, and stable keys', () => {
   assert.deepEqual(harness.serializeBehavior({ b: undefined, a: [2, undefined, null, 1], date: new Date('2020-01-01T00:00:00Z') }), { a: [2,'__undefined__',null,1], b: '__undefined__', date: '2020-01-01T00:00:00.000Z' });
   assert.equal(JSON.stringify(harness.serializeBehavior({ b: 2, a: { z: 3, x: 1 } })), JSON.stringify(harness.serializeBehavior({ a: { x: 1, z: 3 }, b: 2 })));
-  assert.throws(() => harness.serializeBehavior(() => {}), /Unsupported/);
-  const cycle = {}; cycle.self = cycle; assert.throws(() => harness.serializeBehavior(cycle), /Circular/);
+  assert.equal(harness.serializeBehavior(() => {}), '__fn__');
+  const cycle = {}; cycle.self = cycle; assert.deepEqual(harness.serializeBehavior(cycle), { self: '__circular__' });
 });
 test('behavioral view ignores every metadata field but observes DB args', () => {
   const a = clone(fixtures.Signature);
@@ -125,11 +126,11 @@ test('fresh fixtures/modules and call-time snapshots survive customer mutation',
   const directory = await project(t);
   await fs.appendFile(path.join(directory,'src/webhook.ts'), `\nlet counter = 0;\nexport async function mutating(req, res) { const event = stripe.webhooks.constructEvent(req.body, '', ''); const sub = event.data.object; const args = { count: ++counter, value: sub.current_period_end }; await db.subscription.update(args); args.value = 99; sub.current_period_end = 88; return res.status(200).json({ count: counter }); }\n`);
   const plan = await singleAt(directory,'mutating');
-  const original = structuredClone(plan.fixture);
+  const original = JSON.parse(await fs.readFile(plan.fixture.payloadPath, 'utf8'));
   const first = await harness.runTsHarness(plan); const second = await harness.runTsHarness({...plan,runIndex:1});
   assert.ok(differ.behaviorEqual(first,second)); assert.equal(first.calls[0].args[0].count,1);
   assert.equal(first.calls[0].args[0].value,original.data.object.current_period_end);
-  assert.deepEqual(plan.fixture,original);
+  assert.deepEqual(JSON.parse(await fs.readFile(plan.fixture.payloadPath, 'utf8')),original);
 });
 test('handler errors after provider stub execution are captured as behavior', async t => {
   const directory = await project(t);
@@ -138,7 +139,7 @@ test('handler errors after provider stub execution are captured as behavior', as
   assert.deepEqual(sig.threw,{name:'Error',message:'deliberate handler error'}); assert.equal(sig.returned,'__undefined__');
 });
 for (const [name, source, reason] of [
-  ['unsupportedValue', `stripe.webhooks.constructEvent(req.body, '', ''); await db.subscription.update({ value: () => 1 }); return res.status(200).json({received:true});`, 'unsupported_behavior_serialization'],
+  ['unsupportedValue', `stripe.webhooks.constructEvent(req.body, '', ''); await db.subscription.update({ value: Symbol('unsupported') }); return res.status(200).json({received:true});`, 'unsupported_behavior_serialization'],
   ['missingStub', `return res.status(200).json({received:true});`, 'provider_stub_not_exercised'],
   ['signatureFailure', `stripe.webhooks.constructEvent(req.body, '', ''); const error = new Error('signature verification failed'); error.name = 'StripeSignatureVerificationError'; throw error;`, 'provider_stub_not_exercised'],
   ['blockedRequest', `stripe.webhooks.constructEvent(req.body, '', ''); try { await fetch('https://example.invalid'); } catch {} return res.status(200).json({received:true});`, 'blocked_egress'],

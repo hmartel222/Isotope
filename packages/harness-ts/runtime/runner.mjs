@@ -1,15 +1,29 @@
 import { startVitest } from 'vitest/node';
-import { createRequire } from 'node:module';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-const require = createRequire(import.meta.url);
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 process.env.ISOTOPE_RUN_PLAN = process.argv[2];
+const plan = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+// Bare configured packages need no actual SDK installation. Never load their real module.
+const aliases = {};
+for (const [index, mock] of plan.mocks.entries()) {
+  if (mock.module.startsWith('/')) continue;
+  const stub = join(dirname(process.argv[2]), `virtual-${index}.mjs`);
+  writeFileSync(stub, 'export default {};');
+  aliases[mock.module] = stub;
+  mock.module = stub;
+}
+writeFileSync(process.argv[2], JSON.stringify(plan));
 let context;
 try {
   context = await startVitest('test', [], {
-    config: false, root: dirname(fileURLToPath(import.meta.url)), include: ['specimen.test.mjs'],
+    config: false, root: plan.repositoryRoot, include: [plan.specPath], exclude: [],
     watch: false, reporters: ['dot'], pool: 'forks', maxWorkers: 1, minWorkers: 1,
-    fileParallelism: false, isolate: true, testTimeout: 8_000, cache: false,
-  }, { resolve: { alias: { stripe: require.resolve('stripe') } }, server: { watch: null } });
-  if (!context || context.state.getUnhandledErrors().length) process.exitCode = 1;
+    fileParallelism: false, isolate: true, testTimeout: 121_000, cache: false,
+  }, {
+    resolve: { alias: aliases }, server: { watch: null },
+  });
+  if (!context || context.state.getUnhandledErrors().length || context.state.getFiles().length !== 1 || context.state.getFiles().some(file => file.result?.state !== 'pass')) process.exitCode = 1;
+} catch (error) {
+  writeFileSync(plan.resultPath, JSON.stringify({ error: { reason: 'harness_could_not_run', message: String(error) } }));
+  process.exitCode = 1;
 } finally { await context?.close(); }
