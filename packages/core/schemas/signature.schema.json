@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "calls": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "items": {
+              "$ref": "#/definitions/JsonValue"
+            },
+            "type": "array"
+          },
+          "mock": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "seq": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sinkKind": {
+            "anyOf": [
+              {
+                "const": "db_write",
+                "type": "string"
+              },
+              {
+                "const": "http_out",
+                "type": "string"
+              },
+              {
+                "const": "queue",
+                "type": "string"
+              },
+              {
+                "const": "email",
+                "type": "string"
+              },
+              {
+                "const": "returned_state",
+                "type": "string"
+              },
+              {
+                "const": "log_only",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "seq",
+          "mock",
+          "sinkKind",
+          "args"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "codeVersion": {
+      "anyOf": [
+        {
+          "const": "original",
+          "type": "string"
+        },
+        {
+          "minLength": 9,
+          "pattern": "^patched:(.*)$",
+          "type": "string"
+        }
+      ]
+    },
+    "durationMs": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "entryPointId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "fixturePair": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "payloadVersion": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "returned": {
+      "$ref": "#/definitions/JsonValue"
+    },
+    "runIndex": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "threw": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "name": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "stack": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "entryPointId",
+    "codeVersion",
+    "payloadVersion",
+    "fixturePair",
+    "runIndex",
+    "returned",
+    "threw",
+    "calls",
+    "durationMs"
+  ],
+  "type": "object"
+}

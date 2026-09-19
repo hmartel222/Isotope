@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "const": "mechanical",
+      "type": "string"
+    },
+    {
+      "const": "reasoned",
+      "type": "string"
+    },
+    {
+      "const": "unavailable",
+      "type": "string"
+    }
+  ],
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  }
+}

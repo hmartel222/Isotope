@@ -1,0 +1,214 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "abstain": {
+      "type": "boolean"
+    },
+    "affectedBehavior": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "causalExplanation": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "classification": {
+      "anyOf": [
+        {
+          "const": "incompatibility",
+          "type": "string"
+        },
+        {
+          "const": "benign_adaptation",
+          "type": "string"
+        },
+        {
+          "const": "human_decision_required",
+          "type": "string"
+        }
+      ]
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "const": "high",
+          "type": "string"
+        },
+        {
+          "const": "medium",
+          "type": "string"
+        },
+        {
+          "const": "low",
+          "type": "string"
+        }
+      ]
+    },
+    "evidenceRefs": {
+      "items": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "const": "code",
+                "type": "string"
+              },
+              "line": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "file",
+              "line"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "dataflow",
+                "type": "string"
+              },
+              "nodeId": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "nodeId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "diff",
+                "type": "string"
+              },
+              "pointer": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "pointer"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "artifact",
+                "type": "string"
+              },
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "sha256": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "path"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "humanQuestion": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recommendedAction": {
+      "anyOf": [
+        {
+          "const": "none",
+          "type": "string"
+        },
+        {
+          "const": "apply_codemod",
+          "type": "string"
+        },
+        {
+          "const": "manual_review",
+          "type": "string"
+        },
+        {
+          "const": "ask_human",
+          "type": "string"
+        }
+      ]
+    },
+    "suspectedInjection": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "classification",
+    "confidence",
+    "causalExplanation",
+    "affectedBehavior",
+    "evidenceRefs",
+    "humanQuestion",
+    "recommendedAction",
+    "suspectedInjection",
+    "abstain"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,204 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      '@isotope/changespec':
+        specifier: workspace:*
+        version: link:packages/changespec
+      '@isotope/cli':
+        specifier: workspace:*
+        version: link:packages/cli
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@isotope/differ':
+        specifier: workspace:*
+        version: link:packages/differ
+      '@isotope/fleet':
+        specifier: workspace:*
+        version: link:packages/fleet
+      '@isotope/harness-py':
+        specifier: workspace:*
+        version: link:packages/harness-py
+      '@isotope/harness-ts':
+        specifier: workspace:*
+        version: link:packages/harness-ts
+      '@isotope/reasoner':
+        specifier: workspace:*
+        version: link:packages/reasoner
+      '@isotope/repair':
+        specifier: workspace:*
+        version: link:packages/repair
+      '@isotope/reporter':
+        specifier: workspace:*
+        version: link:packages/reporter
+      '@isotope/resolver-py':
+        specifier: workspace:*
+        version: link:packages/resolver-py
+      '@isotope/resolver-ts':
+        specifier: workspace:*
+        version: link:packages/resolver-ts
+      '@isotope/verifier':
+        specifier: workspace:*
+        version: link:packages/verifier
+      '@types/node':
+        specifier: 20.17.30
+        version: 20.17.30
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+
+  packages/changespec:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/cli:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+      commander:
+        specifier: 12.1.0
+        version: 12.1.0
+
+  packages/core:
+    dependencies:
+      '@sinclair/typebox':
+        specifier: 0.34.33
+        version: 0.34.33
+      ajv:
+        specifier: 8.17.1
+        version: 8.17.1
+
+  packages/differ:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/fleet:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/harness-py:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/harness-ts:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/reasoner:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/repair:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/reporter:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/resolver-py:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/resolver-ts:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/verifier:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
+packages:
+
+  '@sinclair/typebox@0.34.33':
+    resolution: {integrity: sha512-5HAV9exOMcXRUxo+9iYB5n09XxzCXnfy4VTNW4xnDv+FgjzAGY989C28BIdljKqmF+ZltUwujE3aossvcVtq6g==}
+
+  '@types/node@20.17.30':
+    resolution: {integrity: sha512-7zf4YyHA+jvBNfVrk2Gtvs6x7E8V+YDW05bNfG2XkWDJfYRXrTiP/DsB2zSYTaHX0bGIujTBQdMVAhb+j7mwpg==}
+
+  ajv@8.17.1:
+    resolution: {integrity: sha512-B/gBuNg5SiMTrPkC+A2+cW0RszwxYmn6VYxB/inlBStS5nx6xHIt/ehKRhIMhqusl7a8LjQoZnjCs5vhwxOQ1g==}
+
+  commander@12.1.0:
+    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
+    engines: {node: '>=18'}
+
+  fast-deep-equal@3.1.3:
+    resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
+
+  fast-uri@3.1.8:
+    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
+
+  json-schema-traverse@1.0.0:
+    resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
+
+  require-from-string@2.0.2:
+    resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
+    engines: {node: '>=0.10.0'}
+
+  typescript@5.7.3:
+    resolution: {integrity: sha512-84MVSjMEHP+FQRPy3pX9sTVV/INIex71s9TL2Gm5FG/WG1SqXeKyZ0k7/blY/4FdOzI12CBy1vGc4og/eus0fw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  undici-types@6.19.8:
+    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
+
+snapshots:
+
+  '@sinclair/typebox@0.34.33': {}
+
+  '@types/node@20.17.30':
+    dependencies:
+      undici-types: 6.19.8
+
+  ajv@8.17.1:
+    dependencies:
+      fast-deep-equal: 3.1.3
+      fast-uri: 3.1.8
+      json-schema-traverse: 1.0.0
+      require-from-string: 2.0.2
+
+  commander@12.1.0: {}
+
+  fast-deep-equal@3.1.3: {}
+
+  fast-uri@3.1.8: {}
+
+  json-schema-traverse@1.0.0: {}
+
+  require-from-string@2.0.2: {}
+
+  typescript@5.7.3: {}
+
+  undici-types@6.19.8: {}

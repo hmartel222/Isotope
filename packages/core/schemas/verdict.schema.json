@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "const": "PASS",
+      "type": "string"
+    },
+    {
+      "const": "PASS_REASONED",
+      "type": "string"
+    },
+    {
+      "const": "FAIL",
+      "type": "string"
+    },
+    {
+      "const": "FAIL_REASONED",
+      "type": "string"
+    },
+    {
+      "const": "ESCALATE",
+      "type": "string"
+    },
+    {
+      "const": "INDETERMINATE",
+      "type": "string"
+    },
+    {
+      "const": "SKIP",
+      "type": "string"
+    }
+  ],
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  }
+}

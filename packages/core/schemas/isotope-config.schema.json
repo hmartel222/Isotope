@@ -1,0 +1,325 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "entryPoints": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "export": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "file": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "express_route",
+                "type": "string"
+              },
+              {
+                "const": "next_app_route",
+                "type": "string"
+              },
+              {
+                "const": "next_pages_api",
+                "type": "string"
+              },
+              {
+                "const": "lambda",
+                "type": "string"
+              },
+              {
+                "const": "plain",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "file",
+          "export",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "failOn": {
+      "items": {
+        "anyOf": [
+          {
+            "const": "critical",
+            "type": "string"
+          },
+          {
+            "const": "high",
+            "type": "string"
+          },
+          {
+            "const": "info",
+            "type": "string"
+          }
+        ]
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "ignore": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "const": "ts",
+          "type": "string"
+        },
+        {
+          "const": "py",
+          "type": "string"
+        },
+        {
+          "const": "auto",
+          "type": "string"
+        }
+      ]
+    },
+    "mocks": {
+      "items": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "module": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "strategy": {
+                "const": "provider",
+                "type": "string"
+              }
+            },
+            "required": [
+              "module",
+              "strategy"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "exports": {
+                "minProperties": 1,
+                "patternProperties": {
+                  "^(.*)$": {
+                    "const": "recordAll",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "module": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "sinkKind": {
+                "anyOf": [
+                  {
+                    "const": "db_write",
+                    "type": "string"
+                  },
+                  {
+                    "const": "http_out",
+                    "type": "string"
+                  },
+                  {
+                    "const": "queue",
+                    "type": "string"
+                  },
+                  {
+                    "const": "email",
+                    "type": "string"
+                  },
+                  {
+                    "const": "returned_state",
+                    "type": "string"
+                  },
+                  {
+                    "const": "log_only",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "module",
+              "exports",
+              "sinkKind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "reasoner": {
+      "additionalProperties": false,
+      "properties": {
+        "maxInvocations": {
+          "maximum": 10,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "const": "on",
+              "type": "string"
+            },
+            {
+              "const": "off",
+              "type": "string"
+            }
+          ]
+        },
+        "redact": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "maxInvocations",
+        "redact"
+      ],
+      "type": "object"
+    },
+    "repair": {
+      "additionalProperties": false,
+      "properties": {
+        "maxAttempts": {
+          "const": 1,
+          "type": "number"
+        },
+        "maxChangedLines": {
+          "maximum": 80,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxFiles": {
+          "maximum": 3,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "const": "on",
+              "type": "string"
+            },
+            {
+              "const": "off",
+              "type": "string"
+            }
+          ]
+        },
+        "planner": {
+          "anyOf": [
+            {
+              "const": "model",
+              "type": "string"
+            },
+            {
+              "const": "deterministic-only",
+              "type": "string"
+            }
+          ]
+        },
+        "redact": {
+          "type": "boolean"
+        },
+        "selfConsistency": {
+          "type": "boolean"
+        },
+        "verify": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "planner",
+        "maxAttempts",
+        "maxFiles",
+        "maxChangedLines",
+        "selfConsistency",
+        "verify",
+        "redact"
+      ],
+      "type": "object"
+    },
+    "returns": {
+      "patternProperties": {
+        "^(.*)$": {
+          "$ref": "#/definitions/JsonValue"
+        }
+      },
+      "type": "object"
+    },
+    "version": {
+      "const": 1,
+      "type": "number"
+    }
+  },
+  "required": [
+    "version",
+    "language",
+    "entryPoints",
+    "mocks",
+    "returns",
+    "failOn",
+    "reasoner",
+    "repair",
+    "ignore"
+  ],
+  "type": "object"
+}

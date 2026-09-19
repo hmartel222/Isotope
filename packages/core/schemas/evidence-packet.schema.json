@@ -1,0 +1,947 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "change": {
+      "additionalProperties": false,
+      "properties": {
+        "ambiguityHint": {
+          "additionalProperties": false,
+          "properties": {
+            "question": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "satisfied": {
+              "type": "boolean"
+            },
+            "when": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "when",
+            "satisfied",
+            "question"
+          ],
+          "type": "object"
+        },
+        "removedPath": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "replacement": {
+          "additionalProperties": false,
+          "properties": {
+            "cardinality": {
+              "anyOf": [
+                {
+                  "const": "one",
+                  "type": "string"
+                },
+                {
+                  "const": "many",
+                  "type": "string"
+                }
+              ]
+            },
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "semantics": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "cardinality"
+          ],
+          "type": "object"
+        },
+        "semantics": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "specId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "specId",
+        "title",
+        "semantics",
+        "removedPath",
+        "replacement"
+      ],
+      "type": "object"
+    },
+    "code": {
+      "additionalProperties": false,
+      "properties": {
+        "downstreamFunctions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "slice": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "name",
+              "slice"
+            ],
+            "type": "object"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "entryPoint": {
+          "additionalProperties": false,
+          "properties": {
+            "export": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "file": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "lines": {
+              "additionalItems": false,
+              "items": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "file",
+            "export",
+            "lines"
+          ],
+          "type": "object"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "const": "ts",
+              "type": "string"
+            },
+            {
+              "const": "py",
+              "type": "string"
+            }
+          ]
+        },
+        "slice": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "entryPoint",
+        "slice",
+        "downstreamFunctions"
+      ],
+      "type": "object"
+    },
+    "dataflow": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "aggregation": {
+                "type": "boolean"
+              },
+              "castSuppressed": {
+                "type": "boolean"
+              },
+              "entryPointId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "indeterminatePath": {
+                "type": "boolean"
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "taint_root",
+                    "type": "string"
+                  },
+                  {
+                    "const": "binding",
+                    "type": "string"
+                  },
+                  {
+                    "const": "transform",
+                    "type": "string"
+                  },
+                  {
+                    "const": "branch",
+                    "type": "string"
+                  },
+                  {
+                    "const": "local_call",
+                    "type": "string"
+                  },
+                  {
+                    "const": "sink",
+                    "type": "string"
+                  }
+                ]
+              },
+              "label": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "location": {
+                "additionalProperties": false,
+                "properties": {
+                  "column": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "endLine": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "line"
+                ],
+                "type": "object"
+              },
+              "optional": {
+                "type": "boolean"
+              },
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "provenance": {
+                "additionalProperties": false,
+                "properties": {
+                  "basis": {
+                    "anyOf": [
+                      {
+                        "const": "provider_call",
+                        "type": "string"
+                      },
+                      {
+                        "const": "provider_type",
+                        "type": "string"
+                      },
+                      {
+                        "const": "one_hop_parameter",
+                        "type": "string"
+                      },
+                      {
+                        "const": "reexport",
+                        "type": "string"
+                      },
+                      {
+                        "const": "name_heuristic",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "confidence": {
+                    "anyOf": [
+                      {
+                        "const": "high",
+                        "type": "string"
+                      },
+                      {
+                        "const": "medium",
+                        "type": "string"
+                      },
+                      {
+                        "const": "low",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "evidenceRefs": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "provider": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "rootNodeId": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "specId": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "confidence",
+                  "provider",
+                  "specId",
+                  "basis"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "entryPointId",
+              "location",
+              "label",
+              "provenance"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "sinks": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "db_write",
+                    "type": "string"
+                  },
+                  {
+                    "const": "http_out",
+                    "type": "string"
+                  },
+                  {
+                    "const": "queue",
+                    "type": "string"
+                  },
+                  {
+                    "const": "email",
+                    "type": "string"
+                  },
+                  {
+                    "const": "returned_state",
+                    "type": "string"
+                  },
+                  {
+                    "const": "log_only",
+                    "type": "string"
+                  }
+                ]
+              },
+              "location": {
+                "additionalProperties": false,
+                "properties": {
+                  "column": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "endLine": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "line"
+                ],
+                "type": "object"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "nodeId": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "nodeId",
+              "kind",
+              "name",
+              "location"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "nodes",
+        "sinks"
+      ],
+      "type": "object"
+    },
+    "diff": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "ambiguityCandidate": {
+            "type": "boolean"
+          },
+          "bdgNodeId": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "identical",
+                "type": "string"
+              },
+              {
+                "const": "value_to_missing",
+                "type": "string"
+              },
+              {
+                "const": "call_dropped",
+                "type": "string"
+              },
+              {
+                "const": "threw_new_only",
+                "type": "string"
+              },
+              {
+                "const": "value_changed",
+                "type": "string"
+              },
+              {
+                "const": "type_changed",
+                "type": "string"
+              },
+              {
+                "const": "call_added",
+                "type": "string"
+              },
+              {
+                "const": "call_args_changed",
+                "type": "string"
+              },
+              {
+                "const": "field_added",
+                "type": "string"
+              },
+              {
+                "const": "unstable",
+                "type": "string"
+              }
+            ]
+          },
+          "new": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "old": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "pointer": {
+            "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "const": "critical",
+                    "type": "string"
+                  },
+                  {
+                    "const": "high",
+                    "type": "string"
+                  },
+                  {
+                    "const": "info",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sinkKind": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "const": "db_write",
+                    "type": "string"
+                  },
+                  {
+                    "const": "http_out",
+                    "type": "string"
+                  },
+                  {
+                    "const": "queue",
+                    "type": "string"
+                  },
+                  {
+                    "const": "email",
+                    "type": "string"
+                  },
+                  {
+                    "const": "returned_state",
+                    "type": "string"
+                  },
+                  {
+                    "const": "log_only",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "const": "mechanical",
+                "type": "string"
+              },
+              {
+                "const": "semantic_question",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "pointer",
+          "sinkKind",
+          "old",
+          "new",
+          "kind",
+          "tier",
+          "severity",
+          "bdgNodeId"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "execution": {
+      "additionalProperties": false,
+      "properties": {
+        "new": {
+          "additionalProperties": false,
+          "properties": {
+            "calls": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "items": {
+                      "$ref": "#/definitions/JsonValue"
+                    },
+                    "type": "array"
+                  },
+                  "mock": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "seq": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "sinkKind": {
+                    "anyOf": [
+                      {
+                        "const": "db_write",
+                        "type": "string"
+                      },
+                      {
+                        "const": "http_out",
+                        "type": "string"
+                      },
+                      {
+                        "const": "queue",
+                        "type": "string"
+                      },
+                      {
+                        "const": "email",
+                        "type": "string"
+                      },
+                      {
+                        "const": "returned_state",
+                        "type": "string"
+                      },
+                      {
+                        "const": "log_only",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "seq",
+                  "mock",
+                  "sinkKind",
+                  "args"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "codeVersion": {
+              "anyOf": [
+                {
+                  "const": "original",
+                  "type": "string"
+                },
+                {
+                  "minLength": 9,
+                  "pattern": "^patched:(.*)$",
+                  "type": "string"
+                }
+              ]
+            },
+            "durationMs": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "entryPointId": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "fixturePair": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "payloadVersion": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "returned": {
+              "$ref": "#/definitions/JsonValue"
+            },
+            "runIndex": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "threw": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "stack": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "message"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "entryPointId",
+            "codeVersion",
+            "payloadVersion",
+            "fixturePair",
+            "runIndex",
+            "returned",
+            "threw",
+            "calls",
+            "durationMs"
+          ],
+          "type": "object"
+        },
+        "old": {
+          "additionalProperties": false,
+          "properties": {
+            "calls": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "items": {
+                      "$ref": "#/definitions/JsonValue"
+                    },
+                    "type": "array"
+                  },
+                  "mock": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "seq": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "sinkKind": {
+                    "anyOf": [
+                      {
+                        "const": "db_write",
+                        "type": "string"
+                      },
+                      {
+                        "const": "http_out",
+                        "type": "string"
+                      },
+                      {
+                        "const": "queue",
+                        "type": "string"
+                      },
+                      {
+                        "const": "email",
+                        "type": "string"
+                      },
+                      {
+                        "const": "returned_state",
+                        "type": "string"
+                      },
+                      {
+                        "const": "log_only",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "seq",
+                  "mock",
+                  "sinkKind",
+                  "args"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "codeVersion": {
+              "anyOf": [
+                {
+                  "const": "original",
+                  "type": "string"
+                },
+                {
+                  "minLength": 9,
+                  "pattern": "^patched:(.*)$",
+                  "type": "string"
+                }
+              ]
+            },
+            "durationMs": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "entryPointId": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "fixturePair": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "payloadVersion": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "returned": {
+              "$ref": "#/definitions/JsonValue"
+            },
+            "runIndex": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "threw": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "stack": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "message"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "entryPointId",
+            "codeVersion",
+            "payloadVersion",
+            "fixturePair",
+            "runIndex",
+            "returned",
+            "threw",
+            "calls",
+            "durationMs"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "old",
+        "new"
+      ],
+      "type": "object"
+    },
+    "packetVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "payloadFragments": {
+      "additionalProperties": false,
+      "properties": {
+        "new": {
+          "$ref": "#/definitions/JsonValue"
+        },
+        "old": {
+          "$ref": "#/definitions/JsonValue"
+        }
+      },
+      "required": [
+        "old",
+        "new"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "packetVersion",
+    "change",
+    "code",
+    "dataflow",
+    "execution",
+    "diff",
+    "payloadFragments"
+  ],
+  "type": "object"
+}

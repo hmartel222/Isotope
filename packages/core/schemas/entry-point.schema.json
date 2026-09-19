@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "export": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "file": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "const": "express_route",
+          "type": "string"
+        },
+        {
+          "const": "next_app_route",
+          "type": "string"
+        },
+        {
+          "const": "next_pages_api",
+          "type": "string"
+        },
+        {
+          "const": "lambda",
+          "type": "string"
+        },
+        {
+          "const": "plain",
+          "type": "string"
+        }
+      ]
+    },
+    "language": {
+      "anyOf": [
+        {
+          "const": "ts",
+          "type": "string"
+        },
+        {
+          "const": "py",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "file",
+    "export",
+    "kind",
+    "language"
+  ],
+  "type": "object"
+}

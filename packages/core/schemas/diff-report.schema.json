@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "divergences": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "ambiguityCandidate": {
+            "type": "boolean"
+          },
+          "bdgNodeId": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "identical",
+                "type": "string"
+              },
+              {
+                "const": "value_to_missing",
+                "type": "string"
+              },
+              {
+                "const": "call_dropped",
+                "type": "string"
+              },
+              {
+                "const": "threw_new_only",
+                "type": "string"
+              },
+              {
+                "const": "value_changed",
+                "type": "string"
+              },
+              {
+                "const": "type_changed",
+                "type": "string"
+              },
+              {
+                "const": "call_added",
+                "type": "string"
+              },
+              {
+                "const": "call_args_changed",
+                "type": "string"
+              },
+              {
+                "const": "field_added",
+                "type": "string"
+              },
+              {
+                "const": "unstable",
+                "type": "string"
+              }
+            ]
+          },
+          "new": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "old": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "pointer": {
+            "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "const": "critical",
+                    "type": "string"
+                  },
+                  {
+                    "const": "high",
+                    "type": "string"
+                  },
+                  {
+                    "const": "info",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sinkKind": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "const": "db_write",
+                    "type": "string"
+                  },
+                  {
+                    "const": "http_out",
+                    "type": "string"
+                  },
+                  {
+                    "const": "queue",
+                    "type": "string"
+                  },
+                  {
+                    "const": "email",
+                    "type": "string"
+                  },
+                  {
+                    "const": "returned_state",
+                    "type": "string"
+                  },
+                  {
+                    "const": "log_only",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "const": "mechanical",
+                "type": "string"
+              },
+              {
+                "const": "semantic_question",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "pointer",
+          "sinkKind",
+          "old",
+          "new",
+          "kind",
+          "tier",
+          "severity",
+          "bdgNodeId"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "entryPointId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "fixturePair": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "newSignatureRef": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "oldSignatureRef": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "stable": {
+      "type": "boolean"
+    },
+    "unstablePointers": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "entryPointId",
+    "fixturePair",
+    "oldSignatureRef",
+    "newSignatureRef",
+    "stable",
+    "unstablePointers",
+    "divergences"
+  ],
+  "type": "object"
+}

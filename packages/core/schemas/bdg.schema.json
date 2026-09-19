@@ -1,0 +1,557 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "affectedSites": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "changeIndex": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "entryPointId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "location": {
+            "additionalProperties": false,
+            "properties": {
+              "column": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "endLine": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "file": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "line": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "file",
+              "line"
+            ],
+            "type": "object"
+          },
+          "nodeId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "properties": {
+              "basis": {
+                "anyOf": [
+                  {
+                    "const": "provider_call",
+                    "type": "string"
+                  },
+                  {
+                    "const": "provider_type",
+                    "type": "string"
+                  },
+                  {
+                    "const": "one_hop_parameter",
+                    "type": "string"
+                  },
+                  {
+                    "const": "reexport",
+                    "type": "string"
+                  },
+                  {
+                    "const": "name_heuristic",
+                    "type": "string"
+                  }
+                ]
+              },
+              "confidence": {
+                "anyOf": [
+                  {
+                    "const": "high",
+                    "type": "string"
+                  },
+                  {
+                    "const": "medium",
+                    "type": "string"
+                  },
+                  {
+                    "const": "low",
+                    "type": "string"
+                  }
+                ]
+              },
+              "evidenceRefs": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "provider": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "rootNodeId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "specId": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "confidence",
+              "provider",
+              "specId",
+              "basis"
+            ],
+            "type": "object"
+          },
+          "sinkNodeIds": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "specId": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entryPointId",
+          "nodeId",
+          "specId",
+          "changeIndex",
+          "location",
+          "sinkNodeIds",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "const": "flows_to",
+            "type": "string"
+          },
+          "pathSuffix": {
+            "type": "string"
+          },
+          "to": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "kind",
+          "pathSuffix"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "entryPoints": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "export": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "file": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "express_route",
+                "type": "string"
+              },
+              {
+                "const": "next_app_route",
+                "type": "string"
+              },
+              {
+                "const": "next_pages_api",
+                "type": "string"
+              },
+              {
+                "const": "lambda",
+                "type": "string"
+              },
+              {
+                "const": "plain",
+                "type": "string"
+              }
+            ]
+          },
+          "language": {
+            "anyOf": [
+              {
+                "const": "ts",
+                "type": "string"
+              },
+              {
+                "const": "py",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "file",
+          "export",
+          "kind",
+          "language"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "aggregation": {
+            "type": "boolean"
+          },
+          "castSuppressed": {
+            "type": "boolean"
+          },
+          "entryPointId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "indeterminatePath": {
+            "type": "boolean"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "taint_root",
+                "type": "string"
+              },
+              {
+                "const": "binding",
+                "type": "string"
+              },
+              {
+                "const": "transform",
+                "type": "string"
+              },
+              {
+                "const": "branch",
+                "type": "string"
+              },
+              {
+                "const": "local_call",
+                "type": "string"
+              },
+              {
+                "const": "sink",
+                "type": "string"
+              }
+            ]
+          },
+          "label": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "location": {
+            "additionalProperties": false,
+            "properties": {
+              "column": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "endLine": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "file": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "line": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "file",
+              "line"
+            ],
+            "type": "object"
+          },
+          "optional": {
+            "type": "boolean"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "properties": {
+              "basis": {
+                "anyOf": [
+                  {
+                    "const": "provider_call",
+                    "type": "string"
+                  },
+                  {
+                    "const": "provider_type",
+                    "type": "string"
+                  },
+                  {
+                    "const": "one_hop_parameter",
+                    "type": "string"
+                  },
+                  {
+                    "const": "reexport",
+                    "type": "string"
+                  },
+                  {
+                    "const": "name_heuristic",
+                    "type": "string"
+                  }
+                ]
+              },
+              "confidence": {
+                "anyOf": [
+                  {
+                    "const": "high",
+                    "type": "string"
+                  },
+                  {
+                    "const": "medium",
+                    "type": "string"
+                  },
+                  {
+                    "const": "low",
+                    "type": "string"
+                  }
+                ]
+              },
+              "evidenceRefs": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "provider": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "rootNodeId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "specId": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "confidence",
+              "provider",
+              "specId",
+              "basis"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "entryPointId",
+          "location",
+          "label",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "sinks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "const": "db_write",
+                "type": "string"
+              },
+              {
+                "const": "http_out",
+                "type": "string"
+              },
+              {
+                "const": "queue",
+                "type": "string"
+              },
+              {
+                "const": "email",
+                "type": "string"
+              },
+              {
+                "const": "returned_state",
+                "type": "string"
+              },
+              {
+                "const": "log_only",
+                "type": "string"
+              }
+            ]
+          },
+          "location": {
+            "additionalProperties": false,
+            "properties": {
+              "column": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "endLine": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "file": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "line": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "file",
+              "line"
+            ],
+            "type": "object"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "nodeId": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "kind",
+          "name",
+          "location"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "skipped": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "entryPoints",
+    "nodes",
+    "edges",
+    "sinks",
+    "affectedSites",
+    "skipped"
+  ],
+  "type": "object"
+}

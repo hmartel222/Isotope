@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "args": {
+      "items": {
+        "$ref": "#/definitions/JsonValue"
+      },
+      "type": "array"
+    },
+    "mock": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sinkKind": {
+      "anyOf": [
+        {
+          "const": "db_write",
+          "type": "string"
+        },
+        {
+          "const": "http_out",
+          "type": "string"
+        },
+        {
+          "const": "queue",
+          "type": "string"
+        },
+        {
+          "const": "email",
+          "type": "string"
+        },
+        {
+          "const": "returned_state",
+          "type": "string"
+        },
+        {
+          "const": "log_only",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "required": [
+    "seq",
+    "mock",
+    "sinkKind",
+    "args"
+  ],
+  "type": "object"
+}

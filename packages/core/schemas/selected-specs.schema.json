@@ -1,0 +1,393 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "dependencyChanges": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "ecosystem": {
+            "anyOf": [
+              {
+                "const": "npm",
+                "type": "string"
+              },
+              {
+                "const": "pypi",
+                "type": "string"
+              }
+            ]
+          },
+          "from_version": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "package": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "to_version": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "ecosystem",
+          "package",
+          "from_version",
+          "to_version"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "specs": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "changes": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "ambiguity": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "options": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "question": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "when": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "when",
+                    "question",
+                    "options"
+                  ],
+                  "type": "object"
+                },
+                "applies_to_events": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "codemod": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "from": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "path_rename",
+                      "type": "string"
+                    },
+                    "safe_when": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "to": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "safe_when",
+                    "from",
+                    "to"
+                  ],
+                  "type": "object"
+                },
+                "object": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "removed_path": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "repair_policy": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "business_policy_required_when": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "business_policy_required_when"
+                  ],
+                  "type": "object"
+                },
+                "replacement": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cardinality": {
+                      "anyOf": [
+                        {
+                          "const": "one",
+                          "type": "string"
+                        },
+                        {
+                          "const": "many",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "path": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "semantics": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "cardinality"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "object",
+                "removed_path",
+                "replacement"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "detection": {
+            "additionalProperties": false,
+            "properties": {
+              "ecosystems": {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "patternProperties": {
+                  "^(npm|pypi)$": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "breaking_from": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "packages": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "packages",
+                      "breaking_from"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              },
+              "taint_roots": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "const": "call",
+                          "type": "string"
+                        },
+                        {
+                          "const": "type",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "language": {
+                      "anyOf": [
+                        {
+                          "const": "ts",
+                          "type": "string"
+                        },
+                        {
+                          "const": "py",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "pattern": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "language",
+                    "pattern"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "ecosystems",
+              "taint_roots"
+            ],
+            "type": "object"
+          },
+          "fixtures": {
+            "additionalProperties": false,
+            "properties": {
+              "adaptation_pair": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ambiguity_pair": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "heldout_pair": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "noop_pair": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "pair": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "pair"
+            ],
+            "type": "object"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "semantics": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "source": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "verified_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "verified_by": {
+            "const": "human",
+            "type": "string"
+          },
+          "versions": {
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "to": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "title",
+          "source",
+          "verified_by",
+          "verified_at",
+          "versions",
+          "semantics",
+          "detection",
+          "changes",
+          "fixtures"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "dependencyChanges",
+    "specs"
+  ],
+  "type": "object"
+}

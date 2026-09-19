@@ -1,0 +1,51 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@isotope/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@isotope/changespec": [
+        "packages/changespec/src/index.ts"
+      ],
+      "@isotope/resolver-ts": [
+        "packages/resolver-ts/src/index.ts"
+      ],
+      "@isotope/resolver-py": [
+        "packages/resolver-py/src/index.ts"
+      ],
+      "@isotope/harness-ts": [
+        "packages/harness-ts/src/index.ts"
+      ],
+      "@isotope/harness-py": [
+        "packages/harness-py/src/index.ts"
+      ],
+      "@isotope/differ": [
+        "packages/differ/src/index.ts"
+      ],
+      "@isotope/reasoner": [
+        "packages/reasoner/src/index.ts"
+      ],
+      "@isotope/repair": [
+        "packages/repair/src/index.ts"
+      ],
+      "@isotope/verifier": [
+        "packages/verifier/src/index.ts"
+      ],
+      "@isotope/reporter": [
+        "packages/reporter/src/index.ts"
+      ],
+      "@isotope/fleet": [
+        "packages/fleet/src/index.ts"
+      ],
+      "@isotope/cli": [
+        "packages/cli/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "tests/types.ts"
+  ]
+}

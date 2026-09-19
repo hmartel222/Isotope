@@ -1,0 +1,44 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/changespec"
+    },
+    {
+      "path": "packages/resolver-ts"
+    },
+    {
+      "path": "packages/resolver-py"
+    },
+    {
+      "path": "packages/harness-ts"
+    },
+    {
+      "path": "packages/harness-py"
+    },
+    {
+      "path": "packages/differ"
+    },
+    {
+      "path": "packages/reasoner"
+    },
+    {
+      "path": "packages/repair"
+    },
+    {
+      "path": "packages/verifier"
+    },
+    {
+      "path": "packages/reporter"
+    },
+    {
+      "path": "packages/fleet"
+    },
+    {
+      "path": "packages/cli"
+    }
+  ]
+}

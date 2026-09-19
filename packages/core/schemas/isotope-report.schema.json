@@ -1,0 +1,3592 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "audit": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "invocationIndex": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "packetHash": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "packetRef": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "responseRef": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "resultRef": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "const": "reasoner",
+                "type": "string"
+              },
+              {
+                "const": "planner",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "stage",
+          "packetRef",
+          "packetHash",
+          "responseRef",
+          "invocationIndex"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "bdgRef": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "candidateRefs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "diffReportRefs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "evidencePacketRefs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "reasoningRefs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "repairPacketRefs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "repairVerifications": {
+      "items": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "entryPointId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "evidenceRefs": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "file": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "code",
+                          "type": "string"
+                        },
+                        "line": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "file",
+                        "line"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "dataflow",
+                          "type": "string"
+                        },
+                        "nodeId": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "nodeId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "diff",
+                          "type": "string"
+                        },
+                        "pointer": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "pointer"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "artifact",
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "path"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "heldOut": {
+                "additionalProperties": false,
+                "properties": {
+                  "baseline": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "codeVersion": {
+                        "const": "original",
+                        "type": "string"
+                      },
+                      "fixturePair": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "path": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "payloadVersion": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "runIndex": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "codeVersion",
+                      "payloadVersion",
+                      "fixturePair",
+                      "runIndex"
+                    ],
+                    "type": "object"
+                  },
+                  "baselineDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "baselineEquivalent": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "fixturePair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "patchedNew": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "patchedOld": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "role": {
+                    "const": "held_out",
+                    "type": "string"
+                  },
+                  "secondaryDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "secondaryStable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "stable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "verdict": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "divergenceIds": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "entryPointId": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "evidenceRefs": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "file": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "const": "code",
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "minimum": 1,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "file",
+                                "line"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "dataflow",
+                                  "type": "string"
+                                },
+                                "nodeId": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "nodeId"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "diff",
+                                  "type": "string"
+                                },
+                                "pointer": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "pointer"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "artifact",
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "path"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "provenance": {
+                        "anyOf": [
+                          {
+                            "const": "mechanical",
+                            "type": "string"
+                          },
+                          {
+                            "const": "reasoned",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unavailable",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "reasoningRefs": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "suspectedInjection": {
+                        "type": "boolean"
+                      },
+                      "verdict": {
+                        "anyOf": [
+                          {
+                            "const": "PASS",
+                            "type": "string"
+                          },
+                          {
+                            "const": "PASS_REASONED",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "entryPointId",
+                      "verdict",
+                      "provenance",
+                      "reason",
+                      "divergenceIds",
+                      "reasoningRefs",
+                      "evidenceRefs",
+                      "suspectedInjection"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "role",
+                  "fixturePair",
+                  "baseline",
+                  "patchedOld",
+                  "patchedNew",
+                  "baselineDiffRef",
+                  "secondaryDiffRef",
+                  "verdict",
+                  "stable",
+                  "baselineEquivalent",
+                  "secondaryStable"
+                ],
+                "type": "object"
+              },
+              "origin": {
+                "anyOf": [
+                  {
+                    "const": "deterministic",
+                    "type": "string"
+                  },
+                  {
+                    "const": "model",
+                    "type": "string"
+                  }
+                ]
+              },
+              "outcome": {
+                "const": "verified",
+                "type": "string"
+              },
+              "planning": {
+                "additionalProperties": false,
+                "properties": {
+                  "baseline": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "codeVersion": {
+                        "const": "original",
+                        "type": "string"
+                      },
+                      "fixturePair": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "path": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "payloadVersion": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "runIndex": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "codeVersion",
+                      "payloadVersion",
+                      "fixturePair",
+                      "runIndex"
+                    ],
+                    "type": "object"
+                  },
+                  "baselineDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "baselineEquivalent": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "fixturePair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "patchedNew": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "patchedOld": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "role": {
+                    "const": "planning",
+                    "type": "string"
+                  },
+                  "secondaryDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "secondaryStable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "stable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "verdict": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "divergenceIds": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "entryPointId": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "evidenceRefs": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "file": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "const": "code",
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "minimum": 1,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "file",
+                                "line"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "dataflow",
+                                  "type": "string"
+                                },
+                                "nodeId": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "nodeId"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "diff",
+                                  "type": "string"
+                                },
+                                "pointer": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "pointer"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "artifact",
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "path"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "provenance": {
+                        "anyOf": [
+                          {
+                            "const": "mechanical",
+                            "type": "string"
+                          },
+                          {
+                            "const": "reasoned",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unavailable",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "reasoningRefs": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "suspectedInjection": {
+                        "type": "boolean"
+                      },
+                      "verdict": {
+                        "anyOf": [
+                          {
+                            "const": "PASS",
+                            "type": "string"
+                          },
+                          {
+                            "const": "PASS_REASONED",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "entryPointId",
+                      "verdict",
+                      "provenance",
+                      "reason",
+                      "divergenceIds",
+                      "reasoningRefs",
+                      "evidenceRefs",
+                      "suspectedInjection"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "role",
+                  "fixturePair",
+                  "baseline",
+                  "patchedOld",
+                  "patchedNew",
+                  "baselineDiffRef",
+                  "secondaryDiffRef",
+                  "verdict",
+                  "stable",
+                  "baselineEquivalent",
+                  "secondaryStable"
+                ],
+                "type": "object"
+              },
+              "reason": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "repairId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "type": "number"
+              },
+              "shapeChecks": {
+                "additionalProperties": false,
+                "properties": {
+                  "noBaselineLiteralIntroduced": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "noNewSuppression": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "providerSinkFlowPreserved": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "sinksPreserved": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "taintRootReachable": {
+                    "const": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "providerSinkFlowPreserved",
+                  "sinksPreserved",
+                  "noBaselineLiteralIntroduced",
+                  "taintRootReachable",
+                  "noNewSuppression"
+                ],
+                "type": "object"
+              },
+              "specId": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "repairId",
+              "entryPointId",
+              "specId",
+              "origin",
+              "outcome",
+              "reason",
+              "planning",
+              "heldOut",
+              "shapeChecks",
+              "evidenceRefs"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "entryPointId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "evidenceRefs": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "file": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "code",
+                          "type": "string"
+                        },
+                        "line": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "file",
+                        "line"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "dataflow",
+                          "type": "string"
+                        },
+                        "nodeId": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "nodeId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "diff",
+                          "type": "string"
+                        },
+                        "pointer": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "pointer"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "artifact",
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "path"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "heldOut": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "baseline": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "codeVersion": {
+                            "const": "original",
+                            "type": "string"
+                          },
+                          "fixturePair": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "path": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "payloadVersion": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "runIndex": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "codeVersion",
+                          "payloadVersion",
+                          "fixturePair",
+                          "runIndex"
+                        ],
+                        "type": "object"
+                      },
+                      "baselineDiffRef": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "baselineEquivalent": {
+                        "type": "boolean"
+                      },
+                      "fixturePair": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "patchedNew": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "codeVersion": {
+                              "anyOf": [
+                                {
+                                  "const": "original",
+                                  "type": "string"
+                                },
+                                {
+                                  "minLength": 9,
+                                  "pattern": "^patched:(.*)$",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "fixturePair": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "path": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "payloadVersion": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "runIndex": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "codeVersion",
+                            "payloadVersion",
+                            "fixturePair",
+                            "runIndex"
+                          ],
+                          "type": "object"
+                        },
+                        "minItems": 2,
+                        "type": "array"
+                      },
+                      "patchedOld": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "codeVersion": {
+                              "anyOf": [
+                                {
+                                  "const": "original",
+                                  "type": "string"
+                                },
+                                {
+                                  "minLength": 9,
+                                  "pattern": "^patched:(.*)$",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "fixturePair": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "path": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "payloadVersion": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "runIndex": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "codeVersion",
+                            "payloadVersion",
+                            "fixturePair",
+                            "runIndex"
+                          ],
+                          "type": "object"
+                        },
+                        "minItems": 2,
+                        "type": "array"
+                      },
+                      "role": {
+                        "anyOf": [
+                          {
+                            "const": "planning",
+                            "type": "string"
+                          },
+                          {
+                            "const": "held_out",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "secondaryDiffRef": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "secondaryStable": {
+                        "type": "boolean"
+                      },
+                      "stable": {
+                        "type": "boolean"
+                      },
+                      "verdict": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "divergenceIds": {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "entryPointId": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "evidenceRefs": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "file": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "const": "code",
+                                      "type": "string"
+                                    },
+                                    "line": {
+                                      "minimum": 1,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "file",
+                                    "line"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "dataflow",
+                                      "type": "string"
+                                    },
+                                    "nodeId": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "nodeId"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "diff",
+                                      "type": "string"
+                                    },
+                                    "pointer": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "pointer"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "artifact",
+                                      "type": "string"
+                                    },
+                                    "path": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "sha256": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "path"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "type": "array"
+                          },
+                          "provenance": {
+                            "anyOf": [
+                              {
+                                "const": "mechanical",
+                                "type": "string"
+                              },
+                              {
+                                "const": "reasoned",
+                                "type": "string"
+                              },
+                              {
+                                "const": "unavailable",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "reasoningRefs": {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "suspectedInjection": {
+                            "type": "boolean"
+                          },
+                          "verdict": {
+                            "anyOf": [
+                              {
+                                "const": "PASS",
+                                "type": "string"
+                              },
+                              {
+                                "const": "PASS_REASONED",
+                                "type": "string"
+                              },
+                              {
+                                "const": "FAIL",
+                                "type": "string"
+                              },
+                              {
+                                "const": "FAIL_REASONED",
+                                "type": "string"
+                              },
+                              {
+                                "const": "ESCALATE",
+                                "type": "string"
+                              },
+                              {
+                                "const": "INDETERMINATE",
+                                "type": "string"
+                              },
+                              {
+                                "const": "SKIP",
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "entryPointId",
+                          "verdict",
+                          "provenance",
+                          "reason",
+                          "divergenceIds",
+                          "reasoningRefs",
+                          "evidenceRefs",
+                          "suspectedInjection"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "role",
+                      "fixturePair",
+                      "baseline",
+                      "patchedOld",
+                      "patchedNew",
+                      "baselineDiffRef",
+                      "secondaryDiffRef",
+                      "verdict",
+                      "stable",
+                      "baselineEquivalent",
+                      "secondaryStable"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "origin": {
+                "anyOf": [
+                  {
+                    "const": "deterministic",
+                    "type": "string"
+                  },
+                  {
+                    "const": "model",
+                    "type": "string"
+                  }
+                ]
+              },
+              "outcome": {
+                "anyOf": [
+                  {
+                    "const": "overfit_rejected",
+                    "type": "string"
+                  },
+                  {
+                    "const": "did_not_restore_behavior",
+                    "type": "string"
+                  },
+                  {
+                    "const": "ambiguity_after_patch",
+                    "type": "string"
+                  },
+                  {
+                    "const": "patch_introduced_nondeterminism",
+                    "type": "string"
+                  },
+                  {
+                    "const": "patch_invalid",
+                    "type": "string"
+                  },
+                  {
+                    "const": "degenerate_patch",
+                    "type": "string"
+                  }
+                ]
+              },
+              "planning": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "baseline": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "codeVersion": {
+                            "const": "original",
+                            "type": "string"
+                          },
+                          "fixturePair": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "path": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "payloadVersion": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "runIndex": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "codeVersion",
+                          "payloadVersion",
+                          "fixturePair",
+                          "runIndex"
+                        ],
+                        "type": "object"
+                      },
+                      "baselineDiffRef": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "baselineEquivalent": {
+                        "type": "boolean"
+                      },
+                      "fixturePair": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "patchedNew": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "codeVersion": {
+                              "anyOf": [
+                                {
+                                  "const": "original",
+                                  "type": "string"
+                                },
+                                {
+                                  "minLength": 9,
+                                  "pattern": "^patched:(.*)$",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "fixturePair": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "path": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "payloadVersion": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "runIndex": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "codeVersion",
+                            "payloadVersion",
+                            "fixturePair",
+                            "runIndex"
+                          ],
+                          "type": "object"
+                        },
+                        "minItems": 2,
+                        "type": "array"
+                      },
+                      "patchedOld": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "codeVersion": {
+                              "anyOf": [
+                                {
+                                  "const": "original",
+                                  "type": "string"
+                                },
+                                {
+                                  "minLength": 9,
+                                  "pattern": "^patched:(.*)$",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "fixturePair": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "path": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "payloadVersion": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "runIndex": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "codeVersion",
+                            "payloadVersion",
+                            "fixturePair",
+                            "runIndex"
+                          ],
+                          "type": "object"
+                        },
+                        "minItems": 2,
+                        "type": "array"
+                      },
+                      "role": {
+                        "anyOf": [
+                          {
+                            "const": "planning",
+                            "type": "string"
+                          },
+                          {
+                            "const": "held_out",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "secondaryDiffRef": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "secondaryStable": {
+                        "type": "boolean"
+                      },
+                      "stable": {
+                        "type": "boolean"
+                      },
+                      "verdict": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "divergenceIds": {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "entryPointId": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "evidenceRefs": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "file": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "const": "code",
+                                      "type": "string"
+                                    },
+                                    "line": {
+                                      "minimum": 1,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "file",
+                                    "line"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "dataflow",
+                                      "type": "string"
+                                    },
+                                    "nodeId": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "nodeId"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "diff",
+                                      "type": "string"
+                                    },
+                                    "pointer": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "pointer"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "artifact",
+                                      "type": "string"
+                                    },
+                                    "path": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "sha256": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "path"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "type": "array"
+                          },
+                          "provenance": {
+                            "anyOf": [
+                              {
+                                "const": "mechanical",
+                                "type": "string"
+                              },
+                              {
+                                "const": "reasoned",
+                                "type": "string"
+                              },
+                              {
+                                "const": "unavailable",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "reasoningRefs": {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "suspectedInjection": {
+                            "type": "boolean"
+                          },
+                          "verdict": {
+                            "anyOf": [
+                              {
+                                "const": "PASS",
+                                "type": "string"
+                              },
+                              {
+                                "const": "PASS_REASONED",
+                                "type": "string"
+                              },
+                              {
+                                "const": "FAIL",
+                                "type": "string"
+                              },
+                              {
+                                "const": "FAIL_REASONED",
+                                "type": "string"
+                              },
+                              {
+                                "const": "ESCALATE",
+                                "type": "string"
+                              },
+                              {
+                                "const": "INDETERMINATE",
+                                "type": "string"
+                              },
+                              {
+                                "const": "SKIP",
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "entryPointId",
+                          "verdict",
+                          "provenance",
+                          "reason",
+                          "divergenceIds",
+                          "reasoningRefs",
+                          "evidenceRefs",
+                          "suspectedInjection"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "role",
+                      "fixturePair",
+                      "baseline",
+                      "patchedOld",
+                      "patchedNew",
+                      "baselineDiffRef",
+                      "secondaryDiffRef",
+                      "verdict",
+                      "stable",
+                      "baselineEquivalent",
+                      "secondaryStable"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reason": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "repairId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "type": "number"
+              },
+              "shapeChecks": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "noBaselineLiteralIntroduced": {
+                        "type": "boolean"
+                      },
+                      "noNewSuppression": {
+                        "type": "boolean"
+                      },
+                      "providerSinkFlowPreserved": {
+                        "type": "boolean"
+                      },
+                      "sinksPreserved": {
+                        "type": "boolean"
+                      },
+                      "taintRootReachable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "providerSinkFlowPreserved",
+                      "sinksPreserved",
+                      "noBaselineLiteralIntroduced",
+                      "taintRootReachable",
+                      "noNewSuppression"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "specId": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "repairId",
+              "entryPointId",
+              "specId",
+              "origin",
+              "outcome",
+              "reason",
+              "planning",
+              "heldOut",
+              "shapeChecks",
+              "evidenceRefs"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "selectedSpecs": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencyChanges": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "ecosystem": {
+                "anyOf": [
+                  {
+                    "const": "npm",
+                    "type": "string"
+                  },
+                  {
+                    "const": "pypi",
+                    "type": "string"
+                  }
+                ]
+              },
+              "from_version": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "package": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "to_version": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "ecosystem",
+              "package",
+              "from_version",
+              "to_version"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "specs": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "changes": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ambiguity": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "options": {
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "question": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "when": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "when",
+                        "question",
+                        "options"
+                      ],
+                      "type": "object"
+                    },
+                    "applies_to_events": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "codemod": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "from": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "path_rename",
+                          "type": "string"
+                        },
+                        "safe_when": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "to": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "safe_when",
+                        "from",
+                        "to"
+                      ],
+                      "type": "object"
+                    },
+                    "object": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "removed_path": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "repair_policy": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "business_policy_required_when": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "business_policy_required_when"
+                      ],
+                      "type": "object"
+                    },
+                    "replacement": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cardinality": {
+                          "anyOf": [
+                            {
+                              "const": "one",
+                              "type": "string"
+                            },
+                            {
+                              "const": "many",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "semantics": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "cardinality"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "object",
+                    "removed_path",
+                    "replacement"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "detection": {
+                "additionalProperties": false,
+                "properties": {
+                  "ecosystems": {
+                    "additionalProperties": false,
+                    "minProperties": 1,
+                    "patternProperties": {
+                      "^(npm|pypi)$": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "breaking_from": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "packages": {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "packages",
+                          "breaking_from"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "taint_roots": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "const": "call",
+                              "type": "string"
+                            },
+                            {
+                              "const": "type",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "language": {
+                          "anyOf": [
+                            {
+                              "const": "ts",
+                              "type": "string"
+                            },
+                            {
+                              "const": "py",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "pattern": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "language",
+                        "pattern"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "ecosystems",
+                  "taint_roots"
+                ],
+                "type": "object"
+              },
+              "fixtures": {
+                "additionalProperties": false,
+                "properties": {
+                  "adaptation_pair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "ambiguity_pair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "heldout_pair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "noop_pair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "pair": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pair"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "provider": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "semantics": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "source": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "verified_at": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "verified_by": {
+                "const": "human",
+                "type": "string"
+              },
+              "versions": {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "to": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "provider",
+              "title",
+              "source",
+              "verified_by",
+              "verified_at",
+              "versions",
+              "semantics",
+              "detection",
+              "changes",
+              "fixtures"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "dependencyChanges",
+        "specs"
+      ],
+      "type": "object"
+    },
+    "signatureRefs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "verdict": {
+      "additionalProperties": false,
+      "properties": {
+        "results": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "divergenceIds": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "entryPointId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "evidenceRefs": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "file": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "code",
+                          "type": "string"
+                        },
+                        "line": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "file",
+                        "line"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "dataflow",
+                          "type": "string"
+                        },
+                        "nodeId": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "nodeId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "diff",
+                          "type": "string"
+                        },
+                        "pointer": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "pointer"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "artifact",
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "path"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "const": "mechanical",
+                    "type": "string"
+                  },
+                  {
+                    "const": "reasoned",
+                    "type": "string"
+                  },
+                  {
+                    "const": "unavailable",
+                    "type": "string"
+                  }
+                ]
+              },
+              "reason": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "reasoningRefs": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "suspectedInjection": {
+                "type": "boolean"
+              },
+              "verdict": {
+                "anyOf": [
+                  {
+                    "const": "PASS",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PASS_REASONED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "FAIL",
+                    "type": "string"
+                  },
+                  {
+                    "const": "FAIL_REASONED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "ESCALATE",
+                    "type": "string"
+                  },
+                  {
+                    "const": "INDETERMINATE",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SKIP",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "entryPointId",
+              "verdict",
+              "provenance",
+              "reason",
+              "divergenceIds",
+              "reasoningRefs",
+              "evidenceRefs",
+              "suspectedInjection"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "const": "PASS",
+              "type": "string"
+            },
+            {
+              "const": "PASS_REASONED",
+              "type": "string"
+            },
+            {
+              "const": "FAIL",
+              "type": "string"
+            },
+            {
+              "const": "FAIL_REASONED",
+              "type": "string"
+            },
+            {
+              "const": "ESCALATE",
+              "type": "string"
+            },
+            {
+              "const": "INDETERMINATE",
+              "type": "string"
+            },
+            {
+              "const": "SKIP",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "verdict",
+        "results"
+      ],
+      "type": "object"
+    },
+    "verifiedRepairs": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "additionalProperties": false,
+            "properties": {
+              "abstain": {
+                "const": false,
+                "type": "boolean"
+              },
+              "assumptions": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "causalChain": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "classification": {
+                "const": "repair_candidate",
+                "type": "string"
+              },
+              "confidence": {
+                "anyOf": [
+                  {
+                    "const": "high",
+                    "type": "string"
+                  },
+                  {
+                    "const": "medium",
+                    "type": "string"
+                  }
+                ]
+              },
+              "evidenceRefs": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "file": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "code",
+                          "type": "string"
+                        },
+                        "line": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "file",
+                        "line"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "dataflow",
+                          "type": "string"
+                        },
+                        "nodeId": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "nodeId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "diff",
+                          "type": "string"
+                        },
+                        "pointer": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "pointer"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "artifact",
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "path"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "humanQuestion": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "origin": {
+                "anyOf": [
+                  {
+                    "const": "deterministic",
+                    "type": "string"
+                  },
+                  {
+                    "const": "model",
+                    "type": "string"
+                  }
+                ]
+              },
+              "patch": {
+                "additionalProperties": false,
+                "properties": {
+                  "files": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "edits": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "anchor": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "replacement": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "anchor",
+                              "replacement"
+                            ],
+                            "type": "object"
+                          },
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "edits"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 3,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "files"
+                ],
+                "type": "object"
+              },
+              "summary": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "suspectedInjection": {
+                "const": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "confidence",
+              "summary",
+              "causalChain",
+              "assumptions",
+              "evidenceRefs",
+              "humanQuestion",
+              "suspectedInjection",
+              "abstain",
+              "origin",
+              "classification",
+              "patch"
+            ],
+            "type": "object"
+          },
+          "diff": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "entryPointId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "offeredOnly": {
+            "const": true,
+            "type": "boolean"
+          },
+          "repairId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "type": "number"
+          },
+          "specId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "verification": {
+            "additionalProperties": false,
+            "properties": {
+              "entryPointId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "evidenceRefs": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "file": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "code",
+                          "type": "string"
+                        },
+                        "line": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "file",
+                        "line"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "dataflow",
+                          "type": "string"
+                        },
+                        "nodeId": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "nodeId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "diff",
+                          "type": "string"
+                        },
+                        "pointer": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "pointer"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "artifact",
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "path"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "heldOut": {
+                "additionalProperties": false,
+                "properties": {
+                  "baseline": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "codeVersion": {
+                        "const": "original",
+                        "type": "string"
+                      },
+                      "fixturePair": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "path": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "payloadVersion": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "runIndex": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "codeVersion",
+                      "payloadVersion",
+                      "fixturePair",
+                      "runIndex"
+                    ],
+                    "type": "object"
+                  },
+                  "baselineDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "baselineEquivalent": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "fixturePair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "patchedNew": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "patchedOld": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "role": {
+                    "const": "held_out",
+                    "type": "string"
+                  },
+                  "secondaryDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "secondaryStable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "stable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "verdict": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "divergenceIds": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "entryPointId": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "evidenceRefs": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "file": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "const": "code",
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "minimum": 1,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "file",
+                                "line"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "dataflow",
+                                  "type": "string"
+                                },
+                                "nodeId": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "nodeId"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "diff",
+                                  "type": "string"
+                                },
+                                "pointer": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "pointer"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "artifact",
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "path"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "provenance": {
+                        "anyOf": [
+                          {
+                            "const": "mechanical",
+                            "type": "string"
+                          },
+                          {
+                            "const": "reasoned",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unavailable",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "reasoningRefs": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "suspectedInjection": {
+                        "type": "boolean"
+                      },
+                      "verdict": {
+                        "anyOf": [
+                          {
+                            "const": "PASS",
+                            "type": "string"
+                          },
+                          {
+                            "const": "PASS_REASONED",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "entryPointId",
+                      "verdict",
+                      "provenance",
+                      "reason",
+                      "divergenceIds",
+                      "reasoningRefs",
+                      "evidenceRefs",
+                      "suspectedInjection"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "role",
+                  "fixturePair",
+                  "baseline",
+                  "patchedOld",
+                  "patchedNew",
+                  "baselineDiffRef",
+                  "secondaryDiffRef",
+                  "verdict",
+                  "stable",
+                  "baselineEquivalent",
+                  "secondaryStable"
+                ],
+                "type": "object"
+              },
+              "origin": {
+                "anyOf": [
+                  {
+                    "const": "deterministic",
+                    "type": "string"
+                  },
+                  {
+                    "const": "model",
+                    "type": "string"
+                  }
+                ]
+              },
+              "outcome": {
+                "const": "verified",
+                "type": "string"
+              },
+              "planning": {
+                "additionalProperties": false,
+                "properties": {
+                  "baseline": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "codeVersion": {
+                        "const": "original",
+                        "type": "string"
+                      },
+                      "fixturePair": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "path": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "payloadVersion": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "runIndex": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "codeVersion",
+                      "payloadVersion",
+                      "fixturePair",
+                      "runIndex"
+                    ],
+                    "type": "object"
+                  },
+                  "baselineDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "baselineEquivalent": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "fixturePair": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "patchedNew": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "patchedOld": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "codeVersion": {
+                          "anyOf": [
+                            {
+                              "const": "original",
+                              "type": "string"
+                            },
+                            {
+                              "minLength": 9,
+                              "pattern": "^patched:(.*)$",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "fixturePair": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "path": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payloadVersion": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "runIndex": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "codeVersion",
+                        "payloadVersion",
+                        "fixturePair",
+                        "runIndex"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "role": {
+                    "const": "planning",
+                    "type": "string"
+                  },
+                  "secondaryDiffRef": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "secondaryStable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "stable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "verdict": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "divergenceIds": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "entryPointId": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "evidenceRefs": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "file": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "const": "code",
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "minimum": 1,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "file",
+                                "line"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "dataflow",
+                                  "type": "string"
+                                },
+                                "nodeId": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "nodeId"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "diff",
+                                  "type": "string"
+                                },
+                                "pointer": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "pointer"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "artifact",
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "path"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "provenance": {
+                        "anyOf": [
+                          {
+                            "const": "mechanical",
+                            "type": "string"
+                          },
+                          {
+                            "const": "reasoned",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unavailable",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "reasoningRefs": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "suspectedInjection": {
+                        "type": "boolean"
+                      },
+                      "verdict": {
+                        "anyOf": [
+                          {
+                            "const": "PASS",
+                            "type": "string"
+                          },
+                          {
+                            "const": "PASS_REASONED",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "entryPointId",
+                      "verdict",
+                      "provenance",
+                      "reason",
+                      "divergenceIds",
+                      "reasoningRefs",
+                      "evidenceRefs",
+                      "suspectedInjection"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "role",
+                  "fixturePair",
+                  "baseline",
+                  "patchedOld",
+                  "patchedNew",
+                  "baselineDiffRef",
+                  "secondaryDiffRef",
+                  "verdict",
+                  "stable",
+                  "baselineEquivalent",
+                  "secondaryStable"
+                ],
+                "type": "object"
+              },
+              "reason": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "repairId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "type": "number"
+              },
+              "shapeChecks": {
+                "additionalProperties": false,
+                "properties": {
+                  "noBaselineLiteralIntroduced": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "noNewSuppression": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "providerSinkFlowPreserved": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "sinksPreserved": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "taintRootReachable": {
+                    "const": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "providerSinkFlowPreserved",
+                  "sinksPreserved",
+                  "noBaselineLiteralIntroduced",
+                  "taintRootReachable",
+                  "noNewSuppression"
+                ],
+                "type": "object"
+              },
+              "specId": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "repairId",
+              "entryPointId",
+              "specId",
+              "origin",
+              "outcome",
+              "reason",
+              "planning",
+              "heldOut",
+              "shapeChecks",
+              "evidenceRefs"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "repairId",
+          "entryPointId",
+          "specId",
+          "candidate",
+          "verification",
+          "diff",
+          "offeredOnly"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "selectedSpecs",
+    "bdgRef",
+    "signatureRefs",
+    "diffReportRefs",
+    "evidencePacketRefs",
+    "reasoningRefs",
+    "verdict",
+    "repairPacketRefs",
+    "candidateRefs",
+    "repairVerifications",
+    "verifiedRepairs",
+    "audit"
+  ],
+  "type": "object"
+}

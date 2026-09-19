@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "changeIndex": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "entryPointId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "location": {
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "line": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file",
+        "line"
+      ],
+      "type": "object"
+    },
+    "nodeId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "anyOf": [
+            {
+              "const": "provider_call",
+              "type": "string"
+            },
+            {
+              "const": "provider_type",
+              "type": "string"
+            },
+            {
+              "const": "one_hop_parameter",
+              "type": "string"
+            },
+            {
+              "const": "reexport",
+              "type": "string"
+            },
+            {
+              "const": "name_heuristic",
+              "type": "string"
+            }
+          ]
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "const": "high",
+              "type": "string"
+            },
+            {
+              "const": "medium",
+              "type": "string"
+            },
+            {
+              "const": "low",
+              "type": "string"
+            }
+          ]
+        },
+        "evidenceRefs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "provider": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "rootNodeId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "specId": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "confidence",
+        "provider",
+        "specId",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "sinkNodeIds": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "specId": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "entryPointId",
+    "nodeId",
+    "specId",
+    "changeIndex",
+    "location",
+    "sinkNodeIds",
+    "provenance"
+  ],
+  "type": "object"
+}
