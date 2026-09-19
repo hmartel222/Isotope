@@ -19,6 +19,14 @@ export interface DetectionCase {
   headRef: string;
   configPath: string;
   fixturePair: string | null;
+  ecosystem?: 'npm' | 'pypi';
+  dependency?: { package: string; from: string; to: string };
+  reasoner?: boolean;
+  repair?: boolean;
+  planner?: 'model' | 'deterministic-only';
+  reasonerCassettes?: string[];
+  plannerCassette?: string;
+  assumeCredentials?: boolean;
   expected: {
     selectedSpecIds: string[];
     affectedSiteCount: number;
@@ -30,11 +38,13 @@ export interface DetectionCase {
     verdictReason?: string;
     ambiguityCandidate?: boolean;
     reachesL3: boolean;
+    verifiedRepair?: boolean;
+    reasoning?: boolean;
   };
   tags?: string[];
 }
 
-export interface MatrixOptions { caseId?: string; keepArtifacts?: boolean; allowBlocked?: boolean; }
+export interface MatrixOptions { caseId?: string; keepArtifacts?: boolean; allowBlocked?: boolean; group?: string; }
 interface CaseResult {
   id: string; description: string; expectedVerdict: Verdict; actualVerdict: Verdict | null;
   expectedExitCode: number; actualExitCode: number | null; acceptance: 'matched' | 'mismatch' | 'blocked';
@@ -69,11 +79,45 @@ async function materializeCase(caseDef: DetectionCase): Promise<string> {
   await git(root, 'init', '--quiet');
   await git(root, 'config', 'user.email', 'acceptance@isotope.local');
   await git(root, 'config', 'user.name', 'Isotope Acceptance');
-  await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '17.7.0' } }, null, 2) + '\n');
-  await git(root, 'add', '.'); await git(root, 'commit', '--quiet', '-m', 'acceptance base'); await git(root, 'tag', caseDef.baseRef);
-  await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '18.1.0' } }, null, 2) + '\n');
-  await git(root, 'add', 'package.json'); await git(root, 'commit', '--quiet', '-m', 'upgrade stripe'); await git(root, 'tag', caseDef.headRef);
+  if (caseDef.ecosystem === 'pypi') {
+    const dep = caseDef.dependency ?? { package: 'elevenlabs', from: '0.2.27', to: '1.0.0' };
+    await writeFile(join(root, 'requirements.txt'), `${dep.package}==${dep.from}\n`);
+    await git(root, 'add', '.'); await git(root, 'commit', '--quiet', '-m', 'acceptance base'); await git(root, 'tag', caseDef.baseRef);
+    await writeFile(join(root, 'requirements.txt'), `${dep.package}==${dep.to}\n`);
+    await git(root, 'add', 'requirements.txt'); await git(root, 'commit', '--quiet', '-m', `upgrade ${dep.package}`); await git(root, 'tag', caseDef.headRef);
+  } else {
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '17.7.0' } }, null, 2) + '\n');
+    await git(root, 'add', '.'); await git(root, 'commit', '--quiet', '-m', 'acceptance base'); await git(root, 'tag', caseDef.baseRef);
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '18.1.0' } }, null, 2) + '\n');
+    await git(root, 'add', 'package.json'); await git(root, 'commit', '--quiet', '-m', 'upgrade stripe'); await git(root, 'tag', caseDef.headRef);
+  }
+  try {
+    const cfgPath = join(root, caseDef.configPath);
+    const cfg = JSON.parse(await readFile(cfgPath, 'utf8')) as { reasoner: { mode: string }; repair: { mode: string; planner: string } };
+    if (caseDef.reasoner) cfg.reasoner.mode = 'on';
+    if (caseDef.repair) cfg.repair.mode = 'on';
+    if (caseDef.planner) cfg.repair.planner = caseDef.planner;
+    await writeFile(cfgPath, JSON.stringify(cfg));
+  } catch { /* YAML configs are left unchanged */ }
   return root;
+}
+
+function cassetteModel(files: string[], kind: 'reasoner' | 'planner') {
+  const root = sourceRoot();
+  const votes = files.map(name => JSON.parse(require('node:fs').readFileSync(join(root, 'tests/cassettes', kind, `${name}.json`), 'utf8')));
+  let i = 0;
+  return { modelId: `cassette-${kind}`, classify: async (input: { user: string }) => {
+    const raw = votes[Math.min(i, votes.length - 1)];
+    i += 1;
+    const vote = raw.voteA ?? raw;
+    if (typeof vote === 'string') return vote;
+    const match = /<evidence>\n([\s\S]*?)<\/evidence>/.exec(input.user);
+    if (!match) return JSON.stringify(vote);
+    const packet = JSON.parse(match[1]!);
+    const next = { ...vote };
+    if (packet.diff?.[0]?.pointer) next.evidenceRefs = [{ kind: 'diff', pointer: packet.diff[0].pointer }];
+    return JSON.stringify(next);
+  } };
 }
 function sameStrings(actual: string[], expected: string[]): boolean {
   return JSON.stringify([...new Set(actual)].sort()) === JSON.stringify([...new Set(expected)].sort());
@@ -98,8 +142,12 @@ async function runCase(caseDef: DetectionCase, matrixRoot: string, options: Matr
     const selection = await selectChangeSpecs({ repositoryRoot: workspace, baseRef: caseDef.baseRef, headRef: caseDef.headRef, specsRoot: join(sourceRoot(), 'specs') });
     base.selectedSpecIds = selection.selected.specs.map(s => s.id);
     const run = await verifyWalkingSkeleton({ configPath: join(workspace, caseDef.configPath), artifactProjectRoot: workspace,
-      disableReasoner: true, disableRepair: true, selectedSpecs: selection.selected,
-      ...(caseDef.fixturePair ? { testFixtureDirectory: resolve(sourceRoot(), caseDef.fixturePair) } : {}) });
+      disableReasoner: caseDef.reasoner !== true, disableRepair: caseDef.repair !== true, selectedSpecs: selection.selected,
+      ...(caseDef.fixturePair ? { testFixtureDirectory: resolve(sourceRoot(), caseDef.fixturePair) } : {}),
+      ...(caseDef.reasonerCassettes ? { semanticModel: cassetteModel(caseDef.reasonerCassettes, 'reasoner') } : {}),
+      ...(caseDef.plannerCassette ? { plannerModel: cassetteModel([caseDef.plannerCassette], 'planner') } : {}),
+      ...(caseDef.assumeCredentials !== undefined ? { assumeCredentials: caseDef.assumeCredentials } : {}),
+    });
     const generated = artifactPaths(workspace).root;
     await cp(generated, destination, { recursive: true, force: true });
     const report = await readJsonArtifact(destination, join(destination, 'isotope-report.json'), 'IsotopeReport') as IsotopeReport;
@@ -127,7 +175,9 @@ async function runCase(caseDef: DetectionCase, matrixRoot: string, options: Matr
       && (exp.verdictReason === undefined || base.verdictReason === exp.verdictReason)
       && (exp.ambiguityCandidate === undefined || base.ambiguityCandidate === exp.ambiguityCandidate)
       && reachedL3 === exp.reachesL3 && (!reachedL3 || (base.oldStable === true && base.newStable === true && base.executionsCompletedNormally === true))
-      && (reachedL3 || (report.signatureRefs.length === 0 && report.diffReportRefs.length === 0)) && noReasoner;
+      && (reachedL3 || (report.signatureRefs.length === 0 && report.diffReportRefs.length === 0))
+      && (exp.reasoning === true ? report.reasoningRefs.length > 0 : noReasoner)
+      && (exp.verifiedRepair === undefined || (report.verifiedRepairs.length > 0) === exp.verifiedRepair);
     base.acceptance = matched ? 'matched' : 'mismatch';
     if (options.keepArtifacts) base.workspace = workspace;
     return base;
@@ -144,13 +194,16 @@ export async function runDetectionMatrix(options: MatrixOptions = {}): Promise<{
   const release = await acquireMatrixLock();
   try {
     const all = await loadCases();
-    const cases = options.caseId ? all.filter(c => c.id === options.caseId) : all.filter(c => c.tags?.includes('required'));
+    const group = options.group ?? 'detection';
+    const cases = options.caseId ? all.filter(c => c.id === options.caseId)
+      : group === 'detection' ? all.filter(c => c.tags?.includes('required') && !c.tags?.includes('acceptance'))
+      : all;
     if (!cases.length) throw new Error(`Unknown detection case: ${options.caseId ?? '(none)'}`);
     const matrixRoot = process.env.ISOTOPE_MATRIX_ROOT ? resolve(process.env.ISOTOPE_MATRIX_ROOT) : join(sourceRoot(), '.isotope/matrix');
     await mkdir(matrixRoot, { recursive: true });
     const results: CaseResult[] = [];
     for (const caseDef of cases) results.push(await runCase(caseDef, matrixRoot, options));
-    const summary = { schemaVersion: 1, group: 'detection', results };
+    const summary = { schemaVersion: 1, group, results };
     await writeFile(join(matrixRoot, 'results.json'), JSON.stringify(summary, null, 2) + '\n');
     const width = Math.max(24, ...results.map(r => r.id.length + 2));
     const lines = ['Isotope detection matrix', '', `${'CASE'.padEnd(width)}EXPECTED    ACTUAL      STATUS`];

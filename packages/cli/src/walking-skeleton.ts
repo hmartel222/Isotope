@@ -4,6 +4,7 @@ import { artifactPaths, needsSemanticReasoning, readJsonArtifact, removeJsonArti
   type DiffReport, type EntryPoint, type FixturePair, type HarnessResult, type IsotopeReport, type JsonValue, type VerdictResult, type SelectedSpecs } from '@isotope/core';
 import { analyzeConfiguredProject, graphSummary } from './scan';
 import { createTsHarnessPlan, runTsHarness, HarnessExecutionError } from '@isotope/harness-ts';
+import { runHarness as runPyHarness, HarnessExecutionError as PyHarnessExecutionError } from '@isotope/harness-py';
 import { checkDeterminism, diffSignatures } from '@isotope/differ';
 import { attemptRepair } from './repair-flow';
 import { credentialsAvailable, reasonAboutEntryPoint, type SemanticModel } from '@isotope/reasoner';
@@ -31,12 +32,21 @@ function asObject(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 function isHttp200(value: unknown): boolean { return value !== null && typeof value === 'object' && 'status' in value && value.status === 200; }
-function fixtureVersion(value: unknown, label: string): string {
-  const event = asObject(value, label);
-  const data = asObject(event.data, `${label}.data`);
-  const subscription = asObject(data.object, `${label}.data.object`);
-  if (event.object !== 'event' || event.type !== 'customer.subscription.updated' || typeof event.api_version !== 'string' || !event.api_version || subscription.object !== 'subscription' || typeof subscription.id !== 'string') throw new Error(`${label}: expected a versioned Stripe subscription.updated event envelope`);
-  return event.api_version;
+function fixtureVersion(value: unknown, label: string, meta?: Record<string, unknown>, side?: 'old' | 'new'): string {
+  try {
+    const event = asObject(value, label);
+    const data = asObject(event.data, `${label}.data`);
+    const subscription = asObject(data.object, `${label}.data.object`);
+    if (event.object !== 'event' || event.type !== 'customer.subscription.updated' || typeof event.api_version !== 'string' || !event.api_version || subscription.object !== 'subscription' || typeof subscription.id !== 'string') throw new Error('not stripe');
+    return event.api_version;
+  } catch {
+    const key = side === 'new' ? 'newVersion' : 'oldVersion';
+    const labeled = meta?.[key];
+    if (typeof labeled === 'string' && labeled) return labeled;
+    const api = meta?.api_version;
+    if (typeof api === 'string' && api) return `${api}-${side ?? 'old'}`;
+    throw new Error(`${label}: expected a versioned Stripe subscription.updated event envelope or meta.oldVersion/meta.newVersion`);
+  }
 }
 function ambiguitySatisfied(payload: unknown, expression: string): boolean {
   const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.length\s*>\s*(\d+)$/.exec(expression.trim());
@@ -108,7 +118,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
   }
   if (synthetic && meta.synthetic !== true) throw new Error('Internal test fixtures must explicitly declare meta.synthetic: true');
   if (!synthetic && meta.synthetic === true) throw new Error('Synthetic fixtures are forbidden in product fixture directories');
-  const oldVersion = fixtureVersion(payloads[0], 'old fixture'); const newVersion = fixtureVersion(payloads[1], 'new fixture');
+  const oldVersion = fixtureVersion(payloads[0], 'old fixture', meta, 'old'); const newVersion = fixtureVersion(payloads[1], 'new fixture', meta, 'new');
   if (oldVersion === newVersion) throw new Error('Fixture envelopes need distinct API-version labels to preserve both execution artifacts');
   const fixture: FixturePair = { id: synthetic ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair, role: 'planning', oldPath, newPath, oldVersion, newVersion };
   const ref = (path: string) => relative(paths.root, path);
@@ -132,10 +142,12 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
   const evidencePacketRefs: string[] = []; const reasoningRefs: string[] = []; const audit: import('@isotope/core').IsotopeReport['audit'] = [];
   try {
     const execution = { repoRoot: projectRoot, config, entryPoint, fixture, codeVersion: 'original' as const };
-    signatures = {
-      old: [await runTsHarness(createTsHarnessPlan(execution, 'old', 0)), await runTsHarness(createTsHarnessPlan(execution, 'old', 1))],
-      new: [await runTsHarness(createTsHarnessPlan(execution, 'new', 0)), await runTsHarness(createTsHarnessPlan(execution, 'new', 1))],
-    };
+    signatures = entryPoint.language === 'py'
+      ? await runPyHarness({ ...execution, bdg })
+      : {
+        old: [await runTsHarness(createTsHarnessPlan(execution, 'old', 0)), await runTsHarness(createTsHarnessPlan(execution, 'old', 1))],
+        new: [await runTsHarness(createTsHarnessPlan(execution, 'new', 0)), await runTsHarness(createTsHarnessPlan(execution, 'new', 1))],
+      };
     for (const signature of [...signatures.old, ...signatures.new]) {
       const path = paths.signature(signature);
       await writeJsonArtifact(paths.root, path, 'Signature', signature);
@@ -175,7 +187,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
     }
     if (result.verdict === 'ESCALATE' && !reasoningRefs.length) log.push('Semantic residual requires a human decision or an enabled reasoner.');
   } catch (error) {
-    if (!(error instanceof HarnessExecutionError)) throw error;
+    if (!(error instanceof HarnessExecutionError) && !(error instanceof PyHarnessExecutionError)) throw error;
     result = validateContract('VerdictResult', { entryPointId: entryPoint.id, verdict: 'INDETERMINATE', provenance: 'mechanical', reason: error.reason,
       divergenceIds: [], reasoningRefs: [], evidenceRefs: [], suspectedInjection: false });
     log.push(`Harness could not produce trustworthy behavior: ${error.message}`);
@@ -198,7 +210,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
       fixtureRoot: options.fixtureRoot ?? join(sourceRoot, 'fixtures/normalized'),
       diff, ...(reasoning?.results.length ? { reasoning: reasoning.results } : {}),
       ...(options.plannerModel ? { plannerModel: options.plannerModel } : {}),
-      credentialsAvailable: Boolean(options.plannerModel) || credentialsAvailable(),
+      credentialsAvailable: options.assumeCredentials ?? (Boolean(options.plannerModel) || credentialsAvailable()),
       ...(options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}) });
     log.push(...repair.output); verified = repair.verifiedRepair !== null;
     if (repair.packetRef) audit.push({ stage: 'planner', packetRef: repair.packetRef, packetHash: repair.packetHash ?? repair.packetRef, responseRef: repair.candidateRef ?? repair.packetRef, invocationIndex: 0 });

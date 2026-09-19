@@ -98,7 +98,9 @@ export function evaluateRepairEligibility(input: RepairEligibilityInput): Repair
   if (!eligibleIndexes.length) return modelRoute('no_safe_deterministic_codemod');
   if (eligibleIndexes.length !== 1) return none('multiple_codemods_ambiguous');
   const changeIndex = eligibleIndexes[0]!;
-  const predicate = evaluateRepairPredicate(spec.changes[changeIndex]!.codemod!.safe_when, input.newPayload);
+  const selectedCodemod = spec.changes[changeIndex]!.codemod;
+  if (!selectedCodemod || selectedCodemod.kind !== 'path_rename') return none('no_safe_deterministic_codemod');
+  const predicate = evaluateRepairPredicate(selectedCodemod.safe_when, input.newPayload);
   if (!predicate.supported) return none('unsupported_safe_when_predicate');
   if (!predicate.value) return modelRoute('safe_when_false');
   const eligibleSites = sites.filter(site => site.changeIndex === changeIndex);
@@ -159,7 +161,7 @@ export async function generateDeterministicCandidate(input: DeterministicCandida
   return validateContract('CandidatePatch', {
     repairId: id, classification: 'repair_candidate', confidence: 'high', origin: 'deterministic',
     summary: `Rename ${codemod.from} to ${codemod.to} at ${sites.length} proven provider site${sites.length === 1 ? '' : 's'}`,
-    causalChain: `${change.removed_path} was removed; the verified single-cardinality fixture permits ${change.replacement.path}`,
+    causalChain: `${change.removed_path ?? change.removed_symbol} was removed; the verified single-cardinality fixture permits ${change.replacement.path}`,
     assumptions: [codemod.safe_when], humanQuestion: null, suspectedInjection: false, abstain: false,
     evidenceRefs: sites.map(site => ({ kind: 'code' as const, file: site.location.file, line: site.location.line })),
     patch: { files: [...files.values()].sort((a, b) => a.path.localeCompare(b.path)).map(file => ({ ...file, edits: file.edits.sort((a, b) => a.anchor.localeCompare(b.anchor)) })) },

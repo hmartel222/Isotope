@@ -1,0 +1,21 @@
+[
+  { "id": "genius-ai", "status": "blocked", "reason": "Historical github.com/.../genius-ai commits are not present in this checkout" },
+  { "id": "nyaai", "status": "blocked", "reason": "Historical github.com/.../nyaai commits are not present in this checkout" },
+  { "id": "myvibeplanner", "status": "blocked", "reason": "Historical github.com/.../myvibeplanner commits are not present in this checkout" },
+  { "id": "closeout-readiness-check", "status": "blocked", "reason": "Historical github.com/.../closeout-readiness-check commits are not present in this checkout" },
+  { "id": "kessan-tantei", "status": "blocked", "reason": "Historical github.com/.../kessan-tantei commits are not present in this checkout" },
+  {
+    "id": "internal-migrated-pass",
+    "status": "run",
+    "repository": "corpus/cases/repositories/migrated-pass",
+    "fixturePair": "corpus/cases/fixtures/sub-updated-migrated",
+    "expectedVerdict": "PASS"
+  },
+  {
+    "id": "internal-mechanical-break",
+    "status": "run",
+    "repository": "corpus/cases/repositories/mechanical-break",
+    "fixturePair": "corpus/cases/fixtures/sub-updated-single",
+    "expectedVerdict": "FAIL"
+  }
+]

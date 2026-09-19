@@ -33,7 +33,27 @@ const express: HandlerAdapter = { async invoke({ handler, fixture, snapshot }) {
   catch (error) { threw = customerError(error); }
   return { returned: sent ? { status, body } : snapshot(output), threw };
 } };
-const registry: Partial<Record<EntryPoint['kind'], HandlerAdapter>> = { plain, express_route: express };
+const nextApp: HandlerAdapter = { async invoke({ handler, fixture, snapshot }) {
+  const request = {
+    method: 'POST', json: async () => fixture, text: async () => JSON.stringify(fixture), body: JSON.stringify(fixture),
+    headers: { get(name: string) { return name.toLowerCase() === 'stripe-signature' ? 'isotope-mocked-signature' : null; } },
+  };
+  let output; try { output = await handler(request); } catch (error) { return { returned: snapshot(undefined), threw: customerError(error) }; }
+  if (output && typeof output === 'object' && typeof (output as { json?: unknown }).json === 'function') {
+    const status = Number((output as { status?: number }).status ?? 200);
+    const body = await (output as { json: () => Promise<unknown> }).json();
+    return { returned: snapshot({ status, body }), threw: null };
+  }
+  return { returned: snapshot(output), threw: null };
+} };
+const pagesApi: HandlerAdapter = { async invoke(context) { return express.invoke(context); } };
+const lambda: HandlerAdapter = { async invoke({ handler, fixture, snapshot }) {
+  let output;
+  try { output = await handler(fixture, { awsRequestId: 'isotope', functionName: 'isotope' }); }
+  catch (error) { return { returned: snapshot(undefined), threw: customerError(error) }; }
+  return { returned: snapshot(output), threw: null };
+} };
+const registry: Partial<Record<EntryPoint['kind'], HandlerAdapter>> = { plain, express_route: express, next_app_route: nextApp, next_pages_api: pagesApi, lambda };
 export function getAdapter(kind: EntryPoint['kind']): HandlerAdapter {
   const adapter = registry[kind];
   if (!adapter) throw new HarnessExecutionError('adapter_not_implemented', `Adapter ${kind} is not implemented`);

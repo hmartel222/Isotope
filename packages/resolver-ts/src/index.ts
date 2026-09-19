@@ -17,7 +17,7 @@ export async function resolveBehavioralDependencyGraph(input: ResolverInput | Re
   if (!spec || (!modern && input.selectedSpecs.specs.length !== 1)) throw new Error('Resolver requires one explicit ChangeSpec');
   validateContract('ChangeSpec', spec);
   if (spec.verified_by !== 'human') throw new Error('Resolver requires a human-verified ChangeSpec');
-  if (config.language === 'py') throw new Error('Python resolver is not implemented');
+  if (config.language === 'py') throw new Error('TypeScript resolver cannot analyze language: py');
   const repositoryRoot = modern ? input.repositoryRoot : input.repoRoot;
   const entries: EntryPoint[] = (modern ? input.entryPoints ?? config.entryPoints : config.entryPoints).map(e => {
     const file = slash(relative(resolve(repositoryRoot), resolve(repositoryRoot, e.file)));

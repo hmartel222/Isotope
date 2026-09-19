@@ -194,9 +194,9 @@ test('failed re-run removes stale comparison artifacts', async t => {
   assert.equal(result.exitCode,4); await assert.rejects(fs.access(p.diffReport), {code:'ENOENT'});
 });
 
-test('extra ChangeSpecs fail explicitly instead of silently selecting one', async t => {
+test('walking skeleton loads the Stripe spec from a multi-spec registry', async t => {
   const directory = await project(t);
   const specs = path.join(directory,'specs'); await fs.cp(path.join(root,'specs'),specs,{recursive:true});
-  await fs.writeFile(path.join(specs,'unexpected.yaml'),'id: other');
-  await assert.rejects(loadWalkingSkeletonSpec(specs),/exactly one known ChangeSpec/);
+  const selected = await loadWalkingSkeletonSpec(specs);
+  assert.equal(selected.specs[0].id, 'stripe.basil.subscription-period');
 });

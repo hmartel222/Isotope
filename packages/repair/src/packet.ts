@@ -56,7 +56,7 @@ export async function buildRepairPacket(input: RepairPacketBuildInput): Promise<
     repairPacketVersion: 1,
     change: {
       specId: input.spec.id, provider: input.spec.provider, semantics: input.spec.semantics,
-      removedPath: change.removed_path, replacement: change.replacement, knownSafeCodemod,
+      removedPath: change.removed_path ?? change.removed_symbol ?? change.replacement.path, replacement: change.replacement, knownSafeCodemod,
     },
     verdict: { type: input.verdict.verdict === 'FAIL_REASONED' ? 'FAIL_REASONED' : 'FAIL', ...text },
     code: {

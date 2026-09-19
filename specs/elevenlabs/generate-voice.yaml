@@ -1,0 +1,29 @@
+# Second provider. Human-verified for Python detection. Repair is out of scope for this ChangeSpec.
+id: elevenlabs.generate.voice-rename
+provider: elevenlabs
+title: generate() voice keyword renamed to voice_id
+source: https://github.com/elevenlabs/elevenlabs-python
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "0.2.27", to: "1.0.0" }
+semantics: |
+  The ElevenLabs generate helper historically accepted a voice= keyword.
+  Current SDKs require voice_id=. Callers that still pass voice= drop the
+  selected voice after upgrade. This ChangeSpec is for detection, not repair.
+detection:
+  ecosystems:
+    pypi: { packages: [elevenlabs], breaking_from: "1.0.0" }
+  taint_roots:
+    - { kind: call, language: py, pattern: "$EL.generate($$$)" }
+changes:
+  - object: generate
+    removed_path: voice
+    removed_symbol: generate
+    replacement:
+      path: voice_id
+      cardinality: one
+      semantics: The selected voice is now voice_id.
+    codemod: { kind: unsupported }
+fixtures:
+  pair: el-tts
+  heldout_pair: el-tts-B

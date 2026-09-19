@@ -1,0 +1,8 @@
+{
+  "repositories": [
+    { "id": "mechanical-break", "path": "cases/repositories/mechanical-break", "fixturePair": "cases/fixtures/sub-updated-single" },
+    { "id": "migrated-pass", "path": "cases/repositories/migrated-pass", "fixturePair": "cases/fixtures/sub-updated-migrated" },
+    { "id": "noop-pass", "path": "cases/repositories/noop-pass", "fixturePair": "cases/fixtures/sub-updated-noop" },
+    { "id": "python-elevenlabs", "path": "cases/repositories/python-elevenlabs", "fixturePair": "cases/fixtures/el-tts" }
+  ]
+}

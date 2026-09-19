@@ -17,13 +17,14 @@ The [v3 specification](docs-v3-spec.md) is the architectural source of truth. Se
 - Phase 9: deterministic BDG-anchored repair candidates, isolated worktrees, immutable-baseline and held-out re-execution, structural anti-cheat checks, exit 5, and verified-repair reporting. See the [Phase 9 audit](docs/PHASE9.md).
 - Phase 10: bounded L5 evidence packets, two independent semantic votes, `PASS_REASONED` / `FAIL_REASONED` / `ESCALATE`, and mechanical-failure bypass. See the [Phase 10 audit](docs/PHASE10.md).
 - Phase 11: bounded L8 repair planner, ephemeral apply of model candidates, and independent L10 verification. See the [Phase 11 audit](docs/PHASE11.md).
+- Phase 12: Python L2/L3 sidecar, remaining TS adapters, `language: auto`, offline ChangeSpec drafter, 16-case acceptance matrix, L12 fleet dashboard, and an honesty-bounded accuracy command. See the [Phase 12 audit](docs/PHASE12.md).
 - **Real-provider acceptance is blocked:** `fixtures/normalized/sub-updated-single/{old,new,meta}.json` is absent. Passing synthetic integration tests proves the plumbing only.
 
-Not yet implemented: additional framework adapters, Python execution, fleet, or accuracy benchmarks.
+Python requires a local `python3` interpreter. No hosted backend, auto-merge, or additional languages are in scope. Mechanical FAIL remains unappealable. Repairs are offered only after independent L10 verification.
 
 ## Package map
 
-`core` owns schemas, artifact I/O, stage contracts and the L6 verdict resolver. `changespec` loads the known spec. `resolver-ts` constructs bounded provider dataflow graphs. `harness-ts` executes isolated plans. `differ` owns pure structural classification. `reasoner` builds bounded evidence packets and two independent semantic votes. `repair` owns deterministic candidates plus the bounded L8 planner. `verifier` independently checks candidates. `reporter` renders PR comments. `cli` orchestrates those packages. `resolver-py`, `harness-py`, and `fleet` remain stubs. Core has no subsystem dependency.
+`core` owns schemas, artifact I/O, stage contracts and the L6 verdict resolver. `changespec` loads human-verified specs and emits `verified_by: draft` files that never enter L1. `resolver-ts` / `resolver-py` construct bounded provider dataflow graphs. `harness-ts` / `harness-py` execute isolated plans. `differ` owns pure structural classification. `reasoner` builds bounded evidence packets and two independent semantic votes. `repair` owns deterministic candidates plus the bounded L8 planner. `verifier` independently checks candidates. `reporter` renders PR comments. `fleet` renders a self-contained dashboard. `cli` orchestrates those packages. Core has no subsystem dependency.
 
 ## Local setup
 
@@ -39,6 +40,9 @@ pnpm test
 pnpm build
 pnpm isotope --help
 pnpm isotope matrix
+pnpm isotope matrix --group acceptance
+pnpm isotope accuracy
+pnpm isotope fleet --repos corpus/repos.json --out dist/dashboard.html
 pnpm action:build
 ```
 
@@ -57,6 +61,6 @@ The specimen README documents explicitly labeled synthetic broken/PASS control c
 
 ## Next milestone
 
-Recommended Phase 12 starting point: fleet / accuracy / extra adapters. Do not weaken L10 or let the planner patch a mechanical FAIL that already has a safe deterministic codemod.
+Phase 12 is frozen for this tree: do not weaken L1–L11, do not add a hosted service, auto-merge, new languages, or an open-ended repair agent. Remaining honest gaps are the absent real Stripe fixture pair and historical accuracy forks that are not present in this checkout.
 
 `pnpm coverage:differ` runs the independent pure-differ suite and enforces the coverage gate; `pnpm test` also includes that gate.

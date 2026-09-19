@@ -9750,11 +9750,15 @@ var require_contracts = __commonJS({
     exports2.CodeVersionSchema = typebox_1.Type.Union([typebox_1.Type.Literal("original"), typebox_1.Type.TemplateLiteral("patched:${string}", { minLength: 9 })]);
     exports2.FixtureRoleSchema = choices("planning", "held_out");
     exports2.ReplacementSchema = object({ path: str(), cardinality: choices("one", "many"), semantics: opt(str()) });
-    exports2.CodemodSchema = object({ kind: typebox_1.Type.Literal("path_rename"), safe_when: str(), from: str(), to: str() });
+    exports2.CodemodSchema = typebox_1.Type.Union([
+      object({ kind: typebox_1.Type.Literal("path_rename"), safe_when: str(), from: str(), to: str() }),
+      object({ kind: typebox_1.Type.Literal("unsupported") })
+    ]);
     exports2.ChangeSchema = object({
       object: str(),
       applies_to_events: opt(strings()),
-      removed_path: str(),
+      removed_path: opt(str()),
+      removed_symbol: opt(str()),
       replacement: exports2.ReplacementSchema,
       ambiguity: opt(object({ when: str(), question: str(), options: strings() })),
       repair_policy: opt(object({ business_policy_required_when: str() })),
@@ -16850,6 +16854,10 @@ var require_validation2 = __commonJS({
         const spec = value;
         if (spec.verified_by === "human" && !spec.verified_at)
           issues.push("/verified_at is required for human verification");
+        spec.changes.forEach((change, index) => {
+          if (!change.removed_path && !change.removed_symbol)
+            issues.push(`/changes/${index} requires removed_path or removed_symbol`);
+        });
       }
       if (name === "IsotopeReport") {
         const report = value;
@@ -24801,32 +24809,111 @@ var require_dist3 = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.normalizeFixtures = exports2.draftSpec = exports2.loadSelectedSpecs = void 0;
+    exports2.listSpecFiles = listSpecFiles;
+    exports2.loadHumanSpecs = loadHumanSpecs;
+    exports2.loadSpecById = loadSpecById;
     exports2.loadWalkingSkeletonSpec = loadWalkingSkeletonSpec;
+    exports2.loadSpecsForProject = loadSpecsForProject;
+    exports2.renderDraftYaml = renderDraftYaml;
     __exportStar(require_selection(), exports2);
+    var node_crypto_1 = require("node:crypto");
     var promises_1 = require("node:fs/promises");
     var node_path_1 = require("node:path");
     var yaml_1 = require_dist2();
     var core_1 = require_dist();
+    var selection_1 = require_selection();
+    async function listSpecFiles(registryRoot) {
+      return (await (0, promises_1.readdir)(registryRoot, { recursive: true })).filter((file) => /\.ya?ml$/.test(file)).sort();
+    }
+    async function loadHumanSpecs(registryRoot) {
+      const specs = [];
+      for (const file of await listSpecFiles(registryRoot)) {
+        const parsed = (0, core_1.validateContract)("ChangeSpec", (0, yaml_1.parse)(await (0, promises_1.readFile)((0, node_path_1.join)(registryRoot, file), "utf8")));
+        if (parsed.verified_by === "human")
+          specs.push(parsed);
+      }
+      return specs.sort((a, b) => a.id.localeCompare(b.id));
+    }
+    async function loadSpecById(registryRoot, id) {
+      for (const spec of await loadHumanSpecs(registryRoot))
+        if (spec.id === id)
+          return spec;
+      throw new Error(`Unknown human-verified ChangeSpec: ${id}`);
+    }
     async function loadWalkingSkeletonSpec(registryRoot) {
-      const files = (await (0, promises_1.readdir)(registryRoot, { recursive: true })).filter((file) => /\.ya?ml$/.test(file));
-      if (files.length !== 1 || files[0] !== "stripe/basil-subscription-period.yaml")
-        throw new Error("Phase 2 requires exactly one known ChangeSpec: stripe/basil-subscription-period.yaml; dependency selection is not implemented");
-      const spec = (0, core_1.validateContract)("ChangeSpec", (0, yaml_1.parse)(await (0, promises_1.readFile)((0, node_path_1.join)(registryRoot, files[0]), "utf8")));
+      const spec = (0, core_1.validateContract)("ChangeSpec", (0, yaml_1.parse)(await (0, promises_1.readFile)((0, node_path_1.join)(registryRoot, "stripe/basil-subscription-period.yaml"), "utf8")));
       if (spec.verified_by !== "human" || !spec.verified_at)
         throw new Error("Walking-skeleton spec must be human verified");
       return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
     }
-    var core_2 = require_dist();
-    var loadSelectedSpecs = (_input) => {
-      throw new core_2.NotImplementedStageError("changespec.loadSelectedSpecs");
+    function mentions(text, pkg) {
+      const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(?:from\\s+${escaped}|import\\s+${escaped}|['"]${escaped}['"])`, "i").test(text);
+    }
+    async function loadSpecsForProject(registryRoot, sources, config) {
+      const text = sources.join("\n");
+      const humans = await loadHumanSpecs(registryRoot);
+      const matched = humans.filter((spec) => Object.values(spec.detection.ecosystems).some((rule) => rule.packages.some((pkg) => mentions(text, pkg))));
+      const language = config.language === "py" || config.language === "auto" && config.entryPoints.every((e) => e.file.endsWith(".py")) ? "py" : "ts";
+      const scoped = matched.filter((spec) => spec.detection.taint_roots.some((root) => root.language === language));
+      const chosen = (scoped.length ? scoped : matched).slice().sort((a, b) => a.id.localeCompare(b.id));
+      if (!chosen.length)
+        return loadWalkingSkeletonSpec(registryRoot);
+      if (chosen.length > 1) {
+        const preferred = chosen.find((spec) => language === "py" ? spec.provider !== "stripe" : spec.provider === "stripe");
+        return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [preferred ?? chosen[0]] });
+      }
+      return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: chosen });
+    }
+    var loadSelectedSpecs = async (input2) => {
+      let changes = [];
+      try {
+        changes = JSON.parse(input2.dependencyDiff);
+      } catch {
+        changes = [];
+      }
+      if (!Array.isArray(changes))
+        changes = [];
+      const specs = (await loadHumanSpecs(input2.specsPath)).filter((spec) => spec.verified_by === "human" && changes.some((change) => Object.entries(spec.detection.ecosystems).some(([eco, rule]) => (0, selection_1.crossesBreakingThreshold)(change, eco, rule.packages, rule.breaking_from))));
+      return (0, core_1.validateContract)("SelectedSpecs", {
+        schemaVersion: 1,
+        dependencyChanges: changes.map((c) => ({ ecosystem: c.ecosystem, package: c.package, from_version: c.fromVersion, to_version: c.toVersion })),
+        specs
+      });
     };
     exports2.loadSelectedSpecs = loadSelectedSpecs;
-    var draftSpec = (_input) => {
-      throw new core_2.NotImplementedStageError("changespec.draftSpec");
-    };
+    var draftSpec = async (input2) => (0, core_1.validateContract)("ChangeSpec", {
+      id: `${input2.provider}.draft.${(0, node_crypto_1.createHash)("sha256").update(input2.url).digest("hex").slice(0, 8)}`,
+      provider: input2.provider,
+      title: `Draft ChangeSpec for ${input2.provider}`,
+      source: input2.url,
+      verified_by: "draft",
+      versions: { from: "unspecified", to: "unspecified" },
+      semantics: "Offline draft generated without provider certification. Human verification is required before L1 selection.",
+      detection: { ecosystems: { npm: { packages: [input2.provider], breaking_from: "0.0.0" } }, taint_roots: [{ kind: "call", language: "ts", pattern: "$CLIENT.event($$$)" }] },
+      changes: [{ object: "unspecified", removed_path: "unspecified_field", replacement: { path: "replacement.unspecified_field", cardinality: "one" }, codemod: { kind: "unsupported" } }],
+      fixtures: { pair: "unspecified" }
+    });
     exports2.draftSpec = draftSpec;
-    var normalizeFixtures = (_input) => {
-      throw new core_2.NotImplementedStageError("changespec.normalizeFixtures");
+    async function renderDraftYaml(spec) {
+      return `# verified_by: draft \u2014 this file must not enter L1 until a human sets verified_by: human and verified_at.
+${(0, yaml_1.stringify)(spec)}`;
+    }
+    var normalizeFixtures = async (input2) => {
+      const files = (await (0, promises_1.readdir)(input2.rawDirectory, { recursive: true })).filter((f) => /(^|\/)(old|new)\.json$/.test(f)).sort();
+      const pairs = new Set(files.map((f) => f.replace(/\/(old|new)\.json$/, "")));
+      const pairId = input2.pairId || [...pairs][0];
+      if (!pairId)
+        return { pairId: "none", metadata: { pairs: 0 } };
+      const oldBuf = await (0, promises_1.readFile)((0, node_path_1.join)(input2.rawDirectory, pairId, "old.json"));
+      const newBuf = await (0, promises_1.readFile)((0, node_path_1.join)(input2.rawDirectory, pairId, "new.json"));
+      const dest = (0, node_path_1.join)(input2.normalizedDirectory, pairId);
+      await (0, promises_1.mkdir)(dest, { recursive: true });
+      await (0, promises_1.writeFile)((0, node_path_1.join)(dest, "old.json"), oldBuf);
+      await (0, promises_1.writeFile)((0, node_path_1.join)(dest, "new.json"), newBuf);
+      const metadata = { pair: pairId, envelope: "copied", sha256: { old: (0, node_crypto_1.createHash)("sha256").update(oldBuf).digest("hex"), new: (0, node_crypto_1.createHash)("sha256").update(newBuf).digest("hex") } };
+      await (0, promises_1.writeFile)((0, node_path_1.join)(dest, "meta.json"), JSON.stringify(metadata, null, 2) + "\n");
+      return { pairId, metadata };
     };
     exports2.normalizeFixtures = normalizeFixtures;
   }
@@ -315112,7 +315199,7 @@ var require_engine = __commonJS({
         this.spec = spec;
         this.config = config;
         this.patterns = (0, paths_1.callPatterns)(spec);
-        this.changes = spec.changes.map((c) => ({ removed: (0, paths_1.parsePath)(c.removed_path), replacement: (0, paths_1.parsePath)(c.replacement.path) }));
+        this.changes = spec.changes.map((c) => ({ removed: (0, paths_1.parsePath)(c.removed_path ?? c.removed_symbol ?? c.replacement.path), replacement: (0, paths_1.parsePath)(c.replacement.path) }));
         this.graph = { schemaVersion: 1, entryPoints: entries, nodes: [], edges: [], sinks: [], affectedSites: [], skipped: [...project.diagnostics] };
       }
       diagnostic(n, reason) {
@@ -315718,7 +315805,7 @@ var require_dist4 = __commonJS({
       if (spec.verified_by !== "human")
         throw new Error("Resolver requires a human-verified ChangeSpec");
       if (config.language === "py")
-        throw new Error("Python resolver is not implemented");
+        throw new Error("TypeScript resolver cannot analyze language: py");
       const repositoryRoot = modern ? input2.repositoryRoot : input2.repoRoot;
       const entries = (modern ? input2.entryPoints ?? config.entryPoints : config.entryPoints).map((e) => {
         const file = (0, project_1.slash)((0, node_path_1.relative)((0, node_path_1.resolve)(repositoryRoot), (0, node_path_1.resolve)(repositoryRoot, e.file)));
@@ -315734,11 +315821,63 @@ var require_dist4 = __commonJS({
   }
 });
 
+// packages/resolver-py/dist/index.js
+var require_dist5 = __commonJS({
+  "packages/resolver-py/dist/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.resolveBehavioralDependencyGraph = resolveBehavioralDependencyGraph;
+    var node_child_process_1 = require("node:child_process");
+    var node_path_1 = require("node:path");
+    var core_1 = require_dist();
+    function sidecar() {
+      return (0, node_path_1.resolve)(__dirname, "../../../py-runner/isotope_runner/cli.py");
+    }
+    function python(payload) {
+      return new Promise((resolvePromise, reject) => {
+        const child = (0, node_child_process_1.spawn)("python3", [sidecar()], { stdio: ["pipe", "pipe", "pipe"] });
+        const out = [];
+        const err = [];
+        child.stdout.on("data", (chunk) => out.push(chunk));
+        child.stderr.on("data", (chunk) => err.push(chunk));
+        child.on("error", (error) => reject(error.code === "ENOENT" ? new Error("python3 is required for Python resolution") : error));
+        child.on("close", () => {
+          const stdout = Buffer.concat(out).toString("utf8");
+          const stderr = Buffer.concat(err).toString("utf8");
+          try {
+            resolvePromise(JSON.parse(stdout));
+          } catch {
+            reject(new Error(`Python resolver failed: ${stderr || stdout || "empty output"}`));
+          }
+        });
+        child.stdin.end(JSON.stringify(payload));
+      });
+    }
+    async function resolveBehavioralDependencyGraph(input2) {
+      const modern = "repositoryRoot" in input2;
+      const config = (0, core_1.validateContract)("IsotopeConfig", input2.config);
+      const spec = modern ? input2.changeSpec : input2.selectedSpecs.specs[0];
+      if (!spec || !modern && input2.selectedSpecs.specs.length !== 1)
+        throw new Error("Resolver requires one explicit ChangeSpec");
+      (0, core_1.validateContract)("ChangeSpec", spec);
+      if (spec.verified_by !== "human")
+        throw new Error("Resolver requires a human-verified ChangeSpec");
+      const repositoryRoot = modern ? input2.repositoryRoot : input2.repoRoot;
+      const configured = modern ? input2.entryPoints ?? config.entryPoints : config.entryPoints;
+      const result = await python({ command: "resolve", repositoryRoot, config, changeSpec: spec, entryPoints: configured });
+      if (result.error)
+        throw new Error(String(result.error.message ?? result.error));
+      return (0, core_1.validateContract)("BDG", result.bdg);
+    }
+  }
+});
+
 // packages/cli/dist/scan.js
 var require_scan3 = __commonJS({
   "packages/cli/dist/scan.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.usesPython = usesPython;
     exports2.analyzeConfiguredProject = analyzeConfiguredProject;
     exports2.graphSummary = graphSummary;
     exports2.scanProject = scanProject;
@@ -315748,16 +315887,38 @@ var require_scan3 = __commonJS({
     var core_1 = require_dist();
     var changespec_1 = require_dist3();
     var resolver_ts_1 = require_dist4();
+    var resolver_py_1 = require_dist5();
+    function usesPython(config) {
+      if (config.language === "py")
+        return true;
+      if (config.language === "ts")
+        return false;
+      const py = config.entryPoints.some((e) => e.file.endsWith(".py"));
+      const ts = config.entryPoints.some((e) => !e.file.endsWith(".py"));
+      if (py && ts)
+        throw new Error("language: auto does not mix Python and TypeScript entry points in one configuration");
+      return py;
+    }
     async function analyzeConfiguredProject(configPath, selectedOverride) {
       const path = await (0, promises_1.realpath)((0, node_path_1.resolve)(configPath));
       const projectRoot = (0, node_path_1.dirname)(path);
       const config = (0, core_1.validateContract)("IsotopeConfig", (0, yaml_1.parse)(await (0, promises_1.readFile)(path, "utf8")));
-      const selected = selectedOverride ?? await (0, changespec_1.loadWalkingSkeletonSpec)((0, node_path_1.resolve)(__dirname, "../../../specs"));
-      const bdg = await (0, resolver_ts_1.resolveBehavioralDependencyGraph)({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0] });
-      return { projectRoot, config, selected, bdg };
+      const sources = await Promise.all(config.entryPoints.map(async (e) => {
+        try {
+          return `${e.file}
+${await (0, promises_1.readFile)((0, node_path_1.resolve)(projectRoot, e.file), "utf8")}`;
+        } catch {
+          return e.file;
+        }
+      }));
+      const selected = selectedOverride ?? await (0, changespec_1.loadSpecsForProject)((0, node_path_1.resolve)(__dirname, "../../../specs"), sources, config).catch(() => (0, changespec_1.loadWalkingSkeletonSpec)((0, node_path_1.resolve)(__dirname, "../../../specs")));
+      const python = usesPython(config);
+      const bdg = python ? await (0, resolver_py_1.resolveBehavioralDependencyGraph)({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0] }) : await (0, resolver_ts_1.resolveBehavioralDependencyGraph)({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0] });
+      return { projectRoot, config, selected, bdg, python };
     }
     function graphSummary(bdg) {
-      const lines = [`BDG: generated TypeScript/JavaScript analysis`, "Bounds: 200 customer files; one local-function hop; one provider re-export hop"];
+      const language = bdg.entryPoints[0]?.language === "py" ? "Python" : "TypeScript/JavaScript";
+      const lines = [`BDG: generated ${language} analysis`, "Bounds: 200 customer files; one local-function hop; one provider re-export hop"];
       for (const entry of bdg.entryPoints) {
         const roots = bdg.nodes.filter((n) => n.entryPointId === entry.id && n.kind === "taint_root");
         const sites = bdg.affectedSites.filter((s) => s.entryPointId === entry.id);
@@ -315927,7 +316088,42 @@ var require_adapters = __commonJS({
       }
       return { returned: sent ? { status, body } : snapshot(output2), threw };
     } };
-    var registry = { plain, express_route: express };
+    var nextApp = { async invoke({ handler, fixture, snapshot }) {
+      const request = {
+        method: "POST",
+        json: async () => fixture,
+        text: async () => JSON.stringify(fixture),
+        body: JSON.stringify(fixture),
+        headers: { get(name) {
+          return name.toLowerCase() === "stripe-signature" ? "isotope-mocked-signature" : null;
+        } }
+      };
+      let output2;
+      try {
+        output2 = await handler(request);
+      } catch (error) {
+        return { returned: snapshot(void 0), threw: customerError(error) };
+      }
+      if (output2 && typeof output2 === "object" && typeof output2.json === "function") {
+        const status = Number(output2.status ?? 200);
+        const body = await output2.json();
+        return { returned: snapshot({ status, body }), threw: null };
+      }
+      return { returned: snapshot(output2), threw: null };
+    } };
+    var pagesApi = { async invoke(context) {
+      return express.invoke(context);
+    } };
+    var lambda = { async invoke({ handler, fixture, snapshot }) {
+      let output2;
+      try {
+        output2 = await handler(fixture, { awsRequestId: "isotope", functionName: "isotope" });
+      } catch (error) {
+        return { returned: snapshot(void 0), threw: customerError(error) };
+      }
+      return { returned: snapshot(output2), threw: null };
+    } };
+    var registry = { plain, express_route: express, next_app_route: nextApp, next_pages_api: pagesApi, lambda };
     function getAdapter(kind) {
       const adapter = registry[kind];
       if (!adapter)
@@ -316063,7 +316259,7 @@ var require_mocks = __commonJS({
 });
 
 // packages/harness-ts/dist/index.js
-var require_dist5 = __commonJS({
+var require_dist6 = __commonJS({
   "packages/harness-ts/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -316294,6 +316490,98 @@ import ${JSON.stringify(runtimeAsset("execution.test.mjs"))};
   }
 });
 
+// packages/harness-py/dist/errors.js
+var require_errors4 = __commonJS({
+  "packages/harness-py/dist/errors.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.HarnessExecutionError = void 0;
+    var HarnessExecutionError = class extends Error {
+      reason;
+      diagnostics;
+      constructor(reason, message, diagnostics = {}) {
+        super(message);
+        this.reason = reason;
+        this.diagnostics = diagnostics;
+        this.name = "HarnessExecutionError";
+      }
+    };
+    exports2.HarnessExecutionError = HarnessExecutionError;
+  }
+});
+
+// packages/harness-py/dist/index.js
+var require_dist7 = __commonJS({
+  "packages/harness-py/dist/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.HarnessExecutionError = void 0;
+    exports2.runHarness = runHarness;
+    var node_child_process_1 = require("node:child_process");
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var core_1 = require_dist();
+    var errors_1 = require_errors4();
+    var errors_2 = require_errors4();
+    Object.defineProperty(exports2, "HarnessExecutionError", { enumerable: true, get: function() {
+      return errors_2.HarnessExecutionError;
+    } });
+    function sidecar() {
+      return (0, node_path_1.resolve)(__dirname, "../../../py-runner/isotope_runner/cli.py");
+    }
+    function python(payload) {
+      return new Promise((resolvePromise, reject) => {
+        const child = (0, node_child_process_1.spawn)("python3", [sidecar()], { stdio: ["pipe", "pipe", "pipe"] });
+        const out = [];
+        child.stdout.on("data", (chunk) => out.push(chunk));
+        child.on("error", (error) => reject(error.code === "ENOENT" ? new errors_1.HarnessExecutionError("harness_could_not_run", "python3 is required for Python execution") : error));
+        child.on("close", () => {
+          try {
+            resolvePromise(JSON.parse(Buffer.concat(out).toString("utf8")));
+          } catch {
+            reject(new errors_1.HarnessExecutionError("invalid_child_output", "Python harness returned invalid JSON"));
+          }
+        });
+        child.stdin.end(JSON.stringify(payload));
+      });
+    }
+    async function runOnce(input2, side, runIndex) {
+      if (input2.entryPoint.language !== "py")
+        throw new errors_1.HarnessExecutionError("unsupported_harness_plan", "Python harness requires a Python entry point");
+      const root = await (0, promises_1.realpath)(input2.repoRoot);
+      const entryFile = await (0, promises_1.realpath)((0, node_path_1.resolve)(root, input2.entryPoint.file));
+      const payloadPath = side === "old" ? input2.fixture.oldPath : input2.fixture.newPath;
+      const fixturePayload = JSON.parse(await (0, promises_1.readFile)(payloadPath, "utf8"));
+      const plan = {
+        repositoryRoot: root,
+        entryFile,
+        entryPoint: { id: input2.entryPoint.id, file: input2.entryPoint.file, exportName: input2.entryPoint.export, kind: input2.entryPoint.kind },
+        fixture: { pairId: input2.fixture.id, side, payloadVersion: side === "old" ? input2.fixture.oldVersion : input2.fixture.newVersion, payloadPath },
+        fixturePayload,
+        codeVersion: input2.codeVersion,
+        mocks: input2.config.mocks,
+        mockReturns: input2.config.returns,
+        runIndex
+      };
+      const result = await python({ command: "harness", plan });
+      if (result.error) {
+        const error = result.error;
+        throw new errors_1.HarnessExecutionError(error.reason || "harness_could_not_run", error.message || "Python harness failed");
+      }
+      const signature = (0, core_1.validateContract)("Signature", result.signature);
+      if (signature.entryPointId !== input2.entryPoint.id || signature.runIndex !== runIndex)
+        throw new errors_1.HarnessExecutionError("invalid_child_output", "Signature does not match execution identity");
+      return signature;
+    }
+    async function runHarness(input2) {
+      return {
+        old: [await runOnce(input2, "old", 0), await runOnce(input2, "old", 1)],
+        new: [await runOnce(input2, "new", 0), await runOnce(input2, "new", 1)]
+      };
+    }
+  }
+});
+
 // packages/differ/dist/behavior.js
 var require_behavior = __commonJS({
   "packages/differ/dist/behavior.js"(exports2) {
@@ -316369,7 +316657,7 @@ var require_behavior = __commonJS({
 });
 
 // packages/differ/dist/index.js
-var require_dist6 = __commonJS({
+var require_dist8 = __commonJS({
   "packages/differ/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -316769,12 +317057,12 @@ var require_packet = __commonJS({
       let graphSinks = sinks;
       const assemble = () => (0, core_1.validateContract)("EvidencePacket", {
         packetVersion: 1,
-        change: { specId: input2.spec.id, title: input2.spec.title, semantics: input2.spec.semantics, removedPath: change.removed_path, replacement: change.replacement, ...hint ? { ambiguityHint: hint } : {} },
+        change: { specId: input2.spec.id, title: input2.spec.title, semantics: input2.spec.semantics, removedPath: change.removed_path ?? change.removed_symbol ?? change.replacement.path, replacement: change.replacement, ...hint ? { ambiguityHint: hint } : {} },
         code: { language: input2.entryPoint.language, entryPoint: { file: slice.file, export: slice.exportName, lines: slice.lines }, slice: primary, downstreamFunctions: downstream },
         dataflow: { summary: dataflowSummary(input2.bdg, input2.entryPoint.id), nodes: graphNodes, sinks: graphSinks },
         execution: { old: oldSig, new: newSig },
         diff: semantic,
-        payloadFragments: { old: fragment(oldPayload, change.removed_path, change.replacement.path), new: fragment(newPayload, change.removed_path, change.replacement.path) }
+        payloadFragments: { old: fragment(oldPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path), new: fragment(newPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path) }
       });
       let packet = assemble();
       const shrink = () => {
@@ -316947,7 +317235,7 @@ var require_consensus = __commonJS({
 });
 
 // node_modules/.pnpm/@google+generative-ai@0.24.1/node_modules/@google/generative-ai/dist/index.js
-var require_dist7 = __commonJS({
+var require_dist9 = __commonJS({
   "node_modules/.pnpm/@google+generative-ai@0.24.1/node_modules/@google/generative-ai/dist/index.js"(exports2) {
     "use strict";
     exports2.SchemaType = void 0;
@@ -317976,7 +318264,7 @@ var require_adapter = __commonJS({
     exports2.createGeminiModel = createGeminiModel;
     exports2.credentialsAvailable = credentialsAvailable;
     exports2.apiKeyFromEnv = apiKeyFromEnv;
-    var generative_ai_1 = require_dist7();
+    var generative_ai_1 = require_dist9();
     var prompt_1 = require_prompt();
     var TIMEOUT_MS = 3e4;
     function keyFrom(env) {
@@ -318191,7 +318479,7 @@ var require_reason = __commonJS({
 });
 
 // packages/reasoner/dist/index.js
-var require_dist8 = __commonJS({
+var require_dist10 = __commonJS({
   "packages/reasoner/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -318291,7 +318579,7 @@ var require_packet2 = __commonJS({
     exports2.buildRepairPacket = buildRepairPacket;
     var node_crypto_1 = require("node:crypto");
     var core_1 = require_dist();
-    var reasoner_1 = require_dist8();
+    var reasoner_1 = require_dist10();
     function assertNoHeldOutLeakage(serialized, markers) {
       for (const marker of markers) {
         if (marker && serialized.includes(marker))
@@ -318340,7 +318628,7 @@ var require_packet2 = __commonJS({
           specId: input2.spec.id,
           provider: input2.spec.provider,
           semantics: input2.spec.semantics,
-          removedPath: change.removed_path,
+          removedPath: change.removed_path ?? change.removed_symbol ?? change.replacement.path,
           replacement: change.replacement,
           knownSafeCodemod
         },
@@ -318509,7 +318797,7 @@ var require_plan2 = __commonJS({
     exports2.REQUEST_TIMEOUT_MS = exports2.DEFAULT_PLANNER_MODEL = exports2.PLANNER_PROMPT_VERSION = void 0;
     exports2.planRepair = planRepair;
     var core_1 = require_dist();
-    var reasoner_1 = require_dist8();
+    var reasoner_1 = require_dist10();
     var prompt_1 = require_prompt2();
     Object.defineProperty(exports2, "DEFAULT_PLANNER_MODEL", { enumerable: true, get: function() {
       return prompt_1.DEFAULT_PLANNER_MODEL;
@@ -318621,7 +318909,7 @@ var require_plan2 = __commonJS({
 });
 
 // packages/repair/dist/index.js
-var require_dist9 = __commonJS({
+var require_dist11 = __commonJS({
   "packages/repair/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -318733,7 +319021,10 @@ var require_dist9 = __commonJS({
       if (eligibleIndexes.length !== 1)
         return none("multiple_codemods_ambiguous");
       const changeIndex = eligibleIndexes[0];
-      const predicate = evaluateRepairPredicate(spec.changes[changeIndex].codemod.safe_when, input2.newPayload);
+      const selectedCodemod = spec.changes[changeIndex].codemod;
+      if (!selectedCodemod || selectedCodemod.kind !== "path_rename")
+        return none("no_safe_deterministic_codemod");
+      const predicate = evaluateRepairPredicate(selectedCodemod.safe_when, input2.newPayload);
       if (!predicate.supported)
         return none("unsupported_safe_when_predicate");
       if (!predicate.value)
@@ -318793,7 +319084,7 @@ var require_dist9 = __commonJS({
         confidence: "high",
         origin: "deterministic",
         summary: `Rename ${codemod.from} to ${codemod.to} at ${sites.length} proven provider site${sites.length === 1 ? "" : "s"}`,
-        causalChain: `${change.removed_path} was removed; the verified single-cardinality fixture permits ${change.replacement.path}`,
+        causalChain: `${change.removed_path ?? change.removed_symbol} was removed; the verified single-cardinality fixture permits ${change.replacement.path}`,
         assumptions: [codemod.safe_when],
         humanQuestion: null,
         suspectedInjection: false,
@@ -319056,7 +319347,7 @@ var require_dist9 = __commonJS({
 });
 
 // packages/verifier/dist/index.js
-var require_dist10 = __commonJS({
+var require_dist12 = __commonJS({
   "packages/verifier/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -319064,10 +319355,10 @@ var require_dist10 = __commonJS({
     var promises_1 = require("node:fs/promises");
     var node_path_1 = require("node:path");
     var core_1 = require_dist();
-    var differ_1 = require_dist6();
-    var harness_ts_1 = require_dist5();
+    var differ_1 = require_dist8();
+    var harness_ts_1 = require_dist6();
     var resolver_ts_1 = require_dist4();
-    var reasoner_1 = require_dist8();
+    var reasoner_1 = require_dist10();
     function ref(root, path) {
       return (0, node_path_1.relative)(root, path).split("\\").join("/");
     }
@@ -319306,10 +319597,10 @@ var require_repair_flow = __commonJS({
     var node_path_1 = require("node:path");
     var yaml_1 = require_dist2();
     var core_1 = require_dist();
-    var reasoner_1 = require_dist8();
-    var harness_ts_1 = require_dist5();
-    var repair_1 = require_dist9();
-    var verifier_1 = require_dist10();
+    var reasoner_1 = require_dist10();
+    var harness_ts_1 = require_dist6();
+    var repair_1 = require_dist11();
+    var verifier_1 = require_dist12();
     function asObject(value, label) {
       if (!value || typeof value !== "object" || Array.isArray(value))
         throw new Error(`${label} must be an object`);
@@ -319688,10 +319979,11 @@ var require_walking_skeleton = __commonJS({
     var node_path_1 = require("node:path");
     var core_1 = require_dist();
     var scan_1 = require_scan3();
-    var harness_ts_1 = require_dist5();
-    var differ_1 = require_dist6();
+    var harness_ts_1 = require_dist6();
+    var harness_py_1 = require_dist7();
+    var differ_1 = require_dist8();
     var repair_flow_1 = require_repair_flow();
-    var reasoner_1 = require_dist8();
+    var reasoner_1 = require_dist10();
     function asObject(value, label) {
       if (!value || typeof value !== "object" || Array.isArray(value))
         throw new Error(`${label} must be an object`);
@@ -319700,13 +319992,24 @@ var require_walking_skeleton = __commonJS({
     function isHttp200(value) {
       return value !== null && typeof value === "object" && "status" in value && value.status === 200;
     }
-    function fixtureVersion(value, label) {
-      const event = asObject(value, label);
-      const data = asObject(event.data, `${label}.data`);
-      const subscription = asObject(data.object, `${label}.data.object`);
-      if (event.object !== "event" || event.type !== "customer.subscription.updated" || typeof event.api_version !== "string" || !event.api_version || subscription.object !== "subscription" || typeof subscription.id !== "string")
-        throw new Error(`${label}: expected a versioned Stripe subscription.updated event envelope`);
-      return event.api_version;
+    function fixtureVersion(value, label, meta, side) {
+      try {
+        const event = asObject(value, label);
+        const data = asObject(event.data, `${label}.data`);
+        const subscription = asObject(data.object, `${label}.data.object`);
+        if (event.object !== "event" || event.type !== "customer.subscription.updated" || typeof event.api_version !== "string" || !event.api_version || subscription.object !== "subscription" || typeof subscription.id !== "string")
+          throw new Error("not stripe");
+        return event.api_version;
+      } catch {
+        const key = side === "new" ? "newVersion" : "oldVersion";
+        const labeled = meta?.[key];
+        if (typeof labeled === "string" && labeled)
+          return labeled;
+        const api = meta?.api_version;
+        if (typeof api === "string" && api)
+          return `${api}-${side ?? "old"}`;
+        throw new Error(`${label}: expected a versioned Stripe subscription.updated event envelope or meta.oldVersion/meta.newVersion`);
+      }
     }
     function ambiguitySatisfied(payload, expression) {
       const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.length\s*>\s*(\d+)$/.exec(expression.trim());
@@ -319793,8 +320096,8 @@ ${metaPath}`);
         throw new Error("Internal test fixtures must explicitly declare meta.synthetic: true");
       if (!synthetic && meta.synthetic === true)
         throw new Error("Synthetic fixtures are forbidden in product fixture directories");
-      const oldVersion = fixtureVersion(payloads[0], "old fixture");
-      const newVersion = fixtureVersion(payloads[1], "new fixture");
+      const oldVersion = fixtureVersion(payloads[0], "old fixture", meta, "old");
+      const newVersion = fixtureVersion(payloads[1], "new fixture", meta, "new");
       if (oldVersion === newVersion)
         throw new Error("Fixture envelopes need distinct API-version labels to preserve both execution artifacts");
       const fixture = { id: synthetic ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair, role: "planning", oldPath, newPath, oldVersion, newVersion };
@@ -319831,7 +320134,7 @@ ${metaPath}`);
       const audit = [];
       try {
         const execution = { repoRoot: projectRoot, config, entryPoint, fixture, codeVersion: "original" };
-        signatures = {
+        signatures = entryPoint.language === "py" ? await (0, harness_py_1.runHarness)({ ...execution, bdg }) : {
           old: [await (0, harness_ts_1.runTsHarness)((0, harness_ts_1.createTsHarnessPlan)(execution, "old", 0)), await (0, harness_ts_1.runTsHarness)((0, harness_ts_1.createTsHarnessPlan)(execution, "old", 1))],
           new: [await (0, harness_ts_1.runTsHarness)((0, harness_ts_1.createTsHarnessPlan)(execution, "new", 0)), await (0, harness_ts_1.runTsHarness)((0, harness_ts_1.createTsHarnessPlan)(execution, "new", 1))]
         };
@@ -319891,7 +320194,7 @@ ${metaPath}`);
         if (result.verdict === "ESCALATE" && !reasoningRefs.length)
           log.push("Semantic residual requires a human decision or an enabled reasoner.");
       } catch (error) {
-        if (!(error instanceof harness_ts_1.HarnessExecutionError))
+        if (!(error instanceof harness_ts_1.HarnessExecutionError) && !(error instanceof harness_py_1.HarnessExecutionError))
           throw error;
         result = (0, core_1.validateContract)("VerdictResult", {
           entryPointId: entryPoint.id,
@@ -319942,7 +320245,7 @@ ${metaPath}`);
           diff,
           ...reasoning?.results.length ? { reasoning: reasoning.results } : {},
           ...options.plannerModel ? { plannerModel: options.plannerModel } : {},
-          credentialsAvailable: Boolean(options.plannerModel) || (0, reasoner_1.credentialsAvailable)(),
+          credentialsAvailable: options.assumeCredentials ?? (Boolean(options.plannerModel) || (0, reasoner_1.credentialsAvailable)()),
           ...options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}
         });
         log.push(...repair.output);
@@ -320026,7 +320329,7 @@ var require_matrix = __commonJS({
     var node_util_1 = require("node:util");
     var promises_2 = require("node:timers/promises");
     var core_1 = require_dist();
-    var differ_1 = require_dist6();
+    var differ_1 = require_dist8();
     var changespec_1 = require_dist3();
     var walking_skeleton_1 = require_walking_skeleton();
     var execute = (0, node_util_1.promisify)(node_child_process_1.execFile);
@@ -320067,15 +320370,61 @@ var require_matrix = __commonJS({
       await git(root, "init", "--quiet");
       await git(root, "config", "user.email", "acceptance@isotope.local");
       await git(root, "config", "user.name", "Isotope Acceptance");
-      await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { stripe: "17.7.0" } }, null, 2) + "\n");
-      await git(root, "add", ".");
-      await git(root, "commit", "--quiet", "-m", "acceptance base");
-      await git(root, "tag", caseDef.baseRef);
-      await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { stripe: "18.1.0" } }, null, 2) + "\n");
-      await git(root, "add", "package.json");
-      await git(root, "commit", "--quiet", "-m", "upgrade stripe");
-      await git(root, "tag", caseDef.headRef);
+      if (caseDef.ecosystem === "pypi") {
+        const dep = caseDef.dependency ?? { package: "elevenlabs", from: "0.2.27", to: "1.0.0" };
+        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "requirements.txt"), `${dep.package}==${dep.from}
+`);
+        await git(root, "add", ".");
+        await git(root, "commit", "--quiet", "-m", "acceptance base");
+        await git(root, "tag", caseDef.baseRef);
+        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "requirements.txt"), `${dep.package}==${dep.to}
+`);
+        await git(root, "add", "requirements.txt");
+        await git(root, "commit", "--quiet", "-m", `upgrade ${dep.package}`);
+        await git(root, "tag", caseDef.headRef);
+      } else {
+        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { stripe: "17.7.0" } }, null, 2) + "\n");
+        await git(root, "add", ".");
+        await git(root, "commit", "--quiet", "-m", "acceptance base");
+        await git(root, "tag", caseDef.baseRef);
+        await (0, promises_1.writeFile)((0, node_path_1.join)(root, "package.json"), JSON.stringify({ private: true, dependencies: { stripe: "18.1.0" } }, null, 2) + "\n");
+        await git(root, "add", "package.json");
+        await git(root, "commit", "--quiet", "-m", "upgrade stripe");
+        await git(root, "tag", caseDef.headRef);
+      }
+      try {
+        const cfgPath = (0, node_path_1.join)(root, caseDef.configPath);
+        const cfg = JSON.parse(await (0, promises_1.readFile)(cfgPath, "utf8"));
+        if (caseDef.reasoner)
+          cfg.reasoner.mode = "on";
+        if (caseDef.repair)
+          cfg.repair.mode = "on";
+        if (caseDef.planner)
+          cfg.repair.planner = caseDef.planner;
+        await (0, promises_1.writeFile)(cfgPath, JSON.stringify(cfg));
+      } catch {
+      }
       return root;
+    }
+    function cassetteModel(files, kind) {
+      const root = sourceRoot();
+      const votes = files.map((name) => JSON.parse(require("node:fs").readFileSync((0, node_path_1.join)(root, "tests/cassettes", kind, `${name}.json`), "utf8")));
+      let i = 0;
+      return { modelId: `cassette-${kind}`, classify: async (input2) => {
+        const raw = votes[Math.min(i, votes.length - 1)];
+        i += 1;
+        const vote = raw.voteA ?? raw;
+        if (typeof vote === "string")
+          return vote;
+        const match = /<evidence>\n([\s\S]*?)<\/evidence>/.exec(input2.user);
+        if (!match)
+          return JSON.stringify(vote);
+        const packet = JSON.parse(match[1]);
+        const next = { ...vote };
+        if (packet.diff?.[0]?.pointer)
+          next.evidenceRefs = [{ kind: "diff", pointer: packet.diff[0].pointer }];
+        return JSON.stringify(next);
+      } };
     }
     function sameStrings(actual, expected) {
       return JSON.stringify([...new Set(actual)].sort()) === JSON.stringify([...new Set(expected)].sort());
@@ -320125,10 +320474,13 @@ var require_matrix = __commonJS({
         const run = await (0, walking_skeleton_1.verifyWalkingSkeleton)({
           configPath: (0, node_path_1.join)(workspace, caseDef.configPath),
           artifactProjectRoot: workspace,
-          disableReasoner: true,
-          disableRepair: true,
+          disableReasoner: caseDef.reasoner !== true,
+          disableRepair: caseDef.repair !== true,
           selectedSpecs: selection.selected,
-          ...caseDef.fixturePair ? { testFixtureDirectory: (0, node_path_1.resolve)(sourceRoot(), caseDef.fixturePair) } : {}
+          ...caseDef.fixturePair ? { testFixtureDirectory: (0, node_path_1.resolve)(sourceRoot(), caseDef.fixturePair) } : {},
+          ...caseDef.reasonerCassettes ? { semanticModel: cassetteModel(caseDef.reasonerCassettes, "reasoner") } : {},
+          ...caseDef.plannerCassette ? { plannerModel: cassetteModel([caseDef.plannerCassette], "planner") } : {},
+          ...caseDef.assumeCredentials !== void 0 ? { assumeCredentials: caseDef.assumeCredentials } : {}
         });
         const generated = (0, core_1.artifactPaths)(workspace).root;
         await (0, promises_1.cp)(generated, destination, { recursive: true, force: true });
@@ -320154,7 +320506,7 @@ var require_matrix = __commonJS({
         }
         const noReasoner = report.reasoningRefs.length === 0 && report.evidencePacketRefs.length === 0;
         const exp = caseDef.expected;
-        const matched = sameStrings(base.selectedSpecIds, exp.selectedSpecIds) && base.actualVerdict === exp.verdict && base.actualExitCode === exp.exitCode && base.affectedSiteCount === exp.affectedSiteCount && (exp.minimumAuthoritativeSites === void 0 || base.authoritativeSiteCount >= exp.minimumAuthoritativeSites) && (exp.reachableSinkKinds === void 0 || exp.reachableSinkKinds.every((x) => base.reachableSinkKinds.includes(x))) && (exp.divergenceKinds === void 0 || exp.divergenceKinds.every((x) => base.divergenceKinds.includes(x))) && (exp.verdictReason === void 0 || base.verdictReason === exp.verdictReason) && (exp.ambiguityCandidate === void 0 || base.ambiguityCandidate === exp.ambiguityCandidate) && reachedL3 === exp.reachesL3 && (!reachedL3 || base.oldStable === true && base.newStable === true && base.executionsCompletedNormally === true) && (reachedL3 || report.signatureRefs.length === 0 && report.diffReportRefs.length === 0) && noReasoner;
+        const matched = sameStrings(base.selectedSpecIds, exp.selectedSpecIds) && base.actualVerdict === exp.verdict && base.actualExitCode === exp.exitCode && base.affectedSiteCount === exp.affectedSiteCount && (exp.minimumAuthoritativeSites === void 0 || base.authoritativeSiteCount >= exp.minimumAuthoritativeSites) && (exp.reachableSinkKinds === void 0 || exp.reachableSinkKinds.every((x) => base.reachableSinkKinds.includes(x))) && (exp.divergenceKinds === void 0 || exp.divergenceKinds.every((x) => base.divergenceKinds.includes(x))) && (exp.verdictReason === void 0 || base.verdictReason === exp.verdictReason) && (exp.ambiguityCandidate === void 0 || base.ambiguityCandidate === exp.ambiguityCandidate) && reachedL3 === exp.reachesL3 && (!reachedL3 || base.oldStable === true && base.newStable === true && base.executionsCompletedNormally === true) && (reachedL3 || report.signatureRefs.length === 0 && report.diffReportRefs.length === 0) && (exp.reasoning === true ? report.reasoningRefs.length > 0 : noReasoner) && (exp.verifiedRepair === void 0 || report.verifiedRepairs.length > 0 === exp.verifiedRepair);
         base.acceptance = matched ? "matched" : "mismatch";
         if (options.keepArtifacts)
           base.workspace = workspace;
@@ -320173,7 +320525,8 @@ var require_matrix = __commonJS({
       const release = await acquireMatrixLock();
       try {
         const all = await loadCases();
-        const cases = options.caseId ? all.filter((c) => c.id === options.caseId) : all.filter((c) => c.tags?.includes("required"));
+        const group = options.group ?? "detection";
+        const cases = options.caseId ? all.filter((c) => c.id === options.caseId) : group === "detection" ? all.filter((c) => c.tags?.includes("required") && !c.tags?.includes("acceptance")) : all;
         if (!cases.length)
           throw new Error(`Unknown detection case: ${options.caseId ?? "(none)"}`);
         const matrixRoot = process.env.ISOTOPE_MATRIX_ROOT ? (0, node_path_1.resolve)(process.env.ISOTOPE_MATRIX_ROOT) : (0, node_path_1.join)(sourceRoot(), ".isotope/matrix");
@@ -320181,7 +320534,7 @@ var require_matrix = __commonJS({
         const results = [];
         for (const caseDef of cases)
           results.push(await runCase(caseDef, matrixRoot, options));
-        const summary = { schemaVersion: 1, group: "detection", results };
+        const summary = { schemaVersion: 1, group, results };
         await (0, promises_1.writeFile)((0, node_path_1.join)(matrixRoot, "results.json"), JSON.stringify(summary, null, 2) + "\n");
         const width = Math.max(24, ...results.map((r) => r.id.length + 2));
         const lines = ["Isotope detection matrix", "", `${"CASE".padEnd(width)}EXPECTED    ACTUAL      STATUS`];
@@ -320200,15 +320553,270 @@ var require_matrix = __commonJS({
   }
 });
 
+// packages/cli/dist/explain.js
+var require_explain = __commonJS({
+  "packages/cli/dist/explain.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.explainEntry = explainEntry;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var core_1 = require_dist();
+    async function explainEntry(configPath, entryPoint) {
+      const root = (0, node_path_1.dirname)((0, node_path_1.resolve)(configPath));
+      const paths = (0, core_1.artifactPaths)(root);
+      const lines = [`Explain ${entryPoint}`];
+      for (const [label, file] of [["SelectedSpecs", paths.selectedSpecs], ["BDG", paths.bdg], ["DiffReport", paths.diffReport], ["Verdict", paths.verdict], ["Report", paths.report]]) {
+        try {
+          await (0, promises_1.readFile)(file);
+          lines.push(`${label}: ${file}`);
+        } catch {
+          lines.push(`${label}: absent`);
+        }
+      }
+      try {
+        const report = await (0, core_1.readJsonArtifact)(paths.root, paths.report, "IsotopeReport");
+        const result = report.verdict.results.find((r) => r.entryPointId === entryPoint) ?? report.verdict.results[0];
+        if (result)
+          lines.push(`Verdict: ${result.verdict}`, `Reason: ${result.reason}`);
+        lines.push(`Verified repairs: ${report.verifiedRepairs.length} (offered only)`);
+      } catch {
+        lines.push("Report artifact was not readable.");
+      }
+      return { output: lines.join("\n"), exitCode: 0 };
+    }
+  }
+});
+
+// packages/fleet/dist/index.js
+var require_dist13 = __commonJS({
+  "packages/fleet/dist/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.renderDashboard = renderDashboard;
+    exports2.runFleet = runFleet;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var core_1 = require_dist();
+    function counts(reports) {
+      const out = { PASS: 0, PASS_REASONED: 0, FAIL: 0, FAIL_REASONED: 0, ESCALATE: 0, INDETERMINATE: 0, SKIP: 0 };
+      for (const report of reports)
+        out[report.verdict.verdict] = (out[report.verdict.verdict] ?? 0) + 1;
+      return out;
+    }
+    async function renderDashboard(input2) {
+      const summary = counts(input2.reports.map((r) => r.report));
+      const verified = input2.reports.reduce((n, r) => n + r.report.verifiedRepairs.length, 0);
+      const repairable = input2.reports.filter((r) => r.report.verdict.verdict === "FAIL" || r.report.verdict.verdict === "FAIL_REASONED").length;
+      const rows = input2.reports.map((item) => {
+        const site = item.report.selectedSpecs.specs[0]?.id ?? "";
+        const result = item.report.verdict.results[0];
+        return { id: item.id, path: item.path, verdict: item.report.verdict.verdict, reason: result?.reason ?? "", entry: result?.entryPointId ?? "", spec: site, verified: item.report.verifiedRepairs.length };
+      });
+      const data = {
+        generatedAt: "static",
+        reasoner: input2.reasoner,
+        repair: input2.repair,
+        total: input2.reports.length,
+        summary,
+        repairable,
+        verified,
+        rows,
+        framing: "this is what the provider would see before shipping the version."
+      };
+      const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Isotope fleet</title>
+<style>
+body{font-family:ui-sans-serif,system-ui,sans-serif;margin:24px;color:#111;background:#fff}
+h1{font-size:1.4rem} table{border-collapse:collapse;width:100%;margin-top:16px}
+th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:14px}
+.FAIL,.FAIL_REASONED{color:#9b1c1c}.PASS,.PASS_REASONED{color:#166534}.ESCALATE{color:#9a3412}
+.counts span{display:inline-block;margin-right:12px}
+</style></head><body>
+<h1>Isotope fleet</h1>
+<p>${data.framing}</p>
+<p class="counts">Scanned: ${data.total}. Repairable: ${data.repairable}. Verified repairs: ${data.verified}. Reasoner: ${data.reasoner ? "on" : "off"}. Repair: ${data.repair ? "on" : "off"}.</p>
+<p>${Object.entries(summary).map(([k, v]) => `${k}: ${v}`).join(" \xB7 ")}</p>
+<table><thead><tr><th>Repository</th><th>Verdict</th><th>ChangeSpec</th><th>Reason</th><th>Verified repairs</th></tr></thead>
+<tbody>${rows.map((r) => `<tr><td>${r.id}</td><td class="${r.verdict}">${r.verdict}</td><td>${r.spec}</td><td>${r.reason}</td><td>${r.verified}</td></tr>`).join("")}</tbody></table>
+<script type="application/json" id="fleet-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
+</body></html>
+`;
+      await (0, promises_1.mkdir)((0, node_path_1.dirname)(input2.outPath), { recursive: true });
+      await (0, promises_1.writeFile)(input2.outPath, html);
+      return input2.outPath;
+    }
+    async function runFleet(input2) {
+      (0, core_1.validateContract)("SelectedSpecs", input2.selectedSpecs);
+      const dashboardPath = await renderDashboard({ reports: [], outPath: input2.outPath, reasoner: false, repair: false });
+      return { reports: [], dashboardPath };
+    }
+  }
+});
+
+// packages/cli/dist/fleet.js
+var require_fleet = __commonJS({
+  "packages/cli/dist/fleet.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runFleetCommand = runFleetCommand;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var fleet_1 = require_dist13();
+    var walking_skeleton_1 = require_walking_skeleton();
+    async function runFleetCommand(options) {
+      if (!options.repos || !options.out)
+        throw new Error("--repos and --out are required");
+      const manifestPath = (0, node_path_1.resolve)(options.repos);
+      const manifest = JSON.parse(await (0, promises_1.readFile)(manifestPath, "utf8"));
+      const repos = manifest.repositories ?? [];
+      const reports = [];
+      const lines = ["Isotope fleet", `Reasoner: ${options.reason ? "on" : "off"}`, `Repair: ${options.repair ? "on" : "off"}`];
+      for (const repo of repos) {
+        const root = (0, node_path_1.resolve)((0, node_path_1.dirname)(manifestPath), repo.path);
+        const configPath = (0, node_path_1.resolve)(root, repo.config ?? "isotope.yml");
+        const result = await (0, walking_skeleton_1.verifyWalkingSkeleton)({
+          configPath,
+          disableReasoner: !options.reason,
+          disableRepair: !options.repair,
+          ...repo.fixturePair ? { testFixtureDirectory: (0, node_path_1.resolve)((0, node_path_1.dirname)(manifestPath), repo.fixturePair) } : {}
+        });
+        reports.push({ id: repo.id, path: root, report: result.report });
+        lines.push(`${repo.id}: ${result.report.verdict.verdict} (exit ${result.exitCode})`);
+      }
+      const dashboardPath = await (0, fleet_1.renderDashboard)({ reports, outPath: (0, node_path_1.resolve)(options.out), reasoner: options.reason === true, repair: options.repair === true });
+      lines.push(`Dashboard: ${dashboardPath}`);
+      lines.push("this is what the provider would see before shipping the version.");
+      return { output: lines.join("\n"), exitCode: 0 };
+    }
+  }
+});
+
+// packages/cli/dist/spec.js
+var require_spec = __commonJS({
+  "packages/cli/dist/spec.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.specList = specList;
+    exports2.specValidate = specValidate;
+    exports2.specDraft = specDraft;
+    exports2.fixturesNormalize = fixturesNormalize;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var changespec_1 = require_dist3();
+    var core_1 = require_dist();
+    var yaml_1 = require_dist2();
+    function specsRoot() {
+      return (0, node_path_1.resolve)(__dirname, "../../../specs");
+    }
+    async function specList() {
+      const specs = await (0, changespec_1.loadHumanSpecs)(specsRoot());
+      const drafts = (await (0, changespec_1.listSpecFiles)(specsRoot())).length - specs.length;
+      const lines = ["Human-verified ChangeSpecs:", ...specs.map((s) => `  ${s.id}  ${s.provider}  ${s.verified_at}`), drafts ? `Draft files present but excluded from L1: ${drafts}` : "No draft specs in the registry."];
+      return { output: lines.join("\n"), exitCode: 0 };
+    }
+    async function specValidate(path) {
+      const files = path ? [path] : (await (0, changespec_1.listSpecFiles)(specsRoot())).map((f) => (0, node_path_1.join)(specsRoot(), f));
+      const lines = [];
+      let failed = false;
+      for (const file of files) {
+        try {
+          const spec = (0, core_1.validateContract)("ChangeSpec", (0, yaml_1.parse)(await (0, promises_1.readFile)((0, node_path_1.resolve)(file), "utf8")));
+          lines.push(`${file}: OK (${spec.id}, verified_by=${spec.verified_by})`);
+          if (spec.verified_by === "draft")
+            lines.push("  note: draft specs never enter L1");
+        } catch (error) {
+          failed = true;
+          lines.push(`${file}: INVALID ${error instanceof Error ? error.message : error}`);
+        }
+      }
+      return { output: lines.join("\n"), exitCode: failed ? 1 : 0 };
+    }
+    async function specDraft(url, provider, outPath) {
+      const spec = await (0, changespec_1.draftSpec)({ url, provider });
+      const yaml = await (0, changespec_1.renderDraftYaml)(spec);
+      const dest = outPath ?? (0, node_path_1.join)(process.cwd(), ".isotope/drafts", `${spec.id}.yaml`);
+      await (0, promises_1.mkdir)((0, node_path_1.resolve)(dest, ".."), { recursive: true });
+      await (0, promises_1.writeFile)(dest, yaml);
+      return { output: `Wrote draft ChangeSpec ${spec.id} to ${dest}
+verified_by: draft \u2014 will not enter L1 until a human recertifies it.`, exitCode: 0 };
+    }
+    async function fixturesNormalize(raw, out, pairId) {
+      const rawDirectory = (0, node_path_1.resolve)(raw ?? (0, node_path_1.join)(__dirname, "../../../fixtures/raw"));
+      const normalizedDirectory = (0, node_path_1.resolve)(out ?? (0, node_path_1.join)(__dirname, "../../../fixtures/normalized"));
+      try {
+        const result = await (0, changespec_1.normalizeFixtures)({ rawDirectory, normalizedDirectory, pairId: pairId ?? "" });
+        return { output: `Normalized pair ${result.pairId} without reshaping fields.`, exitCode: 0 };
+      } catch (error) {
+        return { output: `No raw fixture pair to copy (${error instanceof Error ? error.message : error}).`, exitCode: 0 };
+      }
+    }
+  }
+});
+
+// packages/cli/dist/accuracy.js
+var require_accuracy = __commonJS({
+  "packages/cli/dist/accuracy.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runAccuracy = runAccuracy;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var walking_skeleton_1 = require_walking_skeleton();
+    async function runAccuracy() {
+      const root = (0, node_path_1.resolve)(__dirname, "../../..");
+      const path = (0, node_path_1.join)(root, "corpus/accuracy/cases.json");
+      let cases = [];
+      try {
+        cases = JSON.parse(await (0, promises_1.readFile)(path, "utf8"));
+      } catch {
+        cases = [];
+      }
+      const results = [];
+      for (const item of cases) {
+        if (item.status === "blocked" || !item.repository) {
+          results.push({ id: item.id, status: "blocked", reason: item.reason ?? "historical repository is not present in this checkout" });
+          continue;
+        }
+        const run2 = await (0, walking_skeleton_1.verifyWalkingSkeleton)({
+          configPath: (0, node_path_1.resolve)(root, item.repository, item.config ?? "isotope.yml"),
+          disableReasoner: true,
+          disableRepair: true,
+          ...item.fixturePair ? { testFixtureDirectory: (0, node_path_1.resolve)(root, item.fixturePair) } : {}
+        });
+        const actual = run2.report.verdict.verdict;
+        results.push({ id: item.id, status: "run", ...item.expectedVerdict ? { expected: item.expectedVerdict } : {}, actual, ...item.expectedVerdict ? { matched: actual === item.expectedVerdict } : {} });
+      }
+      const run = results.filter((r) => r.status === "run");
+      const matched = run.filter((r) => r.matched).length;
+      const blocked = results.filter((r) => r.status === "blocked").length;
+      const lines = [
+        "Isotope accuracy (detection vs labeled local stand-ins)",
+        `N_run = ${run.length}`,
+        `N_blocked_historical = ${blocked}`,
+        `N_matched = ${matched}`,
+        `precision_among_run = ${run.length ? `${matched}/${run.length}` : "undefined (N_run=0)"}`,
+        "Remote historical forks named in v3 are recorded as blocked unless their commits exist locally. No commit IDs were inferred from repository names."
+      ];
+      for (const r of results)
+        lines.push(`  ${r.id}: ${r.status}${r.actual ? ` actual=${r.actual}` : ""}${r.reason ? ` (${r.reason})` : ""}`);
+      const outDir = (0, node_path_1.join)(root, ".isotope/accuracy");
+      await (0, promises_1.mkdir)(outDir, { recursive: true });
+      await (0, promises_1.writeFile)((0, node_path_1.join)(outDir, "results.json"), JSON.stringify({ schemaVersion: 1, results, nRun: run.length, nBlocked: blocked, nMatched: matched }, null, 2) + "\n");
+      lines.push(`Artifacts: ${outDir}`);
+      return { output: lines.join("\n"), exitCode: 0 };
+    }
+  }
+});
+
 // packages/cli/dist/index.js
-var require_dist11 = __commonJS({
+var require_dist14 = __commonJS({
   "packages/cli/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.verifyRepository = exports2.runDetectionMatrix = exports2.scanProject = exports2.verifyWalkingSkeleton = void 0;
     exports2.createProgram = createProgram;
     var commander_1 = require_commander();
-    var core_1 = require_dist();
     var walking_skeleton_1 = require_walking_skeleton();
     var scan_1 = require_scan3();
     var verify_repository_1 = require_verify_repository();
@@ -320216,6 +320824,10 @@ var require_dist11 = __commonJS({
     var promises_1 = require("node:fs/promises");
     var matrix_1 = require_matrix();
     var repair_flow_1 = require_repair_flow();
+    var explain_1 = require_explain();
+    var fleet_1 = require_fleet();
+    var spec_1 = require_spec();
+    var accuracy_1 = require_accuracy();
     var walking_skeleton_2 = require_walking_skeleton();
     Object.defineProperty(exports2, "verifyWalkingSkeleton", { enumerable: true, get: function() {
       return walking_skeleton_2.verifyWalkingSkeleton;
@@ -320232,9 +320844,6 @@ var require_dist11 = __commonJS({
     Object.defineProperty(exports2, "verifyRepository", { enumerable: true, get: function() {
       return verify_repository_2.verifyRepository;
     } });
-    function pending(stage) {
-      throw new core_1.NotImplementedStageError(stage);
-    }
     function createProgram() {
       const program = new commander_1.Command().exitOverride().name("isotope").description("Isotope \u2014 provider dataflow and behavioral verification").version("0.1.0");
       program.option("--config <path>", "configuration file", "isotope.yml");
@@ -320278,21 +320887,49 @@ var require_dist11 = __commonJS({
         console.log(result.output);
         process.exitCode = result.exitCode;
       });
-      program.command("explain <entry-point>").description("Inspect signatures, diff, and reasoning (stub)").action(() => pending("explain"));
-      program.command("fleet").description("Run batch analysis and produce a static dashboard (stub)").option("--repos <path>", "repository manifest").option("--spec <id>", "ChangeSpec identifier").option("--out <path>", "dashboard file").option("--reason", "enable reasoning").option("--repair", "enable repair").action(() => pending("fleet"));
-      const spec = program.command("spec").description("ChangeSpec management (stubs)");
-      spec.command("validate [path]").description("Validate ChangeSpecs").action(() => pending("spec validate"));
-      spec.command("draft").description("Draft a ChangeSpec").requiredOption("--url <url>", "changelog URL").requiredOption("--provider <provider>", "provider name").action(() => pending("spec draft"));
-      spec.command("list").description("List ChangeSpecs").action(() => pending("spec list"));
-      program.command("fixtures").description("Provider fixture management (stub)").command("normalize").option("--raw <path>", "raw fixture directory").option("--out <path>", "normalized fixture directory").action(() => pending("fixtures normalize"));
-      program.command("matrix").description("Run the deterministic detection acceptance matrix").option("--group <group>", "matrix group", "detection").option("--case <id>", "run one case").option("--keep-artifacts", "retain temporary case repositories").option("--allow-blocked", "do not fail for unavailable cases").action(async (options) => {
-        if (options.group !== "detection")
-          throw new commander_1.InvalidArgumentError("only --group detection is implemented");
-        const result = await (0, matrix_1.runDetectionMatrix)({ ...options.case ? { caseId: options.case } : {}, keepArtifacts: options.keepArtifacts === true, allowBlocked: options.allowBlocked === true });
+      program.command("explain <entry-point>").description("Inspect signatures, diff, and reasoning").action(async (entry) => {
+        const result = await (0, explain_1.explainEntry)(program.opts().config, entry);
         console.log(result.output);
         process.exitCode = result.exitCode;
       });
-      program.command("accuracy").description("Run the historical benchmark (stub)").action(() => pending("accuracy"));
+      program.command("fleet").description("Run batch analysis and produce a static dashboard").option("--repos <path>", "repository manifest").option("--spec <id>", "ChangeSpec identifier").option("--out <path>", "dashboard file").option("--reason", "enable reasoning").option("--repair", "enable repair").action(async (options) => {
+        const result = await (0, fleet_1.runFleetCommand)({ ...options, configPath: program.opts().config });
+        console.log(result.output);
+        process.exitCode = result.exitCode;
+      });
+      const spec = program.command("spec").description("ChangeSpec management");
+      spec.command("validate [path]").description("Validate ChangeSpecs").action(async (path) => {
+        const result = await (0, spec_1.specValidate)(path);
+        console.log(result.output);
+        process.exitCode = result.exitCode;
+      });
+      spec.command("draft").description("Draft a ChangeSpec").requiredOption("--url <url>", "changelog URL").requiredOption("--provider <provider>", "provider name").option("--out <path>", "destination yaml").action(async (options) => {
+        const result = await (0, spec_1.specDraft)(options.url, options.provider, options.out);
+        console.log(result.output);
+        process.exitCode = result.exitCode;
+      });
+      spec.command("list").description("List ChangeSpecs").action(async () => {
+        const result = await (0, spec_1.specList)();
+        console.log(result.output);
+        process.exitCode = result.exitCode;
+      });
+      program.command("fixtures").description("Provider fixture management").command("normalize").option("--raw <path>", "raw fixture directory").option("--out <path>", "normalized fixture directory").option("--pair <id>", "pair id").action(async (options) => {
+        const result = await (0, spec_1.fixturesNormalize)(options.raw, options.out, options.pair);
+        console.log(result.output);
+        process.exitCode = result.exitCode;
+      });
+      program.command("matrix").description("Run the acceptance matrix").option("--group <group>", "matrix group", "detection").option("--case <id>", "run one case").option("--keep-artifacts", "retain temporary case repositories").option("--allow-blocked", "do not fail for unavailable cases").action(async (options) => {
+        if (!["detection", "acceptance", "all"].includes(options.group))
+          throw new commander_1.InvalidArgumentError("group must be detection, acceptance, or all");
+        const result = await (0, matrix_1.runDetectionMatrix)({ group: options.group, ...options.case ? { caseId: options.case } : {}, keepArtifacts: options.keepArtifacts === true, allowBlocked: options.allowBlocked === true });
+        console.log(result.output);
+        process.exitCode = result.exitCode;
+      });
+      program.command("accuracy").description("Run the historical/local accuracy benchmark").action(async () => {
+        const result = await (0, accuracy_1.runAccuracy)();
+        console.log(result.output);
+        process.exitCode = result.exitCode;
+      });
       program.addHelpText("after", "\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. Repairs are isolated and independently verified. Semantic reasoning is optional and never overrides a mechanical FAIL. The planner never verifies its own work.");
       return program;
     }
@@ -320300,7 +320937,7 @@ var require_dist11 = __commonJS({
 });
 
 // packages/reporter/dist/index.js
-var require_dist12 = __commonJS({
+var require_dist15 = __commonJS({
   "packages/reporter/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -320483,8 +321120,8 @@ var import_node_fs = require("node:fs");
 var import_node_path2 = require("node:path");
 var import_node_os = require("node:os");
 var import_node_child_process = require("node:child_process");
-var import_cli = __toESM(require_dist11());
-var import_reporter = __toESM(require_dist12());
+var import_cli = __toESM(require_dist14());
+var import_reporter = __toESM(require_dist15());
 
 // action/src/context.ts
 var import_promises = require("node:fs/promises");

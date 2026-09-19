@@ -51,7 +51,7 @@ export class Analyzer {
   private ep!: EntryPoint;
   constructor(private project: LoadedProject, private spec: ChangeSpec, private config: IsotopeConfig, entries: EntryPoint[]) {
     this.patterns = callPatterns(spec);
-    this.changes = spec.changes.map(c => ({ removed: parsePath(c.removed_path), replacement: parsePath(c.replacement.path) }));
+    this.changes = spec.changes.map(c => ({ removed: parsePath(c.removed_path ?? c.removed_symbol ?? c.replacement.path), replacement: parsePath(c.replacement.path) }));
     this.graph = { schemaVersion: 1, entryPoints: entries, nodes: [], edges: [], sinks: [], affectedSites: [], skipped: [...project.diagnostics] };
   }
   private diagnostic(n: Syntax, reason: string): void { this.graph.skipped.push({ file: slash(relative(this.project.root, n.file)), reason }); }

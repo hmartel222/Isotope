@@ -25,6 +25,15 @@
       "path": "../resolver-ts"
     },
     {
+      "path": "../resolver-py"
+    },
+    {
+      "path": "../harness-py"
+    },
+    {
+      "path": "../fleet"
+    },
+    {
       "path": "../repair"
     },
     {

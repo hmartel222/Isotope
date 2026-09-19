@@ -1,1 +1,1 @@
-"""Reserved Python resolver/harness sidecar. Phase 1 has no execution logic."""
+"""Python sidecar for Isotope L2 resolution and L3 harness execution."""

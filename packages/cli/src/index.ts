@@ -1,5 +1,4 @@
 import { Command, InvalidArgumentError } from 'commander';
-import { NotImplementedStageError } from '@isotope/core';
 import { verifyWalkingSkeleton } from './walking-skeleton';
 import { scanProject } from './scan';
 import { verifyRepository } from './verify-repository';
@@ -7,12 +6,15 @@ import { resolve } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { runDetectionMatrix } from './matrix';
 import { explainRepair, repairExistingFailure } from './repair-flow';
+import { explainEntry } from './explain';
+import { runFleetCommand } from './fleet';
+import { fixturesNormalize, specDraft, specList, specValidate } from './spec';
+import { runAccuracy } from './accuracy';
 export { verifyWalkingSkeleton } from './walking-skeleton';
 export { scanProject } from './scan';
 export { runDetectionMatrix } from './matrix';
 export { verifyRepository } from './verify-repository';
 
-function pending(stage: string): never { throw new NotImplementedStageError(stage); }
 export function createProgram(): Command {
   const program = new Command().exitOverride().name('isotope').description('Isotope — provider dataflow and behavioral verification').version('0.1.0');
   program.option('--config <path>', 'configuration file', 'isotope.yml');
@@ -40,22 +42,38 @@ export function createProgram(): Command {
     const result = await repairExistingFailure({ configPath: program.opts<{ config: string }>().config, entryPoint: entry!, ...(process.env.ISOTOPE_TEST_FIXTURES ? { testFixtureDirectory: process.env.ISOTOPE_TEST_FIXTURES } : {}) });
     console.log(result.output); process.exitCode = result.exitCode;
   });
-  program.command('explain <entry-point>').description('Inspect signatures, diff, and reasoning (stub)').action(() => pending('explain'));
-  program.command('fleet').description('Run batch analysis and produce a static dashboard (stub)').option('--repos <path>', 'repository manifest').option('--spec <id>', 'ChangeSpec identifier').option('--out <path>', 'dashboard file').option('--reason', 'enable reasoning').option('--repair', 'enable repair').action(() => pending('fleet'));
-  const spec = program.command('spec').description('ChangeSpec management (stubs)');
-  spec.command('validate [path]').description('Validate ChangeSpecs').action(() => pending('spec validate'));
-  spec.command('draft').description('Draft a ChangeSpec').requiredOption('--url <url>', 'changelog URL').requiredOption('--provider <provider>', 'provider name').action(() => pending('spec draft'));
-  spec.command('list').description('List ChangeSpecs').action(() => pending('spec list'));
-  program.command('fixtures').description('Provider fixture management (stub)').command('normalize').option('--raw <path>', 'raw fixture directory').option('--out <path>', 'normalized fixture directory').action(() => pending('fixtures normalize'));
-  program.command('matrix').description('Run the deterministic detection acceptance matrix')
+  program.command('explain <entry-point>').description('Inspect signatures, diff, and reasoning').action(async (entry: string) => {
+    const result = await explainEntry(program.opts<{ config: string }>().config, entry);
+    console.log(result.output); process.exitCode = result.exitCode;
+  });
+  program.command('fleet').description('Run batch analysis and produce a static dashboard').option('--repos <path>', 'repository manifest').option('--spec <id>', 'ChangeSpec identifier').option('--out <path>', 'dashboard file').option('--reason', 'enable reasoning').option('--repair', 'enable repair').action(async (options: { repos?: string; spec?: string; out?: string; reason?: boolean; repair?: boolean }) => {
+    const result = await runFleetCommand({ ...options, configPath: program.opts<{ config: string }>().config });
+    console.log(result.output); process.exitCode = result.exitCode;
+  });
+  const spec = program.command('spec').description('ChangeSpec management');
+  spec.command('validate [path]').description('Validate ChangeSpecs').action(async (path?: string) => {
+    const result = await specValidate(path); console.log(result.output); process.exitCode = result.exitCode;
+  });
+  spec.command('draft').description('Draft a ChangeSpec').requiredOption('--url <url>', 'changelog URL').requiredOption('--provider <provider>', 'provider name').option('--out <path>', 'destination yaml').action(async (options: { url: string; provider: string; out?: string }) => {
+    const result = await specDraft(options.url, options.provider, options.out); console.log(result.output); process.exitCode = result.exitCode;
+  });
+  spec.command('list').description('List ChangeSpecs').action(async () => {
+    const result = await specList(); console.log(result.output); process.exitCode = result.exitCode;
+  });
+  program.command('fixtures').description('Provider fixture management').command('normalize').option('--raw <path>', 'raw fixture directory').option('--out <path>', 'normalized fixture directory').option('--pair <id>', 'pair id').action(async (options: { raw?: string; out?: string; pair?: string }) => {
+    const result = await fixturesNormalize(options.raw, options.out, options.pair); console.log(result.output); process.exitCode = result.exitCode;
+  });
+  program.command('matrix').description('Run the acceptance matrix')
     .option('--group <group>', 'matrix group', 'detection').option('--case <id>', 'run one case')
     .option('--keep-artifacts', 'retain temporary case repositories').option('--allow-blocked', 'do not fail for unavailable cases')
     .action(async (options: { group: string; case?: string; keepArtifacts?: boolean; allowBlocked?: boolean }) => {
-      if (options.group !== 'detection') throw new InvalidArgumentError('only --group detection is implemented');
-      const result = await runDetectionMatrix({ ...(options.case ? { caseId: options.case } : {}), keepArtifacts: options.keepArtifacts === true, allowBlocked: options.allowBlocked === true });
+      if (!['detection', 'acceptance', 'all'].includes(options.group)) throw new InvalidArgumentError('group must be detection, acceptance, or all');
+      const result = await runDetectionMatrix({ group: options.group, ...(options.case ? { caseId: options.case } : {}), keepArtifacts: options.keepArtifacts === true, allowBlocked: options.allowBlocked === true });
       console.log(result.output); process.exitCode = result.exitCode;
     });
-  program.command('accuracy').description('Run the historical benchmark (stub)').action(() => pending('accuracy'));
+  program.command('accuracy').description('Run the historical/local accuracy benchmark').action(async () => {
+    const result = await runAccuracy(); console.log(result.output); process.exitCode = result.exitCode;
+  });
   program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. Repairs are isolated and independently verified. Semantic reasoning is optional and never overrides a mechanical FAIL. The planner never verifies its own work.');
   return program;
 }

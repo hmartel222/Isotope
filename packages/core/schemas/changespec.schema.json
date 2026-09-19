@@ -72,38 +72,59 @@
             "type": "array"
           },
           "codemod": {
-            "additionalProperties": false,
-            "properties": {
-              "from": {
-                "minLength": 1,
-                "type": "string"
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "path_rename",
+                    "type": "string"
+                  },
+                  "safe_when": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "to": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "safe_when",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
               },
-              "kind": {
-                "const": "path_rename",
-                "type": "string"
-              },
-              "safe_when": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "to": {
-                "minLength": 1,
-                "type": "string"
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "unsupported",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
               }
-            },
-            "required": [
-              "kind",
-              "safe_when",
-              "from",
-              "to"
-            ],
-            "type": "object"
+            ]
           },
           "object": {
             "minLength": 1,
             "type": "string"
           },
           "removed_path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "removed_symbol": {
             "minLength": 1,
             "type": "string"
           },
@@ -153,7 +174,6 @@
         },
         "required": [
           "object",
-          "removed_path",
           "replacement"
         ],
         "type": "object"

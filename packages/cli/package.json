@@ -22,6 +22,9 @@
     "@isotope/harness-ts": "workspace:*",
     "@isotope/differ": "workspace:*",
     "@isotope/resolver-ts": "workspace:*",
+    "@isotope/resolver-py": "workspace:*",
+    "@isotope/harness-py": "workspace:*",
+    "@isotope/fleet": "workspace:*",
     "@isotope/repair": "workspace:*",
     "@isotope/verifier": "workspace:*",
     "@isotope/reasoner": "workspace:*"

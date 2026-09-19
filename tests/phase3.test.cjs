@@ -143,7 +143,10 @@ test('entry/mock traversal and symlink escapes rejected; unsupported adapters ar
   await assert.rejects(harness.runTsHarness({...plan,mocks:[{module:'../../escape.ts',exports:{db:'recordAll'},sinkKind:'db_write'}]}),reason('unsupported_harness_plan'));
   await fs.symlink('/etc/passwd',path.join(plan.repositoryRoot,'src/escape.ts'));
   await assert.rejects(harness.runTsHarness({...plan,entryPoint:{...plan.entryPoint,file:'src/escape.ts'}}),reason('unsupported_harness_plan'));
-  for(const kind of ['next_app_route','next_pages_api','lambda']) await assert.rejects(harness.runTsHarness({...plan,entryPoint:{...plan.entryPoint,kind}}),reason('adapter_not_implemented'));
+  for (const [kind, exportName] of [['next_app_route','nextApp'],['next_pages_api','entropy'],['lambda','lambda']]) {
+    const sig = await harness.runTsHarness({...plan,entryPoint:{...plan.entryPoint,kind,exportName}});
+    assert.equal(sig.threw, null);
+  }
   await assert.rejects(harness.runTsHarness({...plan,mocks:[{module:'./missing',exports:{db:'recordAll'},sinkKind:'db_write'}]}),reason('mock_resolution_failed'));
 });
 test('customer throw is behavior; import failure and process crash are harness failures', async t => {

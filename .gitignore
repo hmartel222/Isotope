@@ -10,3 +10,6 @@ dist/
 !action/dist/**
 *.tsbuildinfo
 .isotope/
+.env
+.env.*
+!.env.example

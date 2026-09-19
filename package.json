@@ -2,7 +2,7 @@
   "name": "isotope",
   "version": "0.1.0",
   "private": true,
-  "description": "Isotope: Phase 2 explicit TypeScript behavioral verification walking skeleton",
+  "description": "Isotope: provider dataflow and behavioral verification (TypeScript and Python)",
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": "20.x"

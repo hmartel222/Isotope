@@ -29,6 +29,9 @@ export function validateContract<N extends ContractName>(name: N, value: unknown
   if (name === 'ChangeSpec') {
     const spec = value as Contract<'ChangeSpec'>;
     if (spec.verified_by === 'human' && !spec.verified_at) issues.push('/verified_at is required for human verification');
+    spec.changes.forEach((change, index) => {
+      if (!change.removed_path && !change.removed_symbol) issues.push(`/changes/${index} requires removed_path or removed_symbol`);
+    });
   }
   if (name === 'IsotopeReport') {
     const report = value as Contract<'IsotopeReport'>;

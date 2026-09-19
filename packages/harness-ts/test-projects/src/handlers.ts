@@ -42,6 +42,8 @@ export function promiseHang(event) { writeFileSync(event.pidPath, String(process
 export function killed() { process.kill(process.pid, 'SIGKILL'); }
 export function crash() { process.exit(17); }
 export async function asyncTimer() { await new Promise(resolve => setTimeout(resolve, 5)); return Date.now(); }
+export function lambda(event) { return { statusCode: 200, body: event }; }
+export async function nextApp(req) { return { status: 201, json: async () => ({ ok: true, echo: await req.json?.() ?? req.body }) }; }
 export async function egress(event) {
   const url = `http://127.0.0.1:${event.port}/secret?token=do-not-log`;
   try {

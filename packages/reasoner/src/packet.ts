@@ -174,12 +174,12 @@ export async function buildEvidencePacket(input: PacketBuildInput): Promise<Pack
   let graphNodes = nodes; let graphSinks = sinks;
   const assemble = () => validateContract('EvidencePacket', {
     packetVersion: 1,
-    change: { specId: input.spec.id, title: input.spec.title, semantics: input.spec.semantics, removedPath: change.removed_path, replacement: change.replacement, ...(hint ? { ambiguityHint: hint } : {}) },
+    change: { specId: input.spec.id, title: input.spec.title, semantics: input.spec.semantics, removedPath: change.removed_path ?? change.removed_symbol ?? change.replacement.path, replacement: change.replacement, ...(hint ? { ambiguityHint: hint } : {}) },
     code: { language: input.entryPoint.language, entryPoint: { file: slice.file, export: slice.exportName, lines: slice.lines }, slice: primary, downstreamFunctions: downstream },
     dataflow: { summary: dataflowSummary(input.bdg, input.entryPoint.id), nodes: graphNodes, sinks: graphSinks },
     execution: { old: oldSig, new: newSig },
     diff: semantic,
-    payloadFragments: { old: fragment(oldPayload, change.removed_path, change.replacement.path), new: fragment(newPayload, change.removed_path, change.replacement.path) },
+    payloadFragments: { old: fragment(oldPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path), new: fragment(newPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path) },
   });
   let packet = assemble();
   const shrink = () => {

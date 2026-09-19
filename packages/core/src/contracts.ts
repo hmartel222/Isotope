@@ -29,9 +29,12 @@ export type CodeVersion = Static<typeof CodeVersionSchema>;
 export const FixtureRoleSchema = choices('planning', 'held_out');
 
 export const ReplacementSchema = object({ path: str(), cardinality: choices('one', 'many'), semantics: opt(str()) });
-export const CodemodSchema = object({ kind: Type.Literal('path_rename'), safe_when: str(), from: str(), to: str() });
+export const CodemodSchema = Type.Union([
+  object({ kind: Type.Literal('path_rename'), safe_when: str(), from: str(), to: str() }),
+  object({ kind: Type.Literal('unsupported') }),
+]);
 export const ChangeSchema = object({
-  object: str(), applies_to_events: opt(strings()), removed_path: str(), replacement: ReplacementSchema,
+  object: str(), applies_to_events: opt(strings()), removed_path: opt(str()), removed_symbol: opt(str()), replacement: ReplacementSchema,
   ambiguity: opt(object({ when: str(), question: str(), options: strings() })),
   repair_policy: opt(object({ business_policy_required_when: str() })), codemod: opt(CodemodSchema),
 });
