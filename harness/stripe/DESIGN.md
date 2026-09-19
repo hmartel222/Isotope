@@ -12,7 +12,7 @@ All six required real-evidence pairs are present and normalizer-verified: `sub-u
 | 4 | `04-migrated-item` second item idiom | single | PASS | 0 | clean | independent migrated syntax |
 | 5 | `05-noop` | noop | PASS | 0 | clean | adjacent versions preserve behavior |
 | 6 | `06-wrong-provider` | no fixture | SKIP, zero sites | 0 | clean | provenance, not field-name grep |
-| 7 | `07-ambiguity` first-item policy | multi | ESCALATE, no patch | 3 | decision (c) | multiple valid item periods |
+| 7 | `07-ambiguity` removed-field fallback to `Math.max` | multi | ESCALATE, no patch | 3 | decision (c) | old top-level equals item 0; max is item 1. A bare `[0]` or bare `Math.max` PASSes honestly because item-level periods exist on both versions |
 | 8 | out of scope | — | ElevenLabs/Python not built here | — | — | Stripe-only session |
 | 9 | `09-aggregating` max item period | aggregating, reasoner on | PASS_REASONED | 0 | clean + reasoning | changed value follows explicit max policy |
 | 10 | `10-injection` | single, adversarial comment | FAIL unchanged | 1 | incompatibility | model cannot clear mechanical failure |
