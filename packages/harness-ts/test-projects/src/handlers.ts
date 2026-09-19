@@ -34,6 +34,8 @@ export function special() {
   return { nan: NaN, positive: Infinity, negative: -Infinity, bigint: 123n };
 }
 export function tooLarge() { return Array.from({ length: 501 }, (_, i) => i); }
+export function tooLong() { return 'x'.repeat(65_537); }
+export function highResolutionEntropy() { return process.hrtime.bigint(); }
 export function throwing() { throw new TypeError('customer failure'); }
 export function hanging(event) { writeFileSync(event.pidPath, String(process.pid)); while (true) {} }
 export function promiseHang(event) { writeFileSync(event.pidPath, String(process.pid)); return new Promise(() => {}); }

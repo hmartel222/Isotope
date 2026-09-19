@@ -7,7 +7,7 @@ const http = require('node:http');
 const { createHash } = require('node:crypto');
 const { once } = require('node:events');
 const harness = require('@isotope/harness-ts');
-const { behaviorEqual } = require('@isotope/differ');
+const { behaviorEqual, checkDeterminism } = require('@isotope/differ');
 const root = path.resolve(__dirname, '..');
 async function setup(t, name = 'entropy') {
   const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'isotope-phase3-')));
@@ -74,6 +74,26 @@ test('actual noisy handler stabilizes Date/random/UUID across four fresh runs, w
   }
   assert.equal(Math.random, originalRandom); assert.ok(Date.now()>=before); await clean(plan);
 });
+test('uncontrolled high-resolution entropy is detected by real isolated executions', async t => {
+  const plan = await setup(t,'highResolutionEntropy');
+  const first = await harness.runTsHarness(plan);
+  const second = await harness.runTsHarness({...plan,runIndex:1});
+  const determinism = checkDeterminism([first,second]);
+  assert.equal(determinism.stable,false);
+  assert.deepEqual(determinism.unstablePointers,['/returned']);
+  await clean(plan);
+});
+test('concurrent executions keep modules, identities, calls and generated wrappers isolated', async t => {
+  const plan = await setup(t,'mutation');
+  const signatures = await Promise.all(Array.from({length:8},(_,runIndex)=>harness.runTsHarness({...plan,runIndex})));
+  assert.deepEqual(signatures.map(signature=>signature.runIndex),[0,1,2,3,4,5,6,7]);
+  for (const signature of signatures) {
+    assert.ok(behaviorEqual(signatures[0],signature));
+    assert.deepEqual(signature.returned,{count:1,value:77});
+    assert.deepEqual(signature.calls,[{seq:0,mock:'db.user.create',sinkKind:'db_write',args:[{before:12,count:1}]}]);
+  }
+  await clean(plan);
+});
 test('fresh module/fixture/mocks, immutable files and call-time snapshots', async t => {
   const plan = await setup(t,'mutation'); const fixtureBefore = await fs.readFile(path.join(plan.repositoryRoot,'fixture.json'),'utf8');
   const sourceBefore = await fs.readFile(path.join(plan.repositoryRoot,'src/handlers.ts'),'utf8');
@@ -95,6 +115,9 @@ test('real call-boundary serialization supports functions, cycles and Buffer', a
 });
 test('truncation cannot produce a normal signature', async t => {
   const plan = await setup(t,'tooLarge'); await assert.rejects(harness.runTsHarness(plan),reason('serialization_limit')); await clean(plan);
+});
+test('oversized string evidence fails closed instead of producing a truncated signature', async t => {
+  const plan = await setup(t,'tooLong'); await assert.rejects(harness.runTsHarness(plan),reason('serialization_limit')); await clean(plan);
 });
 test('Express status/json/send/end, actual Stripe interception and deterministic retrieve', async t => {
   const plan = await setup(t); plan.entryPoint.file='src/express.ts'; plan.entryPoint.kind='express_route';
