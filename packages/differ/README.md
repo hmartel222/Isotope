@@ -67,7 +67,7 @@ The pure resolver in `core/src/verdict.ts` checks:
 
 `hasMechanicalFailure` and `needsSemanticReasoning` expose the structural bypass seam. The latter is a routing hint, not authorization to invoke L5: future code must apply provenance, config and budget rules. Supplied reasoning cannot produce a reasoned verdict in this phase. No L5 stub is called. Per-entry instability dominates; the separate aggregate resolver remains a stub, so no PR-wide precedence was changed.
 
-CLI exits: PASS 0, FAIL 1, ESCALATE 3, INDETERMINATE 4. Harness failures retain Phase 3's conservative exit 4; malformed artifacts are errors, not fabricated instability. Reasoning and repair remain unimplemented.
+CLI exits: PASS 0, FAIL 1, ESCALATE 3, INDETERMINATE 4, and FAIL-with-verified-repair 5. Harness failures retain Phase 3's conservative exit 4; malformed artifacts are errors, not fabricated instability. L4 remains pure; Phase 9 repair verification reuses it downstream without changing detection authority.
 
 ## Tests and coverage
 

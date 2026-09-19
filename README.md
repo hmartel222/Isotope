@@ -14,6 +14,7 @@ The [v3 specification](docs-v3-spec.md) is the architectural source of truth. Se
 - Phase 6: local Git dependency detector and human-verified ChangeSpec selector for npm/PyPI, resolved lockfile preference, threshold crossing, deterministic `selected-specs.json`, and SKIP-without-L2 for irrelevant revisions. See the [Phase 6 audit](docs/PHASE6.md).
 - Phase 7: reproducible five-case detection matrix with isolated Git histories and artifacts, covering mechanical FAIL, migrated PASS, provider no-op PASS, provenance-protected SKIP, and ambiguity ESCALATE. See the [Phase 7 audit](docs/PHASE7.md).
 - Phase 8: bundled Node 20 GitHub Action, shared CLI/Action verification API, typed reporter, bounded annotations, bot-owned comment upsert, job summaries, and direct plus trust-separated workflow templates. See the [Phase 8 audit](docs/PHASE8.md).
+- Phase 9: deterministic BDG-anchored repair candidates, isolated worktrees, immutable-baseline and held-out re-execution, structural anti-cheat checks, exit 5, and verified-repair reporting. See the [Phase 9 audit](docs/PHASE9.md).
 - **Real-provider acceptance is blocked:** `fixtures/normalized/sub-updated-single/{old,new,meta}.json` is absent. Passing synthetic integration tests proves the plumbing only.
 
 Not yet implemented: additional framework adapters, semantic reasoning, repair, Python execution, GitHub Action/reporting, fleet, or accuracy benchmarks.
