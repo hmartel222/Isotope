@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "pair": "sub-updated-single-b",
+  "role": "held_out",
+  "envelope": "provider",
+  "captureMethod": "B",
+  "aliasNamespace": "B",
+  "normalizer": {
+    "tool": "tools/normalize-fixtures.js",
+    "version": 1,
+    "normalizedAt": "2026-09-19T07:38:19.339Z"
+  },
+  "operations": [
+    "record api/version metadata",
+    "replace provider identifiers with pair-scoped deterministic aliases",
+    "emit normalized JSON preserving key order, array order and all scalars",
+    "record sha256 of each raw input"
+  ],
+  "old": {
+    "apiVersion": "2025-02-24.acacia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/acacia/customer.subscription.updated.2026-09-19T07-33-36-740Z.6331d9f6.json",
+    "rawSha256": "6331d9f6fab5fab27afb6b3f986cfa3f3a641dde40e7a524d93b163f4ebc599b",
+    "rawBytes": 5988
+  },
+  "new": {
+    "apiVersion": "2026-08-26.dahlia",
+    "eventType": "customer.subscription.updated",
+    "objectType": "subscription",
+    "rawPath": "fixtures/raw/dahlia/customer.subscription.updated.2026-09-19T07-33-36-721Z.a3eecef8.json",
+    "rawSha256": "a3eecef813655776070b6aa58e6eb95a84e04b2f70824a3ed50b48a9b76be6e8",
+    "rawBytes": 5800
+  },
+  "observed": {
+    "old": {
+      "subscriptionLevelPeriodEndPresent": true,
+      "subscriptionLevelPeriodEnd": 1792395213,
+      "itemCount": 1,
+      "itemLevelPeriodEnds": [
+        1792395213
+      ]
+    },
+    "new": {
+      "subscriptionLevelPeriodEndPresent": false,
+      "subscriptionLevelPeriodEnd": null,
+      "itemCount": 1,
+      "itemLevelPeriodEnds": [
+        1792395213
+      ]
+    }
+  },
+  "aliases": {
+    "evt_1UHImCBYq8SRmcbOcQM5zNrv": "evt_B1",
+    "sub_1UHIm9BYq8SRmcbOIwN9xaqD": "sub_B1",
+    "cus_VHsXHqBaf4XEvx": "cus_B1",
+    "si_VHsXLESJcITDDN": "si_B1",
+    "price_1UHIm9BYq8SRmcbOhPCj6Yj3": "price_B1",
+    "prod_VHsXwLoggVGFxu": "prod_B1",
+    "tax_behavior": "tax_B1",
+    "tax_rates": "tax_B2",
+    "in_1UHIm9BYq8SRmcbOGUfhwso0": "in_B1",
+    "req_mh39XymhEIw3YK": "req_B1"
+  }
+}
