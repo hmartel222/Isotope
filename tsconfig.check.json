@@ -6,6 +6,9 @@
       "@isotope/core": [
         "packages/core/src/index.ts"
       ],
+      "@isotope/providers": [
+        "packages/providers/src/index.ts"
+      ],
       "@isotope/changespec": [
         "packages/changespec/src/index.ts"
       ],

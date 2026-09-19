@@ -31,6 +31,9 @@
       "path": "../harness-py"
     },
     {
+      "path": "../providers"
+    },
+    {
       "path": "../fleet"
     },
     {

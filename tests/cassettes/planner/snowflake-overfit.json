@@ -1,0 +1,24 @@
+{
+  "classification": "repair_candidate",
+  "confidence": "high",
+  "summary": "Hardcode the planning fixture renewal (overfit).",
+  "causalChain": "Planning fixture ACCOUNT_RENEWAL is 1700000123; write that literal instead of the live field.",
+  "patch": {
+    "files": [
+      {
+        "path": "src/handler.ts",
+        "edits": [
+          {
+            "anchor": "row.ACCOUNT_RENEWAL",
+            "replacement": "1700000123"
+          }
+        ]
+      }
+    ]
+  },
+  "assumptions": ["Overfit cassette for L10 rejection."],
+  "evidenceRefs": [{ "kind": "diff", "pointer": "/calls/0/args/0/data/renewal" }],
+  "humanQuestion": null,
+  "suspectedInjection": false,
+  "abstain": false
+}

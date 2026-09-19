@@ -1,0 +1,27 @@
+# Synthetic provider-interface ChangeSpec. Not a production vendor contract.
+id: isotope-items.list-envelope
+provider: isotope-items
+title: List envelope moved from items to data
+source: https://isotope.local/synthetic/items
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "1.0.0", to: "2.0.0" }
+semantics: |
+  Synthetic list() used to return { items: [...] }. The new contract returns { data: [...], nextCursor }.
+  Internal provider-interface fixture only.
+detection:
+  ecosystems:
+    npm: { packages: ["@isotope/test-items"], breaking_from: "2.0.0" }
+  taint_roots:
+    - { kind: call, language: ts, pattern: "$CLIENT.items.list($$$)" }
+changes:
+  - object: list
+    removed_path: items
+    replacement:
+      path: data
+      cardinality: many
+      semantics: The collection moved to data.
+    codemod: { kind: unsupported }
+fixtures:
+  pair: items-list
+  heldout_pair: items-list-B

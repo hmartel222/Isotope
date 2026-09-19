@@ -7,6 +7,7 @@ import { createTsHarnessPlan, runTsHarness, HarnessExecutionError } from '@isoto
 import { runHarness as runPyHarness, HarnessExecutionError as PyHarnessExecutionError } from '@isotope/harness-py';
 import { checkDeterminism, diffSignatures } from '@isotope/differ';
 import { attemptRepair } from './repair-flow';
+import { ambiguityRootsFor, resolveFixtureVersion } from '@isotope/providers';
 import { credentialsAvailable, reasonAboutEntryPoint, type SemanticModel } from '@isotope/reasoner';
 
 export interface WalkingSkeletonOptions {
@@ -32,31 +33,24 @@ function asObject(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 function isHttp200(value: unknown): boolean { return value !== null && typeof value === 'object' && 'status' in value && value.status === 200; }
-function fixtureVersion(value: unknown, label: string, meta?: Record<string, unknown>, side?: 'old' | 'new'): string {
-  try {
-    const event = asObject(value, label);
-    const data = asObject(event.data, `${label}.data`);
-    const subscription = asObject(data.object, `${label}.data.object`);
-    if (event.object !== 'event' || event.type !== 'customer.subscription.updated' || typeof event.api_version !== 'string' || !event.api_version || subscription.object !== 'subscription' || typeof subscription.id !== 'string') throw new Error('not stripe');
-    return event.api_version;
-  } catch {
-    const key = side === 'new' ? 'newVersion' : 'oldVersion';
-    const labeled = meta?.[key];
-    if (typeof labeled === 'string' && labeled) return labeled;
-    const api = meta?.api_version;
-    if (typeof api === 'string' && api) return `${api}-${side ?? 'old'}`;
-    throw new Error(`${label}: expected a versioned Stripe subscription.updated event envelope or meta.oldVersion/meta.newVersion`);
-  }
+function fixtureVersion(value: unknown, _label: string, meta: Record<string, unknown> | undefined, side: 'old' | 'new', providerId: string): string {
+  return resolveFixtureVersion(value, meta, side, providerId);
 }
-function ambiguitySatisfied(payload: unknown, expression: string): boolean {
-  const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.length\s*>\s*(\d+)$/.exec(expression.trim());
-  if (!match) return false;
-  let value: unknown = asObject(asObject(asObject(payload, 'fixture').data, 'fixture.data').object, 'fixture.data.object');
-  for (const part of match[1]!.split('.')) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+function lookupPath(root: unknown, dotted: string): unknown {
+  let value: unknown = root;
+  for (const part of dotted.split('.')) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
     value = (value as Record<string, unknown>)[part];
   }
-  return Array.isArray(value) && value.length > Number(match[2]);
+  return value;
+}
+function ambiguitySatisfied(payload: unknown, expression: string, providerId: string): boolean {
+  const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.length\s*>\s*(\d+)$/.exec(expression.trim());
+  if (!match) return false;
+  return ambiguityRootsFor(payload, providerId).some(base => {
+    const value = lookupPath(base, match[1]!);
+    return Array.isArray(value) && value.length > Number(match[2]);
+  });
 }
 
 /** Compatibility API name; Phase 5 replaces the static graph with real L2. */
@@ -89,8 +83,18 @@ export async function verifyWalkingSkeleton(options: WalkingSkeletonOptions): Pr
 async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<ReturnType<typeof analyzeConfiguredProject>>, entryPoint: EntryPoint, budget: { remaining: number }): Promise<WalkingSkeletonResult> {
   const { projectRoot, config, selected, bdg } = analysis;
   const sourceRoot = resolve(__dirname, '../../..');
-  const spec = selected.specs[0]!;
+  const spec = selected.specs[0];
   const paths = artifactPaths(options.artifactProjectRoot ?? projectRoot);
+  if (!spec) {
+    const verdict = validateContract('VerdictReport', { schemaVersion: 1, verdict: 'SKIP', results: [{ entryPointId: entryPoint.id, verdict: 'SKIP', provenance: 'mechanical', reason: 'no_matching_provider_spec', divergenceIds: [], reasoningRefs: [], evidenceRefs: [], suspectedInjection: false }] });
+    const report = validateContract('IsotopeReport', { schemaVersion: 1, selectedSpecs: selected, bdgRef: 'bdg.json', signatureRefs: [], diffReportRefs: [], evidencePacketRefs: [], reasoningRefs: [], verdict, repairPacketRefs: [], candidateRefs: [], repairVerifications: [], verifiedRepairs: [], audit: [] });
+    await removeJsonArtifact(paths.root, paths.diffReport);
+    await writeJsonArtifact(paths.root, paths.selectedSpecs, 'SelectedSpecs', selected);
+    await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
+    await writeJsonArtifact(paths.root, paths.verdict, 'VerdictReport', verdict);
+    await writeJsonArtifact(paths.root, paths.report, 'IsotopeReport', report);
+    return { exitCode: 0, report, signatures: null, diff: null, output: [`ChangeSpec: none`, ...graphSummary(bdg), `Verdict: SKIP`, `Reason: no_matching_provider_spec`, `Artifacts: ${paths.root}`].join('\n') };
+  }
   const roots = bdg.nodes.filter(n => n.entryPointId === entryPoint.id && n.kind === 'taint_root' && n.provenance.confidence !== 'low');
   if (!roots.length) {
     const incomplete = bdg.skipped.some(d => /^(file_limit|analysis_budget|source_not_found|ignored_or_outside|unsupported_|unresolved_or_ignored|reexport_limit|local_call_limit|invalid_tsconfig|loop_bound)/.test(d.reason));
@@ -113,12 +117,12 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
     payloads = [JSON.parse(files[0]!) as unknown, JSON.parse(files[1]!) as unknown];
     meta = asObject(JSON.parse(files[2]!) as unknown, 'fixture metadata');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`BLOCKER: real provider-produced sub-updated-single fixture pair is absent.\nExpected:\n${oldPath}\n${newPath}\n${metaPath}`);
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`BLOCKER: provider fixture pair is absent.\nExpected:\n${oldPath}\n${newPath}\n${metaPath}`);
     throw error;
   }
   if (synthetic && meta.synthetic !== true) throw new Error('Internal test fixtures must explicitly declare meta.synthetic: true');
   if (!synthetic && meta.synthetic === true) throw new Error('Synthetic fixtures are forbidden in product fixture directories');
-  const oldVersion = fixtureVersion(payloads[0], 'old fixture', meta, 'old'); const newVersion = fixtureVersion(payloads[1], 'new fixture', meta, 'new');
+  const oldVersion = fixtureVersion(payloads[0], 'old fixture', meta, 'old', spec.provider); const newVersion = fixtureVersion(payloads[1], 'new fixture', meta, 'new', spec.provider);
   if (oldVersion === newVersion) throw new Error('Fixture envelopes need distinct API-version labels to preserve both execution artifacts');
   const fixture: FixturePair = { id: synthetic ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair, role: 'planning', oldPath, newPath, oldVersion, newVersion };
   const ref = (path: string) => relative(paths.root, path);
@@ -132,7 +136,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
   await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
   const log = ['Isotope verify', `ChangeSpec: ${spec.id}`, `Entry point: ${join(projectRoot, entryPoint.file)}#${entryPoint.export}`,
     'Scope: explicit configured entry point', ...graphSummary(bdg),
-    synthetic ? 'Fixtures: SYNTHETIC TEST-ONLY — not Stripe-produced; not product acceptance' : 'Fixtures: supplied provider fixture pair',
+    synthetic ? 'Fixtures: SYNTHETIC TEST-ONLY — not provider-produced; not product acceptance' : 'Fixtures: supplied provider fixture pair',
     `Fixture pair: ${fixture.id}`, `Old: ${oldVersion}`, `New: ${newVersion}`, `Semantic reasoner: ${config.reasoner.mode}`];
   let signatures: HarnessResult | null = null;
   let diff: DiffReport | null = null;
@@ -155,7 +159,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
     }
     const ambiguityChanges = spec.changes.filter((change, index) => change.ambiguity
       && bdg.affectedSites.some(site => site.entryPointId === entryPoint.id && site.changeIndex === index)
-      && ambiguitySatisfied(payloads[1], change.ambiguity.when));
+      && ambiguitySatisfied(payloads[1], change.ambiguity.when, spec.provider));
     const aggregationSinks = new Set(bdg.sinks.filter(sink => bdg.nodes.some(node => node.id === sink.nodeId && node.entryPointId === entryPoint.id && node.aggregation === true)).map(sink => sink.name));
     const affectedPointers = ambiguityChanges.length ? signatures.old[0].calls
       .map((call, index) => aggregationSinks.has(call.mock) ? `/calls/${index}/args` : null).filter((value): value is string => value !== null) : [];

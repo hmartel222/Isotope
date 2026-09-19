@@ -1,0 +1,39 @@
+# Synthetic Snowflake-shaped ChangeSpec. Not a production Snowflake contract.
+id: snowflake.query.account-renewal
+provider: snowflake
+title: Query row ACCOUNT_RENEWAL moved to RENEWAL.AT
+source: https://isotope.local/synthetic/snowflake
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "1.9.0", to: "2.0.0" }
+semantics: |
+  Synthetic snowflake-sdk execute() used to return ACCOUNT_RENEWAL as a number on each row.
+  The new contract nests the timestamp at RENEWAL.AT. Internal provider-interface fixture only.
+detection:
+  ecosystems:
+    npm: { packages: ["snowflake-sdk"], breaking_from: "2.0.0" }
+  taint_roots:
+    - { kind: call, language: ts, pattern: "$CONN.execute($$$)" }
+changes:
+  - object: row
+    removed_path: rows[0].ACCOUNT_RENEWAL
+    replacement:
+      path: rows[0].RENEWAL.AT
+      cardinality: one
+      semantics: The account renewal timestamp is nested under RENEWAL.AT.
+    ambiguity:
+      when: rows.length > 1
+      question: Which row's renewal should drive customer state?
+      options: [first row, max across rows, min across rows]
+    repair_policy:
+      business_policy_required_when: rows.length > 1
+    codemod:
+      kind: path_rename
+      safe_when: always
+      from: $OBJ.ACCOUNT_RENEWAL
+      to: $OBJ.RENEWAL.AT
+fixtures:
+  pair: snowflake-renewal
+  heldout_pair: snowflake-renewal-B
+  ambiguity_pair: snowflake-renewal-multi
+  noop_pair: snowflake-renewal-noop

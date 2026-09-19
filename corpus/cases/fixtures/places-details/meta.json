@@ -1,0 +1,1 @@
+{"synthetic":true,"pair":"places-details","provenance":"internal-controlled","purpose":"Places API Legacy vs New response shape; documented field names, not a live Google capture","oldVersion":"places-legacy","newVersion":"places-v1"}

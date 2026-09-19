@@ -1,0 +1,1 @@
+{"synthetic":true,"pair":"snowflake-renewal-error","provenance":"internal-controlled","purpose":"New execute throws a deterministic provider error","oldVersion":"1.9.0","newVersion":"2.0.0"}

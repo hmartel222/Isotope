@@ -1,0 +1,33 @@
+# Human-verified from Google's Places API (Legacy) → Places API (New) response migration guide.
+# Detection only. Payloads in corpus/cases/fixtures are labeled synthetic; they follow the documented shapes, not a live capture.
+id: googlemaps.places.legacy-to-new
+provider: googlemaps
+title: Place Details result.formatted_address moved to formattedAddress
+source: https://developers.google.com/maps/documentation/places/web-service/legacy/migrate-response
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "places-legacy", to: "places-v1" }
+semantics: |
+  Place Details (Legacy) wraps the place in result under the Axios data envelope
+  (response.data.result.formatted_address). Place Details (New) returns the Place
+  object at the top level of data with camelCase formattedAddress.
+  Callers that still read result.formatted_address silently persist undefined after the
+  HTTP contract changes. Google also split clients: @googlemaps/google-maps-services-js
+  remains Legacy; @googlemaps/places is the New client. This spec uses a 4.0.0 threshold
+  on the Legacy Node client as the L1 stand-in for that contract change.
+detection:
+  ecosystems:
+    npm: { packages: ["@googlemaps/google-maps-services-js"], breaking_from: "4.0.0" }
+  taint_roots:
+    - { kind: call, language: ts, pattern: "$MAPS.placeDetails($$$)" }
+changes:
+  - object: place
+    removed_path: data.result.formatted_address
+    replacement:
+      path: data.formattedAddress
+      cardinality: one
+      semantics: The formatted address is now a top-level camelCase field on the Place object.
+    codemod: { kind: unsupported }
+fixtures:
+  pair: places-details
+  heldout_pair: places-details-B

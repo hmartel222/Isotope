@@ -1,3 +1,4 @@
+import { envelopePrefixFor } from '@isotope/providers';
 import { createHash } from 'node:crypto';
 import { relative } from 'node:path';
 import type { BDG, BDGNode, ChangeSpec, Confidence, EntryPoint, IsotopeConfig, Provenance, SinkKind } from '@isotope/core';
@@ -43,6 +44,7 @@ export class Analyzer {
   readonly graph: BDG;
   private readonly patterns: string[][];
   private readonly changes: { removed: string[]; replacement: string[] }[];
+  private readonly envelopePrefix: string[];
   private readonly nodes = new Map<string, BDGNode>();
   private readonly modules = new Map<string, Environment>();
   private readonly exports = new Map<string, Map<string, Value>>();
@@ -51,9 +53,11 @@ export class Analyzer {
   private ep!: EntryPoint;
   constructor(private project: LoadedProject, private spec: ChangeSpec, private config: IsotopeConfig, entries: EntryPoint[]) {
     this.patterns = callPatterns(spec);
+    this.envelopePrefix = envelopePrefixFor(spec.provider);
     this.changes = spec.changes.map(c => ({ removed: parsePath(c.removed_path ?? c.removed_symbol ?? c.replacement.path), replacement: parsePath(c.replacement.path) }));
     this.graph = { schemaVersion: 1, entryPoints: entries, nodes: [], edges: [], sinks: [], affectedSites: [], skipped: [...project.diagnostics] };
   }
+  private norm(path: string[]): string[] { return normalized(path, this.envelopePrefix); }
   private diagnostic(n: Syntax, reason: string): void { this.graph.skipped.push({ file: slash(relative(this.project.root, n.file)), reason }); }
   private location(n: Syntax): BDGNode['location'] {
     const text = this.project.sources.get(n.file)?.text ?? '';
@@ -77,7 +81,7 @@ export class Analyzer {
       const fact: Fact = { ...first, ...flags, path, provenance: flags.provenance ?? provenance, node: id,
         cast: flags.cast || list.some(f => f.cast), uncertain: flags.uncertain || list.some(f => f.uncertain), aggregation: flags.aggregation || list.some(f => f.aggregation) };
       const node: BDGNode = { id, kind, entryPointId: this.ep.id, location: this.location(n), label: label.slice(0, 240), provenance: fact.provenance,
-        ...(path.length ? { path: pathText(normalized(path)) || '$' } : {}), ...(fact.cast ? { castSuppressed: true } : {}), ...(fact.uncertain ? { indeterminatePath: true } : {}), ...(fact.aggregation ? { aggregation: true } : {}) };
+        ...(path.length ? { path: pathText(this.norm(path)) || '$' } : {}), ...(fact.cast ? { castSuppressed: true } : {}), ...(fact.uncertain ? { indeterminatePath: true } : {}), ...(fact.aggregation ? { aggregation: true } : {}) };
       const existing = this.nodes.get(id);
       if (existing) { node.provenance.confidence = weaker(existing.provenance.confidence, node.provenance.confidence); }
       this.nodes.set(id, node);
@@ -101,11 +105,11 @@ export class Analyzer {
     const out: Value = { facts, ...(ref ? { ref } : {}) };
     if (segment === '?' && facts.length) this.diagnostic(n, 'indeterminate_path:dynamic_key');
     // Materialize only changed/replacement reads, not every property token.
-    const matched = facts.filter(f => !f.uncertain && this.changes.some(c => samePath(normalized(f.path), c.removed) || samePath(normalized(f.path), c.replacement)));
+    const matched = facts.filter(f => !f.uncertain && this.changes.some(c => samePath(this.norm(f.path), c.removed) || samePath(this.norm(f.path), c.replacement)));
     if (!matched.length) return out;
     const read = this.step(n, 'binding', { facts: matched }, 'provider field read', frame);
     for (const f of read.facts) for (const [changeIndex, c] of this.changes.entries()) {
-      if (!samePath(normalized(f.path), c.removed) && !samePath(normalized(f.path), c.replacement)) continue;
+      if (!samePath(this.norm(f.path), c.removed) && !samePath(this.norm(f.path), c.replacement)) continue;
       this.graph.affectedSites.push({ id: stableId('site', f.node, changeIndex), entryPointId: this.ep.id, nodeId: f.node, specId: this.spec.id, changeIndex, location: this.location(n), sinkNodeIds: [], provenance: f.provenance });
     }
     return { ...out, facts: [...facts.filter(f => !matched.includes(f)), ...read.facts] };
@@ -219,7 +223,7 @@ export class Analyzer {
         const base = ev(n.a); const literal = n.b?.k === 'literal';
         let segment = n.op === 'exact' || (literal && n.b?.op === 'string') ? n.b!.text! : literal && n.b?.op === 'number' ? '*' : '?';
         // A dynamic index is a wildcard only when the current path is a known array prefix in the ChangeSpec.
-        if (segment === '?' && base.facts.length && base.facts.every(f => this.changes.some(c => [c.removed, c.replacement].some(p => samePath(normalized(f.path), p.slice(0, normalized(f.path).length)) && p[normalized(f.path).length] === '*')))) segment = '*';
+        if (segment === '?' && base.facts.length && base.facts.every(f => this.changes.some(c => [c.removed, c.replacement].some(p => samePath(this.norm(f.path), p.slice(0, this.norm(f.path).length)) && p[this.norm(f.path).length] === '*')))) segment = '*';
         return this.access(n, base, segment, frame);
       }
       case 'object': {
@@ -275,6 +279,9 @@ export class Analyzer {
     if (ref?.kind === 'provider' && this.patterns.some(p => samePath(ref.tail, p))) {
       const confidence = this.project.sources.get(n.file)?.fallback || frame.depth ? weaker(ref.confidence, 'medium') : ref.confidence;
       return this.root(n, confidence, ref.hops ? 'reexport' : 'provider_call', frame);
+    }
+    if (ref?.kind === 'provider') {
+      return { facts: [], ref: { kind: 'provider', name: ref.name, tail: [], confidence: ref.confidence, ...(ref.hops ? { hops: ref.hops } : {}) } };
     }
     const args = (n.items ?? []).map(a => this.evaluate(a, frame)); const argumentValue = union(args);
     if (ref?.kind === 'mock') {

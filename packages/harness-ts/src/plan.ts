@@ -1,3 +1,4 @@
+import { getBoundaryForModule } from '@isotope/providers';
 import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep, extname } from 'node:path';
 import type { EntryPoint, HarnessInput, IsotopeConfig, Signature } from '@isotope/core';
@@ -9,19 +10,25 @@ export interface TsHarnessPlan {
   codeVersion: Signature['codeVersion'];
   mocks: IsotopeConfig['mocks'];
   mockReturns: IsotopeConfig['returns'];
-  provider: { requireWebhookInterception: boolean };
+  provider: { requireWebhookInterception: boolean; requireProviderInterception: boolean; requestHeaders: Record<string, string> };
   runIndex: number;
   /** Optional authoritative artifact destination, relative to repositoryRoot. */
   outputPath?: string;
 }
 export function createTsHarnessPlan(input: Omit<HarnessInput, 'bdg'>, side: 'old' | 'new', runIndex: number): TsHarnessPlan {
+  const intercept = input.config.mocks.some(m => 'strategy' in m);
+  const requestHeaders: Record<string, string> = {};
+  for (const mock of input.config.mocks) {
+    if (!('strategy' in mock)) continue;
+    Object.assign(requestHeaders, getBoundaryForModule(mock.module)?.requestHeaders ?? {});
+  }
   return {
     repositoryRoot: input.repoRoot,
     entryPoint: { id: input.entryPoint.id, file: input.entryPoint.file, exportName: input.entryPoint.export, kind: input.entryPoint.kind },
     fixture: { pairId: input.fixture.id, side, payloadVersion: side === 'old' ? input.fixture.oldVersion : input.fixture.newVersion,
       payloadPath: side === 'old' ? input.fixture.oldPath : input.fixture.newPath },
     codeVersion: input.codeVersion, mocks: input.config.mocks, mockReturns: input.config.returns, runIndex,
-    provider: { requireWebhookInterception: input.entryPoint.kind !== 'plain' && input.config.mocks.some(m => 'strategy' in m && m.module === 'stripe') },
+    provider: { requireWebhookInterception: intercept, requireProviderInterception: intercept, requestHeaders },
   };
 }
 export function assertWithin(root: string, target: string): string {

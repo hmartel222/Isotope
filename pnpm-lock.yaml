@@ -29,6 +29,9 @@ importers:
       '@isotope/harness-ts':
         specifier: workspace:*
         version: link:packages/harness-ts
+      '@isotope/providers':
+        specifier: workspace:*
+        version: link:packages/providers
       '@isotope/reasoner':
         specifier: workspace:*
         version: link:packages/reasoner
@@ -83,15 +86,27 @@ importers:
       '@isotope/differ':
         specifier: workspace:*
         version: link:../differ
+      '@isotope/fleet':
+        specifier: workspace:*
+        version: link:../fleet
+      '@isotope/harness-py':
+        specifier: workspace:*
+        version: link:../harness-py
       '@isotope/harness-ts':
         specifier: workspace:*
         version: link:../harness-ts
+      '@isotope/providers':
+        specifier: workspace:*
+        version: link:../providers
       '@isotope/reasoner':
         specifier: workspace:*
         version: link:../reasoner
       '@isotope/repair':
         specifier: workspace:*
         version: link:../repair
+      '@isotope/resolver-py':
+        specifier: workspace:*
+        version: link:../resolver-py
       '@isotope/resolver-ts':
         specifier: workspace:*
         version: link:../resolver-ts
@@ -137,9 +152,14 @@ importers:
       '@isotope/core':
         specifier: workspace:*
         version: link:../core
+      '@isotope/providers':
+        specifier: workspace:*
+        version: link:../providers
       vitest:
         specifier: 3.2.4
         version: 3.2.4(@types/node@20.19.17)(yaml@2.7.1)
+
+  packages/providers: {}
 
   packages/reasoner:
     dependencies:
@@ -149,6 +169,9 @@ importers:
       '@isotope/core':
         specifier: workspace:*
         version: link:../core
+      '@isotope/providers':
+        specifier: workspace:*
+        version: link:../providers
       ts-morph:
         specifier: 26.0.0
         version: 26.0.0
@@ -185,6 +208,9 @@ importers:
       '@isotope/core':
         specifier: workspace:*
         version: link:../core
+      '@isotope/providers':
+        specifier: workspace:*
+        version: link:../providers
       picomatch:
         specifier: 4.0.3
         version: 4.0.3

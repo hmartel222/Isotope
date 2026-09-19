@@ -6,6 +6,7 @@ import {
   type BDG, type ChangeSpec, type DiffReport, type EntryPoint, type EvidencePacket, type JsonValue, type Signature,
 } from '@isotope/core';
 import { semanticDivergences } from './eligibility';
+import { preserveLiteralsFor, envelopePrefixFor } from '@isotope/providers';
 import { redactSource } from './redact';
 import { estimateTokens, HARD_CAP_TOKENS, TARGET_TOKENS } from './tokens';
 
@@ -23,15 +24,13 @@ function asJson(value: unknown): JsonValue {
   return (value ?? null) as JsonValue;
 }
 
-function payloadRoot(payload: JsonValue): JsonValue {
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-    const data = (payload as Record<string, JsonValue>).data;
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      const object = (data as Record<string, JsonValue>).object;
-      if (object && typeof object === 'object') return object;
-    }
+function payloadRoot(payload: JsonValue, providerId: string): JsonValue {
+  let current: unknown = payload;
+  for (const part of envelopePrefixFor(providerId)) {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return payload;
+    current = (current as Record<string, unknown>)[part];
   }
-  return payload;
+  return (current ?? payload) as JsonValue;
 }
 function readPath(root: JsonValue, path: string): JsonValue | undefined {
   let value: unknown = root;
@@ -42,8 +41,8 @@ function readPath(root: JsonValue, path: string): JsonValue | undefined {
   }
   return value as JsonValue | undefined;
 }
-function fragment(payload: JsonValue, removed: string, replacement: string): JsonValue {
-  const root = payloadRoot(payload);
+function fragment(payload: JsonValue, removed: string, replacement: string, providerId: string): JsonValue {
+  const root = payloadRoot(payload, providerId);
   const out: Record<string, JsonValue> = {};
   const removedValue = readPath(root, removed); if (removedValue !== undefined) out[removed] = removedValue;
   const replacementValue = readPath(root, replacement); if (replacementValue !== undefined) out[replacement] = replacementValue;
@@ -51,10 +50,10 @@ function fragment(payload: JsonValue, removed: string, replacement: string): Jso
   if (Array.isArray(items)) out['items.data.length'] = items.length;
   return out;
 }
-function ambiguitySatisfied(payload: JsonValue, expression: string): boolean {
+function ambiguitySatisfied(payload: JsonValue, expression: string, providerId: string): boolean {
   const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.length\s*>\s*(\d+)$/.exec(expression.trim());
   if (!match) return false;
-  const value = readPath(payloadRoot(payload), match[1]!);
+  const value = readPath(payloadRoot(payload, providerId), match[1]!);
   return Array.isArray(value) && value.length > Number(match[2]);
 }
 
@@ -160,14 +159,15 @@ export async function buildEvidencePacket(input: PacketBuildInput): Promise<Pack
   let downstream = await downstreamSlices(input, { start: slice.lines[0], end: slice.lines[1], file: slice.file });
   const nodes = input.bdg.nodes.filter(node => node.entryPointId === input.entryPoint.id);
   const sinks = input.bdg.sinks.filter(sink => nodes.some(node => node.id === sink.nodeId));
-  const hint = change.ambiguity && ambiguitySatisfied(asJson(input.newPayload), change.ambiguity.when)
+  const hint = change.ambiguity && ambiguitySatisfied(asJson(input.newPayload), change.ambiguity.when, input.spec.provider)
     ? { when: change.ambiguity.when, satisfied: true, question: change.ambiguity.question } : undefined;
   const oldPayload = asJson(input.oldPayload); const newPayload = asJson(input.newPayload);
   const keep = keepLiterals(oldPayload, newPayload, input.diff);
+  const preserve = [input.spec.provider, input.spec.id, change.removed_path, change.replacement.path, ...preserveLiteralsFor(input.spec.provider)].filter((value): value is string => Boolean(value));
   let primary = slice.slice; let destroyed = false;
   if (input.redact) {
-    const redacted = redactSource(primary, keep); primary = redacted.text; destroyed = redacted.destroyedDecisionEvidence;
-    downstream = downstream.map(fn => { const next = redactSource(fn.slice, keep); destroyed = destroyed || next.destroyedDecisionEvidence; return { ...fn, slice: next.text }; });
+    const redacted = redactSource(primary, keep, preserve); primary = redacted.text; destroyed = redacted.destroyedDecisionEvidence;
+    downstream = downstream.map(fn => { const next = redactSource(fn.slice, keep, preserve); destroyed = destroyed || next.destroyedDecisionEvidence; return { ...fn, slice: next.text }; });
   }
   if (destroyed) return { ok: false, reason: 'redaction_destroyed_evidence' };
   let oldSig = narrowSignature(input.old, semantic); let newSig = narrowSignature(input.new, semantic);
@@ -179,7 +179,7 @@ export async function buildEvidencePacket(input: PacketBuildInput): Promise<Pack
     dataflow: { summary: dataflowSummary(input.bdg, input.entryPoint.id), nodes: graphNodes, sinks: graphSinks },
     execution: { old: oldSig, new: newSig },
     diff: semantic,
-    payloadFragments: { old: fragment(oldPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path), new: fragment(newPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path) },
+    payloadFragments: { old: fragment(oldPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path, input.spec.provider), new: fragment(newPayload, change.removed_path ?? change.removed_symbol ?? change.replacement.path, change.replacement.path, input.spec.provider) },
   });
   let packet = assemble();
   const shrink = () => {

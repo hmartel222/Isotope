@@ -17,6 +17,7 @@
   "dependencies": {
     "@google/generative-ai": "0.24.1",
     "@isotope/core": "workspace:*",
+    "@isotope/providers": "workspace:*",
     "ts-morph": "26.0.0"
   }
 }

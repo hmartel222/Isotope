@@ -24,8 +24,9 @@ export async function loadSpecById(registryRoot: string, id: string): Promise<Ch
   throw new Error(`Unknown human-verified ChangeSpec: ${id}`);
 }
 
+/** Historical Basil fixture loader for Phase 2–11 tests. Product selection uses loadSpecsForProject / loadSelectedSpecs. */
 export async function loadWalkingSkeletonSpec(registryRoot: string): Promise<SelectedSpecs> {
-  const spec = validateContract('ChangeSpec', parse(await readFile(join(registryRoot, 'stripe/basil-subscription-period.yaml'), 'utf8')) as unknown);
+  const spec = await loadSpecById(registryRoot, 'stripe.basil.subscription-period');
   if (spec.verified_by !== 'human' || !spec.verified_at) throw new Error('Walking-skeleton spec must be human verified');
   return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
 }
@@ -42,12 +43,10 @@ export async function loadSpecsForProject(registryRoot: string, sources: string[
   const language = config.language === 'py' || (config.language === 'auto' && config.entryPoints.every(e => e.file.endsWith('.py'))) ? 'py' : 'ts';
   const scoped = matched.filter(spec => spec.detection.taint_roots.some(root => root.language === language));
   const chosen = (scoped.length ? scoped : matched).slice().sort((a, b) => a.id.localeCompare(b.id));
-  if (!chosen.length) return loadWalkingSkeletonSpec(registryRoot);
-  if (chosen.length > 1) {
-    const preferred = chosen.find(spec => language === 'py' ? spec.provider !== 'stripe' : spec.provider === 'stripe');
-    return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [preferred ?? chosen[0]!] });
-  }
-  return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: chosen });
+  if (!chosen.length) return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [] });
+  const score = (spec: ChangeSpec) => Object.values(spec.detection.ecosystems).flatMap(rule => rule.packages).filter(pkg => mentions(text, pkg)).length;
+  chosen.sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id));
+  return validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [chosen[0]!] });
 }
 
 export const loadSelectedSpecs: LoadSelectedSpecs = async (input) => {

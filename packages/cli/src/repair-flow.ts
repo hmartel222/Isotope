@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
+import { resolveFixtureVersion } from '@isotope/providers';
 import { parse } from 'yaml';
 import {
   artifactPaths,
@@ -72,10 +73,8 @@ function asObject(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
   return value as Record<string, unknown>;
 }
-function fixtureVersion(value: unknown, label: string): string {
-  const event = asObject(value, label); const data = asObject(event.data, `${label}.data`); const object = asObject(data.object, `${label}.data.object`);
-  if (event.object !== 'event' || event.type !== 'customer.subscription.updated' || typeof event.api_version !== 'string' || !event.api_version || object.object !== 'subscription') throw new Error(`${label}: expected Stripe subscription event`);
-  return event.api_version;
+function fixtureVersion(value: unknown, meta: Record<string, unknown>, side: 'old' | 'new', providerId: string): string {
+  return resolveFixtureVersion(value, meta, side, providerId);
 }
 async function heldOutFixture(input: AttemptRepairInput): Promise<FixturePair> {
   const spec = input.selected.specs[0]!; const id = spec.fixtures.heldout_pair;
@@ -87,7 +86,7 @@ async function heldOutFixture(input: AttemptRepairInput): Promise<FixturePair> {
   if (input.testFixtureDirectory && meta.synthetic !== true) throw new Error('Test held-out fixtures must declare meta.synthetic: true');
   if (!input.testFixtureDirectory && meta.synthetic === true) throw new Error('Synthetic held-out fixtures are forbidden in product fixture directories');
   return { id: input.testFixtureDirectory ? `synthetic-${id}` : id, role: 'held_out', oldPath, newPath,
-    oldVersion: fixtureVersion(old, 'held-out old fixture'), newVersion: fixtureVersion(next, 'held-out new fixture') };
+    oldVersion: fixtureVersion(old, meta, 'old', spec.provider), newVersion: fixtureVersion(next, meta, 'new', spec.provider) };
 }
 function rejected(input: AttemptRepairInput, repairId: string, reason: string, origin: 'deterministic' | 'model'): RepairVerification {
   return validateContract('RepairVerification', { schemaVersion: 1, repairId, entryPointId: input.entryPoint.id,
@@ -253,9 +252,14 @@ export async function repairExistingFailure(options: { configPath: string; entry
   if (!result || (result.verdict !== 'FAIL' && result.verdict !== 'FAIL_REASONED')) throw new Error('isotope repair requires an existing FAIL or FAIL_REASONED artifact');
   const spec = selected.specs[0]!; const fixtureDirectory = options.testFixtureDirectory ?? join(projectRoot, 'fixtures/normalized', spec.fixtures.pair);
   const oldPath = resolve(fixtureDirectory, 'old.json'); const newPath = resolve(fixtureDirectory, 'new.json');
-  const [oldPayload, newPayload] = await Promise.all([oldPath, newPath].map(async path => JSON.parse(await readFile(path, 'utf8')) as JsonValue));
+  const metaPath = resolve(fixtureDirectory, 'meta.json');
+  const [oldPayload, newPayload, meta] = await Promise.all([
+    readFile(oldPath, 'utf8').then(text => JSON.parse(text) as JsonValue),
+    readFile(newPath, 'utf8').then(text => JSON.parse(text) as JsonValue),
+    readFile(metaPath, 'utf8').then(text => asObject(JSON.parse(text) as unknown, 'fixture metadata')),
+  ]);
   const fixture: FixturePair = { id: options.testFixtureDirectory ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair, role: 'planning', oldPath, newPath,
-    oldVersion: fixtureVersion(oldPayload, 'old fixture'), newVersion: fixtureVersion(newPayload, 'new fixture') };
+    oldVersion: fixtureVersion(oldPayload, meta, 'old', spec.provider), newVersion: fixtureVersion(newPayload, meta, 'new', spec.provider) };
   const signatures: Signature[] = [];
   for (const artifactRef of report.signatureRefs) signatures.push(await readJsonArtifact(paths.root, resolve(paths.root, artifactRef), 'Signature'));
   const pair = (payloadVersion: string): [Signature, Signature] => {

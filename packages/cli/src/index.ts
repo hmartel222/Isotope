@@ -10,6 +10,7 @@ import { explainEntry } from './explain';
 import { runFleetCommand } from './fleet';
 import { fixturesNormalize, specDraft, specList, specValidate } from './spec';
 import { runAccuracy } from './accuracy';
+import { listProviders } from '@isotope/providers';
 export { verifyWalkingSkeleton } from './walking-skeleton';
 export { scanProject } from './scan';
 export { runDetectionMatrix } from './matrix';
@@ -64,15 +65,21 @@ export function createProgram(): Command {
     const result = await fixturesNormalize(options.raw, options.out, options.pair); console.log(result.output); process.exitCode = result.exitCode;
   });
   program.command('matrix').description('Run the acceptance matrix')
-    .option('--group <group>', 'matrix group', 'detection').option('--case <id>', 'run one case')
+    .option('--group <group>', 'matrix group', 'detection').option('--case <id>', 'run one case').option('--provider <id>', 'filter cases for one registered provider')
     .option('--keep-artifacts', 'retain temporary case repositories').option('--allow-blocked', 'do not fail for unavailable cases')
-    .action(async (options: { group: string; case?: string; keepArtifacts?: boolean; allowBlocked?: boolean }) => {
+    .action(async (options: { group: string; case?: string; provider?: string; keepArtifacts?: boolean; allowBlocked?: boolean }) => {
       if (!['detection', 'acceptance', 'all'].includes(options.group)) throw new InvalidArgumentError('group must be detection, acceptance, or all');
-      const result = await runDetectionMatrix({ group: options.group, ...(options.case ? { caseId: options.case } : {}), keepArtifacts: options.keepArtifacts === true, allowBlocked: options.allowBlocked === true });
+      const result = await runDetectionMatrix({ group: options.group, ...(options.case ? { caseId: options.case } : {}), ...(options.provider ? { provider: options.provider } : {}), keepArtifacts: options.keepArtifacts === true, allowBlocked: options.allowBlocked === true });
       console.log(result.output); process.exitCode = result.exitCode;
     });
   program.command('accuracy').description('Run the historical/local accuracy benchmark').action(async () => {
     const result = await runAccuracy(); console.log(result.output); process.exitCode = result.exitCode;
+  });
+  program.command('providers').description('List registered providers').action(() => {
+    for (const provider of listProviders()) {
+      const packages = provider.dependencyMatchers.map(m => `${m.ecosystem}:${m.package}`).join(', ');
+      console.log(`${provider.id}\t${provider.displayName}\t${packages}`);
+    }
   });
   program.addHelpText('after', '\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. Repairs are isolated and independently verified. Semantic reasoning is optional and never overrides a mechanical FAIL. The planner never verifies its own work.');
   return program;

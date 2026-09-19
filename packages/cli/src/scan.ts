@@ -1,8 +1,8 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { parse } from 'yaml';
-import { artifactPaths, validateContract, writeJsonArtifact, type BDG, type SelectedSpecs } from '@isotope/core';
-import { loadSpecsForProject, loadWalkingSkeletonSpec } from '@isotope/changespec';
+import { artifactPaths, validateContract, writeJsonArtifact, type BDG, type EntryPoint, type IsotopeConfig, type SelectedSpecs } from '@isotope/core';
+import { loadSpecsForProject } from '@isotope/changespec';
 import { resolveBehavioralDependencyGraph as resolveTs } from '@isotope/resolver-ts';
 import { resolveBehavioralDependencyGraph as resolvePy } from '@isotope/resolver-py';
 
@@ -15,14 +15,22 @@ export function usesPython(config: { language: 'ts' | 'py' | 'auto'; entryPoints
   return py;
 }
 
+function emptyGraph(config: IsotopeConfig, python: boolean): BDG {
+  const entryPoints: EntryPoint[] = config.entryPoints.map(e => ({
+    ...e, id: `ep_${e.file.replace(/[^A-Za-z0-9]+/g, '_')}_${e.export}`, language: python ? 'py' : 'ts',
+  }));
+  return { schemaVersion: 1, entryPoints, nodes: [], edges: [], sinks: [], affectedSites: [], skipped: [] };
+}
+
 export async function analyzeConfiguredProject(configPath: string, selectedOverride?: SelectedSpecs) {
   const path = await realpath(resolve(configPath)); const projectRoot = dirname(path);
   const config = validateContract('IsotopeConfig', parse(await readFile(path, 'utf8')) as unknown);
   const sources = await Promise.all(config.entryPoints.map(async e => {
     try { return `${e.file}\n${await readFile(resolve(projectRoot, e.file), 'utf8')}`; } catch { return e.file; }
   }));
-  const selected = selectedOverride ?? await loadSpecsForProject(resolve(__dirname, '../../../specs'), sources, config).catch(() => loadWalkingSkeletonSpec(resolve(__dirname, '../../../specs')));
+  const selected = selectedOverride ?? await loadSpecsForProject(resolve(__dirname, '../../../specs'), sources, config);
   const python = usesPython(config);
+  if (!selected.specs.length) return { projectRoot, config, selected, bdg: emptyGraph(config, python), python };
   const bdg = python
     ? await resolvePy({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0]! })
     : await resolveTs({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0]! });
@@ -51,5 +59,5 @@ export async function scanProject(configPath: string): Promise<string> {
   const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath);
   const paths = artifactPaths(projectRoot);
   await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
-  return [`ChangeSpec: ${selected.specs[0]!.id}`, ...graphSummary(bdg), `BDG artifact: ${paths.bdg}`].join('\n');
+  return [`ChangeSpec: ${selected.specs[0]?.id ?? 'none'}`, ...graphSummary(bdg), `BDG artifact: ${paths.bdg}`].join('\n');
 }

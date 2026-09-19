@@ -1,15 +1,19 @@
 import { startVitest } from 'vitest/node';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, dirname } from 'node:path';
+const { namedExportsForModule } = createRequire(import.meta.url)('@isotope/providers');
 (async () => {
 process.env.ISOTOPE_RUN_PLAN = process.argv[2];
 const plan = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-// Bare configured packages need no actual SDK installation. Never load their real module.
 const aliases = {};
 for (const [index, mock] of plan.mocks.entries()) {
   if (mock.module.startsWith('/')) continue;
   const stub = join(dirname(process.argv[2]), `virtual-${index}.mjs`);
-  writeFileSync(stub, 'export default {};');
+  mock.requestedModule = mock.module;
+  const names = namedExportsForModule(mock.module);
+  const named = names.map(name => `export class ${name} {}`).join('\n');
+  writeFileSync(stub, `${named}\nexport default class Provider {}\n`);
   aliases[mock.module] = stub;
   mock.module = stub;
 }

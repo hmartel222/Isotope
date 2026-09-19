@@ -66,7 +66,7 @@ export function handler(req,res) { const event=stripe.webhooks.constructEvent(re
 test('Phase 5 wrong provider is skipped without executing unrelated code or requiring fixtures',async t=>{
   const directory=await project(t);await fs.writeFile(path.join(directory,'src/webhook.ts'),`import Payjp from 'payjp'; import {db} from './db'; const stripe=new Payjp('inert'); throw new Error('must never execute'); export function handler(req,res){const event=stripe.webhooks.constructEvent('','',''); db.subscription.update({value:event.data.object.current_period_end});}`);
   const result=await cli(directory,'verify','/does/not/exist');assert.equal(result.code,0,result.stderr);
-  const {bdg,report,verdict}=await artifacts(directory);assert.equal(verdict.verdict,'SKIP');assert.equal(verdict.results[0].reason,'no_taint_root');
+  const {bdg,report,verdict}=await artifacts(directory);assert.equal(verdict.verdict,'SKIP');assert.equal(verdict.results[0].reason,'no_matching_provider_spec');
   assert.equal(bdg.affectedSites.length,0);assert.deepEqual(report.signatureRefs,[]);
 });
 test('Phase 5 multiple configured entries produce deterministic scoped artifacts and aggregate FAIL',async t=>{
@@ -84,7 +84,7 @@ test('Phase 5 mechanical runtime loss remains authoritative beyond static call b
   assert.equal(diffs[0].divergences[0].bdgNodeId,null);assert.equal(diffs[0].divergences[0].kind,'value_to_missing');assert.equal(diffs[0].divergences[0].severity,'critical');
 });
 test('Phase 5 low-confidence name evidence never schedules customer execution',async t=>{
-  const directory=await project(t);await fs.writeFile(path.join(directory,'src/webhook.ts'),`import {db} from './db';throw new Error('must not execute');export function handler(subscription){db.subscription.update(subscription.current_period_end);}`);
+  const directory=await project(t);await fs.writeFile(path.join(directory,'src/webhook.ts'),`import 'stripe'; import {db} from './db';throw new Error('must not execute');export function handler(subscription){db.subscription.update(subscription.current_period_end);}`);
   const result=await cli(directory,'verify','/does/not/exist');assert.equal(result.code,0,result.stderr);
   const {bdg,report,verdict}=await artifacts(directory);assert.equal(verdict.verdict,'SKIP');assert.deepEqual(report.signatureRefs,[]);assert.ok(bdg.affectedSites.length);assert.ok(bdg.affectedSites.every(s=>s.provenance.confidence==='low'));
 });

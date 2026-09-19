@@ -1,3 +1,4 @@
+import { listProviders } from '@isotope/providers';
 import { execFile } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -40,11 +41,12 @@ export interface DetectionCase {
     reachesL3: boolean;
     verifiedRepair?: boolean;
     reasoning?: boolean;
+    executionsCompletedNormally?: boolean;
   };
   tags?: string[];
 }
 
-export interface MatrixOptions { caseId?: string; keepArtifacts?: boolean; allowBlocked?: boolean; group?: string; }
+export interface MatrixOptions { caseId?: string; keepArtifacts?: boolean; allowBlocked?: boolean; group?: string; provider?: string; }
 interface CaseResult {
   id: string; description: string; expectedVerdict: Verdict; actualVerdict: Verdict | null;
   expectedExitCode: number; actualExitCode: number | null; acceptance: 'matched' | 'mismatch' | 'blocked';
@@ -57,6 +59,13 @@ interface CaseResult {
 }
 
 function sourceRoot(): string { return resolve(__dirname, '../../..'); }
+function dependencyForCase(caseDef: DetectionCase, ecosystem: 'npm' | 'pypi'): { package: string; from: string; to: string } {
+  if (caseDef.dependency) return caseDef.dependency;
+  const provider = listProviders().find(item => caseDef.expected.selectedSpecIds.some(id => id === item.id || id.startsWith(`${item.id}.`)));
+  const matcher = provider?.dependencyMatchers.find(item => item.ecosystem === ecosystem);
+  if (!matcher || !provider?.defaultUpgrade) throw new Error(`Detection case ${caseDef.id} must declare dependency`);
+  return { package: matcher.package, from: provider.defaultUpgrade.from, to: provider.defaultUpgrade.to };
+}
 async function acquireMatrixLock(): Promise<() => Promise<void>> {
   const lock = join(sourceRoot(), '.isotope/matrix.lock'); await mkdir(dirname(lock), { recursive: true });
   for (let attempt = 0; attempt < 1200; attempt++) {
@@ -80,16 +89,17 @@ async function materializeCase(caseDef: DetectionCase): Promise<string> {
   await git(root, 'config', 'user.email', 'acceptance@isotope.local');
   await git(root, 'config', 'user.name', 'Isotope Acceptance');
   if (caseDef.ecosystem === 'pypi') {
-    const dep = caseDef.dependency ?? { package: 'elevenlabs', from: '0.2.27', to: '1.0.0' };
+    const dep = caseDef.dependency ?? dependencyForCase(caseDef, 'pypi');
     await writeFile(join(root, 'requirements.txt'), `${dep.package}==${dep.from}\n`);
     await git(root, 'add', '.'); await git(root, 'commit', '--quiet', '-m', 'acceptance base'); await git(root, 'tag', caseDef.baseRef);
     await writeFile(join(root, 'requirements.txt'), `${dep.package}==${dep.to}\n`);
     await git(root, 'add', 'requirements.txt'); await git(root, 'commit', '--quiet', '-m', `upgrade ${dep.package}`); await git(root, 'tag', caseDef.headRef);
   } else {
-    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '17.7.0' } }, null, 2) + '\n');
+    const dep = caseDef.dependency ?? dependencyForCase(caseDef, 'npm');
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { [dep.package]: dep.from } }, null, 2) + '\n');
     await git(root, 'add', '.'); await git(root, 'commit', '--quiet', '-m', 'acceptance base'); await git(root, 'tag', caseDef.baseRef);
-    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { stripe: '18.1.0' } }, null, 2) + '\n');
-    await git(root, 'add', 'package.json'); await git(root, 'commit', '--quiet', '-m', 'upgrade stripe'); await git(root, 'tag', caseDef.headRef);
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { [dep.package]: dep.to } }, null, 2) + '\n');
+    await git(root, 'add', 'package.json'); await git(root, 'commit', '--quiet', '-m', `upgrade ${dep.package}`); await git(root, 'tag', caseDef.headRef);
   }
   try {
     const cfgPath = join(root, caseDef.configPath);
@@ -168,13 +178,14 @@ async function runCase(caseDef: DetectionCase, matrixRoot: string, options: Matr
     }
     const noReasoner = report.reasoningRefs.length === 0 && report.evidencePacketRefs.length === 0;
     const exp = caseDef.expected;
+    const expectNormal = exp.executionsCompletedNormally !== false;
     const matched = sameStrings(base.selectedSpecIds, exp.selectedSpecIds) && base.actualVerdict === exp.verdict && base.actualExitCode === exp.exitCode
       && base.affectedSiteCount === exp.affectedSiteCount && (exp.minimumAuthoritativeSites === undefined || base.authoritativeSiteCount >= exp.minimumAuthoritativeSites)
       && (exp.reachableSinkKinds === undefined || exp.reachableSinkKinds.every(x => base.reachableSinkKinds.includes(x)))
       && (exp.divergenceKinds === undefined || exp.divergenceKinds.every(x => base.divergenceKinds.includes(x)))
       && (exp.verdictReason === undefined || base.verdictReason === exp.verdictReason)
       && (exp.ambiguityCandidate === undefined || base.ambiguityCandidate === exp.ambiguityCandidate)
-      && reachedL3 === exp.reachesL3 && (!reachedL3 || (base.oldStable === true && base.newStable === true && base.executionsCompletedNormally === true))
+      && reachedL3 === exp.reachesL3 && (!reachedL3 || exp.verdict === 'INDETERMINATE' || (base.oldStable === true && base.newStable === true && base.executionsCompletedNormally === expectNormal))
       && (reachedL3 || (report.signatureRefs.length === 0 && report.diffReportRefs.length === 0))
       && (exp.reasoning === true ? report.reasoningRefs.length > 0 : noReasoner)
       && (exp.verifiedRepair === undefined || (report.verifiedRepairs.length > 0) === exp.verifiedRepair);
@@ -195,10 +206,12 @@ export async function runDetectionMatrix(options: MatrixOptions = {}): Promise<{
   try {
     const all = await loadCases();
     const group = options.group ?? 'detection';
-    const cases = options.caseId ? all.filter(c => c.id === options.caseId)
+    const selected = options.caseId ? all.filter(c => c.id === options.caseId)
+      : options.provider ? all.filter(c => c.tags?.includes(options.provider!) || c.expected.selectedSpecIds.some(id => id === options.provider || id.startsWith(`${options.provider}.`)))
       : group === 'detection' ? all.filter(c => c.tags?.includes('required') && !c.tags?.includes('acceptance'))
       : all;
-    if (!cases.length) throw new Error(`Unknown detection case: ${options.caseId ?? '(none)'}`);
+    const cases = selected;
+    if (!cases.length) throw new Error(`Unknown detection case: ${options.caseId ?? options.provider ?? '(none)'}`);
     const matrixRoot = process.env.ISOTOPE_MATRIX_ROOT ? resolve(process.env.ISOTOPE_MATRIX_ROOT) : join(sourceRoot(), '.isotope/matrix');
     await mkdir(matrixRoot, { recursive: true });
     const results: CaseResult[] = [];

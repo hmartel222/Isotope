@@ -1,0 +1,27 @@
+# Synthetic provider-interface ChangeSpec. Not a production vendor contract.
+id: isotope-accounts.renewal-object
+provider: isotope-accounts
+title: Account renewal scalar became an object
+source: https://isotope.local/synthetic/accounts
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "1.0.0", to: "2.0.0" }
+semantics: |
+  Synthetic SDK retrieve() used to return renewal as a number. The new contract nests it at renewal.at.
+  Internal provider-interface fixture only.
+detection:
+  ecosystems:
+    npm: { packages: ["@isotope/test-accounts"], breaking_from: "2.0.0" }
+  taint_roots:
+    - { kind: call, language: ts, pattern: "$CLIENT.accounts.retrieve($$$)" }
+changes:
+  - object: account
+    removed_path: renewal
+    replacement:
+      path: renewal.at
+      cardinality: one
+      semantics: Renewal is nested under at.
+    codemod: { kind: unsupported }
+fixtures:
+  pair: accounts-renewal
+  heldout_pair: accounts-renewal-B

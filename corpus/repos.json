@@ -3,6 +3,14 @@
     { "id": "mechanical-break", "path": "cases/repositories/mechanical-break", "fixturePair": "cases/fixtures/sub-updated-single" },
     { "id": "migrated-pass", "path": "cases/repositories/migrated-pass", "fixturePair": "cases/fixtures/sub-updated-migrated" },
     { "id": "noop-pass", "path": "cases/repositories/noop-pass", "fixturePair": "cases/fixtures/sub-updated-noop" },
-    { "id": "python-elevenlabs", "path": "cases/repositories/python-elevenlabs", "fixturePair": "cases/fixtures/el-tts" }
+    { "id": "python-elevenlabs", "path": "cases/repositories/python-elevenlabs", "fixturePair": "cases/fixtures/el-tts" },
+    { "id": "googlemaps-places", "path": "cases/repositories/googlemaps-places", "fixturePair": "cases/fixtures/places-details" },
+    { "id": "googlemaps-places-migrated", "path": "cases/repositories/googlemaps-places-migrated", "fixturePair": "cases/fixtures/places-details" },
+    { "id": "googlemaps-places-throw", "path": "cases/repositories/googlemaps-places-throw", "fixturePair": "cases/fixtures/places-details" },
+    { "id": "isotope-accounts", "path": "cases/repositories/isotope-accounts", "fixturePair": "cases/fixtures/accounts-renewal" },
+    { "id": "isotope-items", "path": "cases/repositories/isotope-items", "fixturePair": "cases/fixtures/items-list" },
+    { "id": "snowflake-mechanical-break", "path": "cases/repositories/snowflake-mechanical-break", "fixturePair": "cases/fixtures/snowflake-renewal" },
+    { "id": "snowflake-migrated-pass", "path": "cases/repositories/snowflake-migrated-pass", "fixturePair": "cases/fixtures/snowflake-renewal" },
+    { "id": "snowflake-noop-pass", "path": "cases/repositories/snowflake-noop-pass", "fixturePair": "cases/fixtures/snowflake-renewal-noop" }
   ]
 }

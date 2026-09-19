@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { getBoundaryForModule } from '@isotope/providers';
 import { validateContract, writeJsonArtifact, type HarnessInput, type HarnessResult, type Signature } from '@isotope/core';
 import { HarnessExecutionError } from './errors';
 import { assertWithin, createTsHarnessPlan, isLocalModule, projectFile, type TsHarnessPlan } from './plan';
@@ -60,7 +61,7 @@ async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: numb
   // Fixtures may be explicit external files: normalized provider artifacts are shared across repos.
   const fixturePath = await realpath(resolve(root, plan.fixture.payloadPath));
   const mocks = await Promise.all(plan.mocks.map(async mock => {
-    if ('strategy' in mock && mock.module !== 'stripe') throw new HarnessExecutionError('unsupported_harness_plan', `Unsupported provider: ${mock.module}`);
+    if ('strategy' in mock && !getBoundaryForModule(mock.module)) throw new HarnessExecutionError('unsupported_harness_plan', `Unsupported provider: ${mock.module}`);
     if (mock.module.startsWith('node:')) throw new HarnessExecutionError('unsupported_harness_plan', 'Built-in modules cannot be configured as observable mocks');
     return { ...mock, module: isLocalModule(mock.module) ? await projectFile(root, mock.module) : mock.module };
   }));

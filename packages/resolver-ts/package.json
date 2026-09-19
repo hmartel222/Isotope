@@ -17,6 +17,7 @@
   "dependencies": {
     "@babel/parser": "7.28.5",
     "@isotope/core": "workspace:*",
+    "@isotope/providers": "workspace:*",
     "picomatch": "4.0.3",
     "ts-morph": "26.0.0"
   },

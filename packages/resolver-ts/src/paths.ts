@@ -13,7 +13,9 @@ export function parsePath(input: string): string[] {
   if (!result.length) throw new Error('Empty ChangeSpec path');
   return result;
 }
-export const normalized = (path: string[]): string[] => path[0] === 'data' && path[1] === 'object' ? path.slice(2) : path;
+/** Optional provider envelope prefix (for example webhook `data.object`) is stripped before ChangeSpec path comparison. */
+export const normalized = (path: string[], prefix: string[] = []): string[] =>
+  prefix.length && prefix.every((part, index) => path[index] === part) && path.length >= prefix.length ? path.slice(prefix.length) : path;
 export const pathText = (path: string[]): string => path.reduce((s, p) => p === '*' ? `${s}[*]` : p === '?' ? `${s}[?]` : /^[A-Za-z_$][\w$]*$/.test(p) ? `${s}${s ? '.' : ''}${p}` : `${s}[${JSON.stringify(p)}]`, '');
 export const samePath = (a: string[], b: string[]): boolean => a.length === b.length && a.every((s, i) => s === b[i]);
 export function callPatterns(spec: ChangeSpec): string[][] {

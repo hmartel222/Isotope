@@ -14,6 +14,8 @@
     "test": "pnpm build && c8 node --test tests/*.test.cjs",
     "isotope": "pnpm --silent build && node packages/cli/dist/bin.js",
     "phase2:verify": "pnpm isotope --config examples/walking-skeleton/isotope.yml verify --no-reasoner --no-repair",
+    "test:snowflake": "pnpm build && node --test tests/snowflake.test.cjs tests/providers.test.cjs tests/architecture-providers.test.cjs",
+    "capture:snowflake": "node tools/capture-snowflake.mjs",
     "coverage:differ": "pnpm build && c8 node --test tests/phase4-differ.test.cjs"
   },
   "devDependencies": {
@@ -22,6 +24,7 @@
     "@isotope/core": "workspace:*",
     "@isotope/differ": "workspace:*",
     "@isotope/fleet": "workspace:*",
+    "@isotope/providers": "workspace:*",
     "@isotope/harness-py": "workspace:*",
     "@isotope/harness-ts": "workspace:*",
     "@isotope/reasoner": "workspace:*",
