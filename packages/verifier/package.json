@@ -15,6 +15,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@isotope/core": "workspace:*"
+    "@isotope/core": "workspace:*",
+    "@isotope/differ": "workspace:*",
+    "@isotope/harness-ts": "workspace:*",
+    "@isotope/resolver-ts": "workspace:*"
   }
 }

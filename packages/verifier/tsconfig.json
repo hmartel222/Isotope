@@ -11,6 +11,15 @@
   "references": [
     {
       "path": "../core"
+    },
+    {
+      "path": "../differ"
+    },
+    {
+      "path": "../harness-ts"
+    },
+    {
+      "path": "../resolver-ts"
     }
   ]
 }
