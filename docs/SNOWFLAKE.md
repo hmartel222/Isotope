@@ -32,3 +32,13 @@ One case:
 ```sh
 node packages/cli/dist/bin.js matrix --case snowflake-mechanical-break
 ```
+
+Downstream detection (same upgrade commit, different sinks):
+
+```sh
+node packages/cli/dist/bin.js matrix --case snowflake-downstream-helper
+node packages/cli/dist/bin.js matrix --case snowflake-downstream-email
+node packages/cli/dist/bin.js matrix --case snowflake-downstream-http
+node packages/cli/dist/bin.js matrix --case snowflake-downstream-queue
+node packages/cli/dist/bin.js matrix --case snowflake-downstream-sibling
+```

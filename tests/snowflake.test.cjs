@@ -106,6 +106,22 @@ test('synthetic Snowflake migrated consumer is PASS', async t => {
   assert.equal(exitCode, 0);
 });
 
+test('downstream helper hop still FAILs when ACCOUNT_RENEWAL is missing', async t => {
+  const { report, exitCode, diff } = await verifyCase(t, 'snowflake-downstream-helper', 'snowflake-renewal');
+  assert.equal(report.verdict.verdict, 'FAIL');
+  assert.equal(exitCode, 1);
+  assert.ok(diff?.divergences.some(d => d.kind === 'value_to_missing' && d.sinkKind === 'db_write'));
+});
+
+test('downstream email and http_out record the same missing renewal', async t => {
+  const email = await verifyCase(t, 'snowflake-downstream-email', 'snowflake-renewal');
+  assert.equal(email.report.verdict.verdict, 'FAIL');
+  assert.ok(email.diff?.divergences.some(d => d.sinkKind === 'email' && d.kind === 'value_to_missing'));
+  const http = await verifyCase(t, 'snowflake-downstream-http', 'snowflake-renewal');
+  assert.equal(http.report.verdict.verdict, 'FAIL');
+  assert.ok(http.diff?.divergences.some(d => d.sinkKind === 'http_out' && d.kind === 'value_to_missing'));
+});
+
 test('live capture refuses without credentials and does not write corpus', async () => {
   const { spawnSync } = require('node:child_process');
   const env = { ...process.env, SNOWFLAKE_ACCOUNT: '', SNOWFLAKE_PAT: '', SNOWFLAKE_WAREHOUSE: '', SNOWFLAKE_SQL: 'select 1' };

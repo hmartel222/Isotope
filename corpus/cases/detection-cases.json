@@ -500,5 +500,65 @@
     "dependency": { "package": "snowflake-sdk", "from": "1.9.0", "to": "2.0.0" },
     "expected": { "selectedSpecIds": ["snowflake.query.account-renewal"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "verdict": "INDETERMINATE", "exitCode": 4, "verdictReason": "blocked_egress", "reachesL3": false },
     "tags": ["acceptance", "internal", "snowflake", "provider-interface"]
+  },
+  {
+    "id": "snowflake-downstream-helper",
+    "description": "execute() taint crosses one helper hop into a DB write after the snowflake-sdk upgrade commit.",
+    "repositoryRoot": "corpus/cases/repositories/snowflake-downstream-helper",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/snowflake-renewal",
+    "dependency": { "package": "snowflake-sdk", "from": "1.9.0", "to": "2.0.0" },
+    "expected": { "selectedSpecIds": ["snowflake.query.account-renewal"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["acceptance", "internal", "snowflake", "provider-interface", "downstream"]
+  },
+  {
+    "id": "snowflake-downstream-email",
+    "description": "Same missing renewal fans out to email and DB sinks after the upgrade commit.",
+    "repositoryRoot": "corpus/cases/repositories/snowflake-downstream-email",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/snowflake-renewal",
+    "dependency": { "package": "snowflake-sdk", "from": "1.9.0", "to": "2.0.0" },
+    "expected": { "selectedSpecIds": ["snowflake.query.account-renewal"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write", "email"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["acceptance", "internal", "snowflake", "provider-interface", "downstream"]
+  },
+  {
+    "id": "snowflake-downstream-http",
+    "description": "Mocked http_out records the missing field; not live fetch/egress.",
+    "repositoryRoot": "corpus/cases/repositories/snowflake-downstream-http",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/snowflake-renewal",
+    "dependency": { "package": "snowflake-sdk", "from": "1.9.0", "to": "2.0.0" },
+    "expected": { "selectedSpecIds": ["snowflake.query.account-renewal"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["http_out"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["acceptance", "internal", "snowflake", "provider-interface", "downstream"]
+  },
+  {
+    "id": "snowflake-downstream-queue",
+    "description": "Queue payload carries ACCOUNT_RENEWAL and goes missing after the upgrade commit.",
+    "repositoryRoot": "corpus/cases/repositories/snowflake-downstream-queue",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/snowflake-renewal",
+    "dependency": { "package": "snowflake-sdk", "from": "1.9.0", "to": "2.0.0" },
+    "expected": { "selectedSpecIds": ["snowflake.query.account-renewal"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["queue"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["acceptance", "internal", "snowflake", "provider-interface", "downstream"]
+  },
+  {
+    "id": "snowflake-downstream-sibling",
+    "description": "Untainted sibling region stays; only the renewal leaf is missing downstream.",
+    "repositoryRoot": "corpus/cases/repositories/snowflake-downstream-sibling",
+    "baseRef": "isotope-base",
+    "headRef": "isotope-head",
+    "configPath": "isotope.yml",
+    "fixturePair": "corpus/cases/fixtures/snowflake-renewal",
+    "dependency": { "package": "snowflake-sdk", "from": "1.9.0", "to": "2.0.0" },
+    "expected": { "selectedSpecIds": ["snowflake.query.account-renewal"], "affectedSiteCount": 1, "minimumAuthoritativeSites": 1, "reachableSinkKinds": ["db_write"], "verdict": "FAIL", "exitCode": 1, "divergenceKinds": ["value_to_missing"], "verdictReason": "mechanical_incompatibility", "reachesL3": true },
+    "tags": ["acceptance", "internal", "snowflake", "provider-interface", "downstream"]
   }
 ]
