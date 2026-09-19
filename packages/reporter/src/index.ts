@@ -44,6 +44,16 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
     const divergence = firstDivergence(evidence);
     if (divergence) lines.push('', `Observable ${code(divergence.sinkKind ?? 'handler')} changed at ${code(divergence.pointer)}.`, '', '| | old | new |', '|---|---|---|', `| value | ${code(display(divergence.old), 190)} | ${code(display(divergence.new), 190)} |`);
     if (evidence.signatures.length && evidence.signatures.every(s => s.threw === null)) lines.push('', 'Both repeated old/new executions completed normally.');
+    const verified = evidence.report.verifiedRepairs[0];
+    if (verified) {
+      const diff = verified.diff.slice(0, 8000).replace(/```/g, '``\u200b`');
+      lines.push('', '### ✅ Verified repair available', '', '```diff', diff.trimEnd(), '```', '', 'Verification:',
+        '- original verdict: FAIL', '- patched planning fixture: PASS', '- held-out fixture: PASS', '- provider→sink flow preserved',
+        '', 'Applied only in an isolated workspace. Nothing was committed, pushed, or merged.');
+    } else if (evidence.report.repairVerifications.length) {
+      const rejected = evidence.report.repairVerifications[0]!;
+      lines.push('', `A candidate repair was evaluated but did not satisfy Isotope's verification criteria.`, `Reason: ${code(rejected.outcome)} — ${clean(rejected.reason, 500)}`);
+    }
   } else if (verdict === 'PASS' || verdict === 'PASS_REASONED') {
     lines.push('### ✅ Isotope — compatible', '', transition(evidence.selected), '', `${counts(evidence)}.`, 'No behavioral incompatibility found.');
   } else if (verdict === 'ESCALATE') {
@@ -59,7 +69,8 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
 }
 
 export function renderCheckSummary(evidence: ReportEvidence): string {
-  return [`### Isotope: ${evidence.report.verdict.verdict}`, '', transition(evidence.selected), '', counts(evidence), '', 'Artifacts: `.isotope/`'].join('\n');
+  const repair = evidence.report.verifiedRepairs.length ? ['', 'A verified deterministic repair is available; the incompatibility remains blocking until a human applies it.'] : [];
+  return [`### Isotope: ${evidence.report.verdict.verdict}`, '', transition(evidence.selected), '', counts(evidence), ...repair, '', 'Artifacts: `.isotope/`'].join('\n');
 }
 export function mapVerdictToConclusion(verdict: Verdict): CheckConclusion {
   if (verdict === 'FAIL' || verdict === 'FAIL_REASONED' || verdict === 'ESCALATE') return 'failure';

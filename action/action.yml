@@ -5,7 +5,7 @@ inputs:
   config: { description: Isotope configuration, default: isotope.yml }
   fail-on: { description: Reserved severity list, default: "critical,high" }
   reasoner: { description: Must be off in Phase 8, default: "off" }
-  repair: { description: Must be off in Phase 8, default: "off" }
+  repair: { description: Enable isolated deterministic repair verification, default: "off" }
   anthropic-api-key: { description: Reserved for a future phase, required: false }
   github-token: { description: Token for optional direct PR reporting, required: false }
   mode: { description: verify or report, default: verify }

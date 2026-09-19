@@ -29,3 +29,11 @@ test('comment publication creates once, updates one bot-owned marker, and preser
   const denied={async listIssueComments(){throw new Error('403 Resource not accessible')},async createIssueComment(){},async updateIssueComment(){},async createCheck(){throw new Error('rate limit')}};
   const result=await reporter.publishGitHubReport({...input,client:denied});assert.equal(result.comment,'failed');assert.equal(result.check,'failed');assert.equal(input.evidence.report.verdict.verdict,'FAIL');assert.equal(result.errors.length,2);
 });
+
+test('reporter offers only verified repair diffs and suppresses rejected candidate code',()=>{
+  const verified=evidence('FAIL');verified.report.verifiedRepairs=[clone(fixtures.VerifiedRepair)];verified.report.repairVerifications=[clone(fixtures.RepairVerification)];
+  const rendered=reporter.renderPrComment(verified);assert.match(rendered,/Verified repair available/);assert.match(rendered,/```diff/);assert.match(rendered,/held-out fixture: PASS/);assert.match(rendered,/Nothing was committed/);
+  const rejected=evidence('FAIL');const failure=clone(fixtures.RepairVerification);failure.outcome='overfit_rejected';failure.reason='held-out mismatch';rejected.report.repairVerifications=[failure];rejected.report.verifiedRepairs=[];
+  const rejectedText=reporter.renderPrComment(rejected);assert.match(rejectedText,/did not satisfy/);assert.match(rejectedText,/overfit_rejected/);assert.doesNotMatch(rejectedText,/```diff/);
+  assert.equal(reporter.mapVerdictToConclusion(verified.report.verdict.verdict),'failure');
+});

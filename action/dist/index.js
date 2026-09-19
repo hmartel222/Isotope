@@ -9847,6 +9847,7 @@ var require_contracts = __commonJS({
     });
     exports2.CandidatePatchEditSchema = object({ anchor: str(), replacement: typebox_1.Type.String() });
     var patchFields = {
+      repairId: str(),
       confidence: exports2.ConfidenceSchema,
       summary: str(),
       causalChain: str(),
@@ -16959,10 +16960,11 @@ var require_artifact_paths = __commonJS({
         },
         comparison: (ep, code, pair, kind) => at("diffs", component(code), component(pair), `${component(ep)}.${component(kind)}.json`),
         repairPacket: (id) => at("repair", "packets", `${component(id)}.json`),
+        candidate: (id) => at("repair", "candidates", `${component(id)}.json`),
         proposal: (id) => at("repair", "proposals", `${component(id)}.json`),
         verification: (id) => at("repair", "verification", `${component(id)}.json`),
         verifiedRepair: at("repair", "verified-repair.json"),
-        directories: ["signatures", "diffs", "evidence-packets", "reasoning", "repair/packets", "repair/proposals", "repair/verification"].map((dir) => at(dir))
+        directories: ["signatures", "diffs", "evidence-packets", "reasoning", "repair/packets", "repair/candidates", "repair/proposals", "repair/verification"].map((dir) => at(dir))
       };
     }
   }
@@ -316443,6 +316445,847 @@ var require_dist6 = __commonJS({
   }
 });
 
+// packages/repair/dist/index.js
+var require_dist7 = __commonJS({
+  "packages/repair/dist/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.planRepair = exports2.checkRepairEligibility = void 0;
+    exports2.evaluateRepairPredicate = evaluateRepairPredicate;
+    exports2.evaluateRepairEligibility = evaluateRepairEligibility;
+    exports2.generateDeterministicCandidate = generateDeterministicCandidate;
+    exports2.validateCandidatePatch = validateCandidatePatch;
+    exports2.applyCandidatePatch = applyCandidatePatch;
+    exports2.withAppliedCandidate = withAppliedCandidate;
+    exports2.allowedPathsFromBDG = allowedPathsFromBDG;
+    exports2.snapshotRepositoryIntegrity = snapshotRepositoryIntegrity;
+    exports2.assertRepositoryIntegrity = assertRepositoryIntegrity;
+    var node_child_process_1 = require("node:child_process");
+    var node_crypto_1 = require("node:crypto");
+    var promises_1 = require("node:fs/promises");
+    var node_os_1 = require("node:os");
+    var node_path_1 = require("node:path");
+    var ts_morph_1 = require_ts_morph();
+    var core_1 = require_dist();
+    function payloadObject(payload) {
+      if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+        const data = payload.data;
+        if (data && typeof data === "object" && !Array.isArray(data)) {
+          const object = data.object;
+          if (object && typeof object === "object")
+            return object;
+        }
+      }
+      return payload;
+    }
+    function readPath(root, path) {
+      let value = root;
+      for (const part of path.split(".")) {
+        if (part === "length") {
+          if (!Array.isArray(value) && typeof value !== "string")
+            return void 0;
+          value = value.length;
+        } else {
+          if (!value || typeof value !== "object" || Array.isArray(value))
+            return void 0;
+          value = value[part];
+        }
+      }
+      return value;
+    }
+    function evaluateRepairPredicate(expression, payload) {
+      const source = expression.trim();
+      if (source === "always")
+        return { supported: true, value: true };
+      const clauses = source.split(/\s*&&\s*/);
+      if (!clauses.length || clauses.some((clause) => !clause))
+        return { supported: false, value: false, reason: "unsupported_predicate" };
+      let result = true;
+      for (const clause of clauses) {
+        const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*(==|!=|>=|<=|>|<)\s*(-?\d+)$/.exec(clause);
+        if (!match)
+          return { supported: false, value: false, reason: "unsupported_predicate" };
+        const actual = readPath(payloadObject(payload), match[1]);
+        if (typeof actual !== "number" || !Number.isFinite(actual))
+          return { supported: true, value: false };
+        const expected = Number(match[3]);
+        const comparison = match[2] === "==" ? actual === expected : match[2] === "!=" ? actual !== expected : match[2] === ">" ? actual > expected : match[2] === ">=" ? actual >= expected : match[2] === "<" ? actual < expected : actual <= expected;
+        result = result && comparison;
+      }
+      return { supported: true, value: result };
+    }
+    function evaluateRepairEligibility(input2) {
+      const none = (reason) => ({ eligible: false, route: "none", reason, siteIds: [], changeIndex: null });
+      if (input2.config.repair.verify !== true)
+        return none("verification_required");
+      if (input2.config.repair.mode !== "on")
+        return none("repair_disabled");
+      if (input2.verdict.verdict !== "FAIL")
+        return none("verdict_not_mechanical_fail");
+      if (input2.selectedSpecs.specs.length !== 1)
+        return none("requires_one_changespec");
+      const spec = input2.selectedSpecs.specs[0];
+      if (!spec.fixtures.heldout_pair || spec.fixtures.heldout_pair === spec.fixtures.pair)
+        return none("held_out_fixture_required");
+      const sites = input2.bdg.affectedSites.filter((site) => site.entryPointId === input2.verdict.entryPointId && (site.provenance.confidence === "high" || site.provenance.confidence === "medium"));
+      if (!sites.length)
+        return none("authoritative_site_required");
+      const changeIndexes = [...new Set(sites.map((site) => site.changeIndex))].sort((a, b) => a - b);
+      for (const index of changeIndexes) {
+        const policy = spec.changes[index]?.repair_policy?.business_policy_required_when;
+        if (!policy)
+          continue;
+        const decision = evaluateRepairPredicate(policy, input2.newPayload);
+        if (!decision.supported)
+          return none("unsupported_business_policy_predicate");
+        if (decision.value)
+          return none("business_policy_required");
+      }
+      const eligibleIndexes = changeIndexes.filter((index) => spec.changes[index]?.codemod?.kind === "path_rename");
+      if (!eligibleIndexes.length)
+        return input2.config.repair.planner === "model" ? { eligible: false, route: "model", reason: "planner_unavailable_in_current_build", siteIds: [], changeIndex: null } : none("no_safe_deterministic_codemod");
+      if (eligibleIndexes.length !== 1)
+        return none("multiple_codemods_ambiguous");
+      const changeIndex = eligibleIndexes[0];
+      const predicate = evaluateRepairPredicate(spec.changes[changeIndex].codemod.safe_when, input2.newPayload);
+      if (!predicate.supported)
+        return none("unsupported_safe_when_predicate");
+      if (!predicate.value)
+        return none("safe_when_false");
+      const eligibleSites = sites.filter((site) => site.changeIndex === changeIndex);
+      if (!eligibleSites.length)
+        return none("authoritative_site_required");
+      return { eligible: true, route: "deterministic", reason: "deterministic_codemod_safe", siteIds: eligibleSites.map((site) => site.id).sort(), changeIndex };
+    }
+    exports2.checkRepairEligibility = evaluateRepairEligibility;
+    function repairId(spec, entryPointId, siteIds) {
+      return `det-${(0, node_crypto_1.createHash)("sha256").update(JSON.stringify([spec.id, entryPointId, [...siteIds].sort()])).digest("hex").slice(0, 16)}`;
+    }
+    function expressionAtSite(sourceFile, line, column, terminal) {
+      const position = sourceFile.compilerNode.getPositionOfLineAndCharacter(line - 1, Math.max(0, column - 1));
+      let node = sourceFile.getDescendantAtPos(position);
+      const matches = [];
+      while (node) {
+        if (ts_morph_1.Node.isPropertyAccessExpression(node) && node.getName() === terminal && node.getStartLineNumber() === line)
+          matches.push(node);
+        node = node.getParent();
+      }
+      return matches.sort((a, b) => a.getWidth() - b.getWidth())[0];
+    }
+    async function generateDeterministicCandidate(input2) {
+      const change = input2.spec.changes[input2.changeIndex];
+      const codemod = change?.codemod;
+      if (!change || !codemod || codemod.kind !== "path_rename")
+        throw new Error("No deterministic path_rename codemod for selected change");
+      const from = /^\$OBJ\.([A-Za-z_$][\w$]*)$/.exec(codemod.from);
+      if (!from || !codemod.to.startsWith("$OBJ."))
+        throw new Error("Unsupported path_rename template");
+      const sites = input2.siteIds.map((id2) => input2.bdg.affectedSites.find((site) => site.id === id2)).filter((site) => Boolean(site));
+      if (sites.length !== input2.siteIds.length)
+        throw new Error("Candidate sites do not match the BDG");
+      const project = new ts_morph_1.Project({ skipAddingFilesFromTsConfig: true });
+      const files = /* @__PURE__ */ new Map();
+      for (const site of [...sites].sort((a, b) => a.location.file.localeCompare(b.location.file) || a.location.line - b.location.line || (a.location.column ?? 1) - (b.location.column ?? 1))) {
+        const absolute = (0, node_path_1.resolve)(input2.repoRoot, site.location.file);
+        const sourceFile = project.getSourceFile(absolute) ?? project.addSourceFileAtPath(absolute);
+        const expression = expressionAtSite(sourceFile, site.location.line, site.location.column ?? 1, from[1]);
+        if (!expression || expression.getKind() !== ts_morph_1.SyntaxKind.PropertyAccessExpression)
+          throw new Error(`BDG anchor did not resolve at ${site.location.file}:${site.location.line}:${site.location.column ?? 1}`);
+        const objectText = expression.getExpression().getText();
+        const anchor = expression.getText();
+        if (anchor !== `${objectText}.${from[1]}`)
+          throw new Error(`Affected expression does not match codemod source at ${site.location.file}:${site.location.line}`);
+        const replacement = codemod.to.replace("$OBJ", objectText);
+        const group = files.get(site.location.file) ?? { path: site.location.file, edits: [] };
+        group.edits.push({ anchor, replacement });
+        files.set(site.location.file, group);
+      }
+      const id = repairId(input2.spec, input2.entryPointId, input2.siteIds);
+      return (0, core_1.validateContract)("CandidatePatch", {
+        repairId: id,
+        classification: "repair_candidate",
+        confidence: "high",
+        origin: "deterministic",
+        summary: `Rename ${codemod.from} to ${codemod.to} at ${sites.length} proven provider site${sites.length === 1 ? "" : "s"}`,
+        causalChain: `${change.removed_path} was removed; the verified single-cardinality fixture permits ${change.replacement.path}`,
+        assumptions: [codemod.safe_when],
+        humanQuestion: null,
+        suspectedInjection: false,
+        abstain: false,
+        evidenceRefs: sites.map((site) => ({ kind: "code", file: site.location.file, line: site.location.line })),
+        patch: { files: [...files.values()].sort((a, b) => a.path.localeCompare(b.path)).map((file) => ({ ...file, edits: file.edits.sort((a, b) => a.anchor.localeCompare(b.anchor)) })) }
+      });
+    }
+    var planRepair = async () => {
+      throw new Error("Model repair planner unavailable in current build");
+    };
+    exports2.planRepair = planRepair;
+    var lockfiles = /* @__PURE__ */ new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "npm-shrinkwrap.json", "poetry.lock", "requirements.txt"]);
+    function slash(path) {
+      return path.split(node_path_1.sep).join("/");
+    }
+    function normalizeRelative(path) {
+      if (!path || (0, node_path_1.isAbsolute)(path) || path.includes("\0") || path.includes("\\") || path.split("/").includes(".."))
+        throw new Error(`patch_invalid: unsafe path ${JSON.stringify(path)}`);
+      const normalized = slash((0, node_path_1.relative)("/", (0, node_path_1.resolve)("/", path)));
+      if (!normalized || normalized === ".." || normalized.startsWith("../"))
+        throw new Error(`patch_invalid: unsafe path ${JSON.stringify(path)}`);
+      return normalized;
+    }
+    function forbidden(path) {
+      const parts = path.split("/");
+      const name = (0, node_path_1.basename)(path).toLowerCase();
+      return name === "isotope.yml" || path.startsWith(".github/") || path.startsWith(".git/") || path.startsWith("specs/") || parts.some((part) => ["dist", "build", "generated", ".isotope"].includes(part)) || name === "package.json" || lockfiles.has(name) || name === ".env" || name.startsWith(".env.") || /(?:secret|credential|token)/i.test(name);
+    }
+    async function assertPhysicalFile(root, path) {
+      const rootReal = await (0, promises_1.realpath)(root);
+      const target = (0, node_path_1.resolve)(rootReal, path);
+      const rel = (0, node_path_1.relative)(rootReal, target);
+      if (!rel || rel === ".." || rel.startsWith(`..${node_path_1.sep}`) || (0, node_path_1.isAbsolute)(rel))
+        throw new Error(`patch_invalid: path escapes repository: ${path}`);
+      let cursor = rootReal;
+      for (const part of rel.split(node_path_1.sep)) {
+        cursor = (0, node_path_1.join)(cursor, part);
+        if ((await (0, promises_1.lstat)(cursor)).isSymbolicLink())
+          throw new Error(`patch_invalid: symlink path: ${path}`);
+      }
+      const actual = await (0, promises_1.realpath)(target);
+      const actualRel = (0, node_path_1.relative)(rootReal, actual);
+      if (!actualRel || actualRel === ".." || actualRel.startsWith(`..${node_path_1.sep}`) || (0, node_path_1.isAbsolute)(actualRel))
+        throw new Error(`patch_invalid: resolved path escapes repository: ${path}`);
+      return actual;
+    }
+    function occurrences(text, anchor) {
+      let count = 0;
+      let offset = 0;
+      while ((offset = text.indexOf(anchor, offset)) !== -1) {
+        count++;
+        offset += Math.max(anchor.length, 1);
+      }
+      return count;
+    }
+    function changedLines(anchor, replacement) {
+      return anchor.split("\n").length + replacement.split("\n").length;
+    }
+    async function validateCandidatePatch(input2) {
+      const candidate = (0, core_1.validateContract)("CandidatePatch", input2.candidate);
+      if (candidate.classification !== "repair_candidate" || !candidate.patch)
+        throw new Error("patch_invalid: candidate has no patch");
+      const allowed = new Set(input2.allowedPaths.map(normalizeRelative));
+      if (candidate.patch.files.length > input2.maxFiles)
+        throw new Error("patch_invalid: file budget exceeded");
+      let budget = 0;
+      const seenFiles = /* @__PURE__ */ new Set();
+      for (const file of candidate.patch.files) {
+        const path = normalizeRelative(file.path);
+        if (seenFiles.has(path))
+          throw new Error(`patch_invalid: duplicate file: ${path}`);
+        seenFiles.add(path);
+        if (!allowed.has(path))
+          throw new Error(`patch_invalid: path is outside BDG allow-list: ${path}`);
+        if (forbidden(path))
+          throw new Error(`patch_invalid: forbidden path: ${path}`);
+        const source = await (0, promises_1.readFile)(await assertPhysicalFile(input2.repoRoot, path), "utf8");
+        const seenAnchors = /* @__PURE__ */ new Set();
+        for (const edit of file.edits) {
+          if (seenAnchors.has(edit.anchor))
+            throw new Error(`patch_invalid: duplicate anchor in ${path}`);
+          seenAnchors.add(edit.anchor);
+          if (occurrences(source, edit.anchor) !== 1)
+            throw new Error(`patch_invalid: anchor must match exactly once in ${path}`);
+          budget += changedLines(edit.anchor, edit.replacement);
+        }
+      }
+      if (budget > input2.maxChangedLines)
+        throw new Error("patch_invalid: changed-line budget exceeded");
+    }
+    async function command(commandName, args, cwd, accepted = [0]) {
+      return await new Promise((done, reject) => {
+        const child = (0, node_child_process_1.spawn)(commandName, args, { cwd, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1" } });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk) => {
+          stdout += String(chunk);
+        });
+        child.stderr.on("data", (chunk) => {
+          stderr += String(chunk);
+        });
+        child.once("error", reject);
+        child.once("close", (code) => accepted.includes(code ?? -1) ? done({ code: code ?? 0, stdout, stderr }) : reject(new Error(`${commandName} failed (${code}): ${stderr.slice(-2e3)}`)));
+      });
+    }
+    async function isGit(root) {
+      try {
+        return (await command("git", ["rev-parse", "--is-inside-work-tree"], root)).stdout.trim() === "true";
+      } catch {
+        return false;
+      }
+    }
+    async function createWorkspace(repoRoot, requestedRoot, id) {
+      const base = (0, node_path_1.resolve)(requestedRoot ?? process.env.RUNNER_TEMP ?? (0, node_os_1.tmpdir)());
+      await (0, promises_1.mkdir)(base, { recursive: true });
+      const root = (0, node_path_1.join)(base, `isotope-${id}-${(0, node_crypto_1.randomUUID)().slice(0, 8)}`);
+      const git = await isGit(repoRoot);
+      try {
+        if (git)
+          await command("git", ["worktree", "add", "--detach", root, "HEAD"], repoRoot);
+        else {
+          await (0, promises_1.mkdir)(root, { recursive: true });
+          await (0, promises_1.cp)(repoRoot, root, { recursive: true, filter: (source) => !["node_modules", ".git", ".isotope"].includes((0, node_path_1.basename)(source)) });
+        }
+        return { root: await (0, promises_1.realpath)(root), git };
+      } catch (error) {
+        try {
+          if (git)
+            await command("git", ["worktree", "remove", "--force", root], repoRoot);
+        } catch {
+        }
+        await (0, promises_1.rm)(root, { recursive: true, force: true });
+        throw error;
+      }
+    }
+    async function unifiedDiff(originalRoot, workspaceRoot, paths) {
+      const sections = [];
+      for (const path of paths) {
+        const a = await assertPhysicalFile(originalRoot, path);
+        const b = await assertPhysicalFile(workspaceRoot, path);
+        const result = await command("diff", ["-u", "--label", `a/${path}`, "--label", `b/${path}`, a, b], originalRoot, [0, 1]);
+        if (result.stdout)
+          sections.push(result.stdout.endsWith("\n") ? result.stdout : `${result.stdout}
+`);
+      }
+      return sections.join("");
+    }
+    function diffStats(diff) {
+      let added = 0;
+      let removed = 0;
+      for (const line of diff.split("\n")) {
+        if (line.startsWith("+") && !line.startsWith("+++"))
+          added++;
+        else if (line.startsWith("-") && !line.startsWith("---"))
+          removed++;
+      }
+      return { added, removed };
+    }
+    async function applyCandidatePatch(input2) {
+      if (input2.candidate.repairId !== input2.repairId)
+        throw new Error("patch_invalid: repair identity mismatch");
+      await validateCandidatePatch(input2);
+      let workspace;
+      try {
+        workspace = await createWorkspace(input2.repoRoot, input2.temporaryRoot, input2.repairId);
+        const candidate = input2.candidate;
+        if (candidate.classification !== "repair_candidate" || !candidate.patch)
+          throw new Error("patch_invalid: candidate has no patch");
+        const changedFiles = [];
+        for (const file of candidate.patch.files) {
+          const path = normalizeRelative(file.path);
+          const target = await assertPhysicalFile(workspace.root, path);
+          let source = await (0, promises_1.readFile)(target, "utf8");
+          for (const edit of file.edits) {
+            if (occurrences(source, edit.anchor) !== 1)
+              throw new Error(`patch_invalid: workspace anchor must match exactly once in ${path}`);
+            source = source.replace(edit.anchor, edit.replacement);
+          }
+          await (0, promises_1.writeFile)(target, source, "utf8");
+          changedFiles.push(path);
+        }
+        const diff = await unifiedDiff(input2.repoRoot, workspace.root, changedFiles);
+        const stats = diffStats(diff);
+        if (changedFiles.length > input2.maxFiles || stats.added + stats.removed > input2.maxChangedLines)
+          throw new Error("patch_invalid: actual diff exceeds configured budget");
+        let disposed = false;
+        const captured = workspace;
+        return {
+          repairId: input2.repairId,
+          workspaceRoot: workspace.root,
+          diff,
+          changedFiles,
+          linesAdded: stats.added,
+          linesRemoved: stats.removed,
+          dispose: async () => {
+            if (disposed)
+              return;
+            disposed = true;
+            try {
+              if (captured.git)
+                await command("git", ["worktree", "remove", "--force", captured.root], input2.repoRoot);
+            } finally {
+              await (0, promises_1.rm)(captured.root, { recursive: true, force: true });
+            }
+          }
+        };
+      } catch (error) {
+        if (workspace) {
+          try {
+            if (workspace.git)
+              await command("git", ["worktree", "remove", "--force", workspace.root], input2.repoRoot);
+          } finally {
+            await (0, promises_1.rm)(workspace.root, { recursive: true, force: true });
+          }
+        }
+        throw error;
+      }
+    }
+    async function withAppliedCandidate(input2, operation) {
+      const applied = await applyCandidatePatch(input2);
+      try {
+        return await operation(applied);
+      } finally {
+        await applied.dispose();
+      }
+    }
+    function allowedPathsFromBDG(bdg, entryPointId) {
+      return [...new Set(bdg.affectedSites.filter((site) => site.entryPointId === entryPointId && site.sinkNodeIds.length > 0).map((site) => normalizeRelative(site.location.file)))].sort();
+    }
+    async function snapshotRepositoryIntegrity(repoRoot, paths) {
+      const hashes = {};
+      for (const path of [...new Set(paths.map(normalizeRelative))].sort())
+        hashes[path] = (0, node_crypto_1.createHash)("sha256").update(await (0, promises_1.readFile)(await assertPhysicalFile(repoRoot, path))).digest("hex");
+      const status = await isGit(repoRoot) ? (await command("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", ".", ":(exclude).isotope"], repoRoot)).stdout : "";
+      return { status, hashes };
+    }
+    async function assertRepositoryIntegrity(repoRoot, expected) {
+      const actual = await snapshotRepositoryIntegrity(repoRoot, Object.keys(expected.hashes));
+      if (actual.status !== expected.status || JSON.stringify(actual.hashes) !== JSON.stringify(expected.hashes))
+        throw new Error("Original checkout changed during repair verification");
+    }
+  }
+});
+
+// packages/verifier/dist/index.js
+var require_dist8 = __commonJS({
+  "packages/verifier/dist/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.verifyRepair = verifyRepair;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var core_1 = require_dist();
+    var differ_1 = require_dist6();
+    var harness_ts_1 = require_dist5();
+    var resolver_ts_1 = require_dist4();
+    function ref(root, path) {
+      return (0, node_path_1.relative)(root, path).split("\\").join("/");
+    }
+    function passing(result) {
+      return result.stable && result.secondaryStable && result.baselineEquivalent && result.verdict.verdict === "PASS";
+    }
+    async function verifyPair(input2, fixture, original, role, postBDG) {
+      const paths = (0, core_1.artifactPaths)(input2.artifactRoot);
+      for (const signature of [...original.old, ...original.new])
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.signature(signature), "Signature", signature);
+      const patched = await (0, harness_ts_1.runHarness)({ repoRoot: input2.workspaceRoot, config: input2.config, entryPoint: input2.entryPoint, bdg: postBDG, fixture, codeVersion: `patched:${input2.repairId}` });
+      for (const signature of [...patched.old, ...patched.new])
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.signature(signature), "Signature", signature);
+      const baselineDiff = (0, differ_1.diffSignatures)({ old: original.old[0], new: patched.new[0], bdg: postBDG, selfComparisons: { old: original.old, new: patched.new } });
+      const secondaryDiff = (0, differ_1.diffSignatures)({ old: patched.old[0], new: patched.new[0], bdg: postBDG, selfComparisons: patched });
+      const baselinePath = paths.comparison(input2.entryPoint.id, `patched:${input2.repairId}`, fixture.id, "baseline");
+      const secondaryPath = paths.comparison(input2.entryPoint.id, `patched:${input2.repairId}`, fixture.id, "secondary");
+      await (0, core_1.writeJsonArtifact)(paths.root, baselinePath, "DiffReport", baselineDiff);
+      await (0, core_1.writeJsonArtifact)(paths.root, secondaryPath, "DiffReport", secondaryDiff);
+      const verdict = (0, core_1.resolveVerdict)({ entryPoint: input2.entryPoint, bdg: postBDG, diff: baselineDiff, reasoning: null, config: input2.config });
+      const secondaryVerdict = (0, core_1.resolveVerdict)({ entryPoint: input2.entryPoint, bdg: postBDG, diff: secondaryDiff, reasoning: null, config: input2.config });
+      const stable = (0, differ_1.checkDeterminism)(patched.old).stable && (0, differ_1.checkDeterminism)(patched.new).stable;
+      const secondaryStable = secondaryVerdict.verdict === "PASS" && secondaryDiff.stable && !secondaryDiff.divergences.some((divergence) => divergence.kind === "unstable");
+      const baselineEquivalent = verdict.verdict === "PASS" && baselineDiff.divergences.every((divergence) => divergence.tier === "mechanical" && divergence.severity === "info");
+      const signatureRef = (signature) => ({ path: ref(paths.root, paths.signature(signature)), codeVersion: signature.codeVersion, payloadVersion: signature.payloadVersion, fixturePair: signature.fixturePair, runIndex: signature.runIndex });
+      const result = (0, core_1.validateContract)("VerificationPairResult", {
+        role,
+        fixturePair: fixture.id,
+        baseline: signatureRef(original.old[0]),
+        patchedOld: patched.old.map(signatureRef),
+        patchedNew: patched.new.map(signatureRef),
+        baselineDiffRef: ref(paths.root, baselinePath),
+        secondaryDiffRef: ref(paths.root, secondaryPath),
+        verdict,
+        stable,
+        baselineEquivalent,
+        secondaryStable
+      });
+      return { result };
+    }
+    function primitives(value, output2 = /* @__PURE__ */ new Set()) {
+      if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string")
+        output2.add(`${typeof value}:${String(value)}`);
+      else if (Array.isArray(value))
+        for (const item of value)
+          primitives(item, output2);
+      else if (value && typeof value === "object")
+        for (const item of Object.values(value))
+          primitives(item, output2);
+      return output2;
+    }
+    function introducedLiterals(candidate) {
+      const values = /* @__PURE__ */ new Set();
+      if (candidate.classification !== "repair_candidate" || !candidate.patch)
+        return values;
+      for (const file of candidate.patch.files)
+        for (const edit of file.edits) {
+          const stripped = edit.replacement.replace(edit.anchor, "");
+          for (const match of stripped.matchAll(/(?:^|[^\w.])(-?\d+(?:\.\d+)?)(?![\w.])/g))
+            values.add(`number:${Number(match[1])}`);
+          for (const match of stripped.matchAll(/(['"])(.*?)\1/g))
+            values.add(`string:${match[2]}`);
+          for (const match of stripped.matchAll(/\b(true|false)\b/g))
+            values.add(`boolean:${match[1]}`);
+        }
+      return values;
+    }
+    function newSuppression(candidate) {
+      if (candidate.classification !== "repair_candidate" || !candidate.patch)
+        return false;
+      return candidate.patch.files.some((file) => file.edits.some((edit) => !/\bas\s+(?:any|unknown)\b|@ts-ignore|@ts-expect-error/.test(edit.anchor) && /\bas\s+(?:any|unknown)\b|@ts-ignore|@ts-expect-error/.test(edit.replacement)));
+    }
+    async function baselineValues(input2) {
+      const baseline = input2.planning.original.old[0];
+      const values = primitives({ returned: baseline.returned, threw: baseline.threw, calls: baseline.calls.map((call) => ({ mock: call.mock, sinkKind: call.sinkKind, args: call.args })) });
+      for (const fixture of [input2.planning.fixture, input2.heldOut.fixture]) {
+        const payload = JSON.parse(await (0, promises_1.readFile)(fixture.oldPath, "utf8"));
+        primitives(payload, values);
+      }
+      return values;
+    }
+    async function shapeChecks(input2, post) {
+      const originalSites = input2.originalBDG.affectedSites.filter((site) => site.entryPointId === input2.entryPoint.id && site.provenance.confidence !== "low");
+      const originalSinkNames = new Set(originalSites.flatMap((site) => site.sinkNodeIds).map((id) => input2.originalBDG.sinks.find((sink) => sink.nodeId === id)?.name).filter((name) => Boolean(name)));
+      const postRoots = post.nodes.filter((node) => node.entryPointId === input2.entryPoint.id && node.kind === "taint_root" && node.provenance.confidence !== "low");
+      const postSites = post.affectedSites.filter((site) => site.entryPointId === input2.entryPoint.id && site.provenance.confidence !== "low");
+      const postSinkNames = new Set(post.sinks.filter((sink) => post.nodes.some((node) => node.id === sink.nodeId && node.entryPointId === input2.entryPoint.id)).map((sink) => sink.name));
+      const flowNames = new Set(postSites.flatMap((site) => site.sinkNodeIds).map((id) => post.sinks.find((sink) => sink.nodeId === id)?.name).filter((name) => Boolean(name)));
+      const observed = await baselineValues(input2);
+      const added = introducedLiterals(input2.candidate);
+      return {
+        providerSinkFlowPreserved: originalSinkNames.size > 0 && [...originalSinkNames].every((name) => flowNames.has(name)),
+        sinksPreserved: originalSinkNames.size > 0 && [...originalSinkNames].every((name) => postSinkNames.has(name)),
+        noBaselineLiteralIntroduced: ![...added].some((value) => observed.has(value)),
+        taintRootReachable: postRoots.length > 0,
+        noNewSuppression: !newSuppression(input2.candidate)
+      };
+    }
+    function allShapeChecksPass(checks) {
+      return Object.values(checks).every(Boolean);
+    }
+    function rejected(input2, outcome, reason, planning, heldOut, checks) {
+      return (0, core_1.validateContract)("RepairVerification", {
+        schemaVersion: 1,
+        repairId: input2.repairId,
+        entryPointId: input2.entryPoint.id,
+        specId: input2.selectedSpecs.specs[0].id,
+        origin: input2.candidate.origin,
+        outcome,
+        reason,
+        planning,
+        heldOut,
+        shapeChecks: checks,
+        evidenceRefs: input2.candidate.evidenceRefs
+      });
+    }
+    async function verifyRepair(input2) {
+      if (input2.originalVerdict.verdict !== "FAIL")
+        throw new Error("Repair verification requires an original mechanical FAIL");
+      if (input2.candidate.classification !== "repair_candidate" || !input2.candidate.patch || input2.candidate.repairId !== input2.repairId)
+        throw new Error("Repair verification requires the matching candidate patch");
+      const paths = (0, core_1.artifactPaths)(input2.artifactRoot);
+      await (0, core_1.removeJsonArtifact)(paths.root, paths.verifiedRepair);
+      const spec = input2.selectedSpecs.specs[0];
+      if (!spec)
+        throw new Error("Repair verification requires one ChangeSpec");
+      const postBDG = await (0, resolver_ts_1.resolveBehavioralDependencyGraph)({ repositoryRoot: input2.workspaceRoot, config: input2.config, changeSpec: spec });
+      let planning;
+      try {
+        planning = await verifyPair(input2, input2.planning.fixture, input2.planning.original, "planning", postBDG);
+      } catch (error) {
+        const verification2 = rejected(input2, "patch_invalid", `patched execution failed: ${String(error)}`, null, null, null);
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification2);
+        return { verification: verification2, verifiedRepair: null };
+      }
+      if (!planning.result.stable) {
+        const verification2 = rejected(input2, "patch_introduced_nondeterminism", "Patched planning behavior was unstable", planning.result, null, null);
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification2);
+        return { verification: verification2, verifiedRepair: null };
+      }
+      if (!passing(planning.result)) {
+        const verification2 = rejected(input2, "did_not_restore_behavior", "Patched new behavior did not restore the immutable original-old baseline", planning.result, null, null);
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification2);
+        return { verification: verification2, verifiedRepair: null };
+      }
+      let heldOut;
+      try {
+        heldOut = await verifyPair(input2, input2.heldOut.fixture, input2.heldOut.original, "held_out", postBDG);
+      } catch (error) {
+        const verification2 = rejected(input2, "overfit_rejected", `Held-out execution failed: ${String(error)}`, planning.result, null, null);
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification2);
+        return { verification: verification2, verifiedRepair: null };
+      }
+      if (!heldOut.result.stable) {
+        const verification2 = rejected(input2, "patch_introduced_nondeterminism", "Patched held-out behavior was unstable", planning.result, heldOut.result, null);
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification2);
+        return { verification: verification2, verifiedRepair: null };
+      }
+      if (!passing(heldOut.result)) {
+        const verification2 = rejected(input2, "overfit_rejected", "Candidate passed planning evidence but failed the held-out provider fixture", planning.result, heldOut.result, null);
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification2);
+        return { verification: verification2, verifiedRepair: null };
+      }
+      const checks = await shapeChecks(input2, postBDG);
+      if (!allShapeChecksPass(checks)) {
+        const verification2 = rejected(input2, "degenerate_patch", "Patched behavior passed but structural anti-cheat constraints failed", planning.result, heldOut.result, checks);
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification2);
+        return { verification: verification2, verifiedRepair: null };
+      }
+      const verification = (0, core_1.validateContract)("RepairVerification", {
+        schemaVersion: 1,
+        repairId: input2.repairId,
+        entryPointId: input2.entryPoint.id,
+        specId: spec.id,
+        origin: input2.candidate.origin,
+        outcome: "verified",
+        reason: "Independently verified against planning and held-out provider contracts",
+        planning: planning.result,
+        heldOut: heldOut.result,
+        shapeChecks: checks,
+        evidenceRefs: input2.candidate.evidenceRefs
+      });
+      const candidate = input2.candidate;
+      if (candidate.confidence === "low" || candidate.suspectedInjection || candidate.abstain)
+        throw new Error("Verified repair requires a non-abstaining authoritative candidate");
+      const verifiedRepair = (0, core_1.validateContract)("VerifiedRepair", {
+        schemaVersion: 1,
+        repairId: input2.repairId,
+        entryPointId: input2.entryPoint.id,
+        specId: spec.id,
+        candidate: { ...candidate, confidence: candidate.confidence },
+        verification,
+        diff: input2.candidateDiff,
+        offeredOnly: true
+      });
+      await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(input2.repairId), "RepairVerification", verification);
+      await (0, core_1.writeJsonArtifact)(paths.root, paths.verifiedRepair, "VerifiedRepair", verifiedRepair);
+      return { verification, verifiedRepair };
+    }
+  }
+});
+
+// packages/cli/dist/repair-flow.js
+var require_repair_flow = __commonJS({
+  "packages/cli/dist/repair-flow.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.attemptDeterministicRepair = attemptDeterministicRepair;
+    exports2.repairExistingFailure = repairExistingFailure;
+    var promises_1 = require("node:fs/promises");
+    var node_path_1 = require("node:path");
+    var yaml_1 = require_dist2();
+    var core_1 = require_dist();
+    var harness_ts_1 = require_dist5();
+    var repair_1 = require_dist7();
+    var verifier_1 = require_dist8();
+    function asObject(value, label) {
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        throw new Error(`${label} must be an object`);
+      return value;
+    }
+    function fixtureVersion(value, label) {
+      const event = asObject(value, label);
+      const data = asObject(event.data, `${label}.data`);
+      const object = asObject(data.object, `${label}.data.object`);
+      if (event.object !== "event" || event.type !== "customer.subscription.updated" || typeof event.api_version !== "string" || !event.api_version || object.object !== "subscription")
+        throw new Error(`${label}: expected Stripe subscription event`);
+      return event.api_version;
+    }
+    async function heldOutFixture(input2) {
+      const spec = input2.selected.specs[0];
+      const id = spec.fixtures.heldout_pair;
+      if (!id)
+        throw new Error("held_out_fixture_required");
+      const directory = input2.testFixtureDirectory ? (0, node_path_1.join)((0, node_path_1.dirname)(input2.testFixtureDirectory), id) : (0, node_path_1.join)(input2.fixtureRoot, id);
+      const oldPath = (0, node_path_1.resolve)(directory, "old.json");
+      const newPath = (0, node_path_1.resolve)(directory, "new.json");
+      const metaPath = (0, node_path_1.resolve)(directory, "meta.json");
+      const [oldText, newText, metaText] = await Promise.all([oldPath, newPath, metaPath].map((path) => (0, promises_1.readFile)(path, "utf8")));
+      const old = JSON.parse(oldText);
+      const next = JSON.parse(newText);
+      const meta = asObject(JSON.parse(metaText), "held-out metadata");
+      if (input2.testFixtureDirectory && meta.synthetic !== true)
+        throw new Error("Test held-out fixtures must declare meta.synthetic: true");
+      if (!input2.testFixtureDirectory && meta.synthetic === true)
+        throw new Error("Synthetic held-out fixtures are forbidden in product fixture directories");
+      return {
+        id: input2.testFixtureDirectory ? `synthetic-${id}` : id,
+        role: "held_out",
+        oldPath,
+        newPath,
+        oldVersion: fixtureVersion(old, "held-out old fixture"),
+        newVersion: fixtureVersion(next, "held-out new fixture")
+      };
+    }
+    function rejected(input2, repairId, reason) {
+      return (0, core_1.validateContract)("RepairVerification", {
+        schemaVersion: 1,
+        repairId,
+        entryPointId: input2.entryPoint.id,
+        specId: input2.selected.specs[0].id,
+        origin: "deterministic",
+        outcome: "patch_invalid",
+        reason,
+        planning: null,
+        heldOut: null,
+        shapeChecks: null,
+        evidenceRefs: []
+      });
+    }
+    async function attemptDeterministicRepair(input2) {
+      const paths = (0, core_1.artifactPaths)(input2.artifactProjectRoot);
+      const spec = input2.selected.specs[0];
+      const eligibility = (0, repair_1.evaluateRepairEligibility)({
+        verdict: input2.originalVerdict,
+        bdg: input2.bdg,
+        selectedSpecs: input2.selected,
+        config: input2.config,
+        fixture: input2.planning.fixture,
+        newPayload: input2.planning.newPayload
+      });
+      if (!eligibility.eligible || eligibility.changeIndex === null)
+        return {
+          attempted: false,
+          reason: eligibility.reason,
+          candidateRef: null,
+          verification: null,
+          verifiedRepair: null,
+          output: [`Repair: not attempted (${eligibility.reason})`]
+        };
+      const candidate = await (0, repair_1.generateDeterministicCandidate)({
+        repoRoot: input2.projectRoot,
+        bdg: input2.bdg,
+        spec,
+        entryPointId: input2.entryPoint.id,
+        siteIds: eligibility.siteIds,
+        changeIndex: eligibility.changeIndex
+      });
+      const candidatePath = paths.candidate(candidate.repairId);
+      await (0, core_1.removeJsonArtifact)(paths.root, paths.verifiedRepair);
+      await (0, core_1.removeJsonArtifact)(paths.root, paths.verification(candidate.repairId));
+      await (0, core_1.writeJsonArtifact)(paths.root, candidatePath, "CandidatePatch", candidate);
+      const allowedPaths = (0, repair_1.allowedPathsFromBDG)(input2.bdg, input2.entryPoint.id);
+      const integrity = await (0, repair_1.snapshotRepositoryIntegrity)(input2.projectRoot, allowedPaths);
+      try {
+        const heldOut = await heldOutFixture(input2);
+        const heldOutOriginal = await (0, harness_ts_1.runHarness)({
+          repoRoot: input2.projectRoot,
+          config: input2.config,
+          entryPoint: input2.entryPoint,
+          bdg: input2.bdg,
+          fixture: heldOut,
+          codeVersion: "original"
+        });
+        const result = await (0, repair_1.withAppliedCandidate)({
+          repoRoot: input2.projectRoot,
+          repairId: candidate.repairId,
+          candidate,
+          allowedPaths,
+          maxFiles: input2.config.repair.maxFiles,
+          maxChangedLines: input2.config.repair.maxChangedLines
+        }, (applied) => (0, verifier_1.verifyRepair)({
+          repairId: candidate.repairId,
+          workspaceRoot: applied.workspaceRoot,
+          artifactRoot: input2.artifactProjectRoot,
+          candidate,
+          candidateDiff: applied.diff,
+          config: input2.config,
+          selectedSpecs: input2.selected,
+          originalBDG: input2.bdg,
+          entryPoint: input2.entryPoint,
+          originalVerdict: input2.originalVerdict,
+          planning: { fixture: input2.planning.fixture, original: input2.planning.original },
+          heldOut: { fixture: heldOut, original: heldOutOriginal }
+        }));
+        return {
+          attempted: true,
+          reason: result.verification.outcome,
+          candidateRef: (0, node_path_1.relative)(paths.root, candidatePath).split("\\").join("/"),
+          verification: result.verification,
+          verifiedRepair: result.verifiedRepair,
+          output: result.verifiedRepair ? ["Repair: VERIFIED (offered only; checkout unchanged)", `Repair ID: ${candidate.repairId}`] : [`Repair: rejected (${result.verification.outcome})`, `Reason: ${result.verification.reason}`]
+        };
+      } catch (error) {
+        const verification = rejected(input2, candidate.repairId, String(error));
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.verification(candidate.repairId), "RepairVerification", verification);
+        return {
+          attempted: true,
+          reason: "patch_invalid",
+          candidateRef: (0, node_path_1.relative)(paths.root, candidatePath).split("\\").join("/"),
+          verification,
+          verifiedRepair: null,
+          output: ["Repair: rejected (patch_invalid)", `Reason: ${String(error)}`]
+        };
+      } finally {
+        await (0, repair_1.assertRepositoryIntegrity)(input2.projectRoot, integrity);
+      }
+    }
+    async function repairExistingFailure(options) {
+      const configAbsolute = (0, node_path_1.resolve)(options.configPath);
+      const projectRoot = (0, node_path_1.dirname)(configAbsolute);
+      const paths = (0, core_1.artifactPaths)(projectRoot);
+      const config = (0, core_1.validateContract)("IsotopeConfig", (0, yaml_1.parse)(await (0, promises_1.readFile)(configAbsolute, "utf8")));
+      const [selected, bdg, verdict, report] = await Promise.all([
+        (0, core_1.readJsonArtifact)(paths.root, paths.selectedSpecs, "SelectedSpecs"),
+        (0, core_1.readJsonArtifact)(paths.root, paths.bdg, "BDG"),
+        (0, core_1.readJsonArtifact)(paths.root, paths.verdict, "VerdictReport"),
+        (0, core_1.readJsonArtifact)(paths.root, paths.report, "IsotopeReport")
+      ]);
+      const entry = bdg.entryPoints.find((item) => item.id === options.entryPoint || `${item.file}#${item.export}` === options.entryPoint || bdg.entryPoints.length === 1 && item.export === options.entryPoint);
+      if (!entry)
+        throw new Error(`Entry point not present in existing BDG: ${options.entryPoint}`);
+      const result = verdict.results.find((item) => item.entryPointId === entry.id);
+      if (!result || result.verdict !== "FAIL")
+        throw new Error("isotope repair requires an existing mechanical FAIL artifact");
+      const spec = selected.specs[0];
+      const fixtureDirectory = options.testFixtureDirectory ?? (0, node_path_1.join)(projectRoot, "fixtures/normalized", spec.fixtures.pair);
+      const oldPath = (0, node_path_1.resolve)(fixtureDirectory, "old.json");
+      const newPath = (0, node_path_1.resolve)(fixtureDirectory, "new.json");
+      const [oldPayload, newPayload] = await Promise.all([oldPath, newPath].map(async (path) => JSON.parse(await (0, promises_1.readFile)(path, "utf8"))));
+      const fixture = {
+        id: options.testFixtureDirectory ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair,
+        role: "planning",
+        oldPath,
+        newPath,
+        oldVersion: fixtureVersion(oldPayload, "old fixture"),
+        newVersion: fixtureVersion(newPayload, "new fixture")
+      };
+      const signatures = [];
+      for (const artifactRef of report.signatureRefs)
+        signatures.push(await (0, core_1.readJsonArtifact)(paths.root, (0, node_path_1.resolve)(paths.root, artifactRef), "Signature"));
+      const pair = (payloadVersion) => {
+        const matches = signatures.filter((signature) => signature.entryPointId === entry.id && signature.codeVersion === "original" && signature.payloadVersion === payloadVersion).sort((a, b) => a.runIndex - b.runIndex);
+        if (matches.length !== 2)
+          throw new Error(`Existing FAIL artifacts need two ${payloadVersion} signatures`);
+        return [matches[0], matches[1]];
+      };
+      const repair = await attemptDeterministicRepair({
+        projectRoot,
+        artifactProjectRoot: projectRoot,
+        config,
+        selected,
+        bdg,
+        entryPoint: entry,
+        originalVerdict: result,
+        planning: { fixture, original: { old: pair(fixture.oldVersion), new: pair(fixture.newVersion) }, newPayload },
+        fixtureRoot: (0, node_path_1.join)(projectRoot, "fixtures/normalized"),
+        ...options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}
+      });
+      const updated = (0, core_1.validateContract)("IsotopeReport", {
+        ...report,
+        candidateRefs: repair.candidateRef ? [repair.candidateRef] : [],
+        repairVerifications: repair.verification ? [repair.verification] : [],
+        verifiedRepairs: repair.verifiedRepair ? [repair.verifiedRepair] : []
+      });
+      await (0, core_1.writeJsonArtifact)(paths.root, paths.report, "IsotopeReport", updated);
+      return { exitCode: repair.verifiedRepair ? 5 : 1, output: [`Original verdict: FAIL`, ...repair.output, `Artifacts: ${paths.root}`].join("\n") };
+    }
+  }
+});
+
 // packages/cli/dist/walking-skeleton.js
 var require_walking_skeleton = __commonJS({
   "packages/cli/dist/walking-skeleton.js"(exports2) {
@@ -316455,6 +317298,7 @@ var require_walking_skeleton = __commonJS({
     var scan_1 = require_scan3();
     var harness_ts_1 = require_dist5();
     var differ_1 = require_dist6();
+    var repair_flow_1 = require_repair_flow();
     function asObject(value, label) {
       if (!value || typeof value !== "object" || Array.isArray(value))
         throw new Error(`${label} must be an object`);
@@ -316519,8 +317363,8 @@ var require_walking_skeleton = __commonJS({
         config.reasoner.mode = "off";
       if (options.disableRepair)
         config.repair.mode = "off";
-      if (config.reasoner.mode !== "off" || config.repair.mode !== "off")
-        throw new Error("Phase 5 verify requires reasoner.mode: off and repair.mode: off; neither stage is implemented");
+      if (config.reasoner.mode !== "off")
+        throw new Error("Semantic reasoner is unavailable in the current build");
       const spec = selected.specs[0];
       const paths = (0, core_1.artifactPaths)(options.artifactProjectRoot ?? projectRoot);
       const roots = bdg.nodes.filter((n) => n.entryPointId === entryPoint.id && n.kind === "taint_root" && n.provenance.confidence !== "low");
@@ -316585,8 +317429,7 @@ ${metaPath}`);
         `Fixture pair: ${fixture.id}`,
         `Old: ${oldVersion}`,
         `New: ${newVersion}`,
-        "Semantic reasoner: not invoked",
-        "Repair: not invoked"
+        "Semantic reasoner: not invoked"
       ];
       let signatures = null;
       let diff = null;
@@ -316643,7 +317486,7 @@ ${metaPath}`);
       }
       const verdict = (0, core_1.validateContract)("VerdictReport", { schemaVersion: 1, verdict: result.verdict, results: [result] });
       await (0, core_1.writeJsonArtifact)(paths.root, paths.verdict, "VerdictReport", verdict);
-      const report = (0, core_1.validateContract)("IsotopeReport", {
+      let report = (0, core_1.validateContract)("IsotopeReport", {
         schemaVersion: 1,
         selectedSpecs: selected,
         bdgRef: ref(paths.bdg),
@@ -316660,8 +317503,34 @@ ${metaPath}`);
       });
       await (0, core_1.writeJsonArtifact)(paths.root, paths.report, "IsotopeReport", report);
       await (0, core_1.readJsonArtifact)(paths.root, paths.report, "IsotopeReport");
-      log.push(`Verdict: ${result.verdict}`, `Reason: ${result.reason}`, `Artifacts: ${paths.root}`);
-      const exitCode = result.verdict === "PASS" ? 0 : result.verdict === "FAIL" ? 1 : result.verdict === "ESCALATE" ? 3 : 4;
+      log.push(`Verdict: ${result.verdict}`, `Reason: ${result.reason}`);
+      let verified = false;
+      if (result.verdict === "FAIL" && config.repair.mode === "on" && signatures && diff) {
+        const repair = await (0, repair_flow_1.attemptDeterministicRepair)({
+          projectRoot,
+          artifactProjectRoot: options.artifactProjectRoot ?? projectRoot,
+          config,
+          selected,
+          bdg,
+          entryPoint,
+          originalVerdict: result,
+          planning: { fixture, original: signatures, newPayload: payloads[1] },
+          fixtureRoot: options.fixtureRoot ?? (0, node_path_1.join)(sourceRoot, "fixtures/normalized"),
+          ...options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}
+        });
+        log.push(...repair.output);
+        verified = repair.verifiedRepair !== null;
+        report = (0, core_1.validateContract)("IsotopeReport", {
+          ...report,
+          candidateRefs: repair.candidateRef ? [repair.candidateRef] : [],
+          repairVerifications: repair.verification ? [repair.verification] : [],
+          verifiedRepairs: repair.verifiedRepair ? [repair.verifiedRepair] : []
+        });
+        await (0, core_1.writeJsonArtifact)(paths.root, paths.report, "IsotopeReport", report);
+      } else
+        log.push(`Repair: ${config.repair.mode === "off" ? "disabled" : "not eligible for non-FAIL verdict"}`);
+      log.push(`Artifacts: ${paths.root}`);
+      const exitCode = verified ? 5 : result.verdict === "PASS" ? 0 : result.verdict === "FAIL" ? 1 : result.verdict === "ESCALATE" ? 3 : 4;
       return { exitCode, output: log.join("\n"), report, signatures, diff };
     }
   }
@@ -316702,7 +317571,7 @@ Verdict: SKIP`, report, selection, artifactRoot: paths.root, execution: null };
       const execution = await (0, walking_skeleton_1.verifyWalkingSkeleton)({
         configPath,
         disableReasoner: true,
-        disableRepair: true,
+        disableRepair: options.repair === "off",
         selectedSpecs: selection.selected,
         fixtureRoot: (0, node_path_1.resolve)(repositoryRoot, "fixtures/normalized"),
         ...options.testFixtureDirectory ? { testFixtureDirectory: options.testFixtureDirectory } : {}
@@ -316901,7 +317770,7 @@ var require_matrix = __commonJS({
 });
 
 // packages/cli/dist/index.js
-var require_dist7 = __commonJS({
+var require_dist9 = __commonJS({
   "packages/cli/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -316915,6 +317784,7 @@ var require_dist7 = __commonJS({
     var node_path_1 = require("node:path");
     var promises_1 = require("node:fs/promises");
     var matrix_1 = require_matrix();
+    var repair_flow_1 = require_repair_flow();
     var walking_skeleton_2 = require_walking_skeleton();
     Object.defineProperty(exports2, "verifyWalkingSkeleton", { enumerable: true, get: function() {
       return walking_skeleton_2.verifyWalkingSkeleton;
@@ -316953,7 +317823,7 @@ var require_dist7 = __commonJS({
             baseRef: options.base,
             headRef: options.head,
             reasoner: "off",
-            repair: "off",
+            repair: options.repair === false ? "off" : "on",
             ...testFixtureDirectory ? { testFixtureDirectory } : {}
           });
           console.log(result2.output);
@@ -316964,10 +317834,14 @@ var require_dist7 = __commonJS({
         console.log(result.output);
         process.exitCode = result.exitCode;
       });
-      program.command("repair [entry-point]").description("Propose a repair or inspect an existing repair (stub)").option("--explain <repairId>", "explain an existing repair").action((entry, options) => {
+      program.command("repair [entry-point]").description("Verify a deterministic repair for an existing mechanical FAIL").option("--explain <repairId>", "explain an existing repair").action(async (entry, options) => {
         if (!entry && !options.explain || entry && options.explain)
           throw new commander_1.InvalidArgumentError("provide either an entry-point or --explain <repairId>");
-        pending("repair");
+        if (options.explain)
+          pending("repair --explain");
+        const result = await (0, repair_flow_1.repairExistingFailure)({ configPath: program.opts().config, entryPoint: entry, ...process.env.ISOTOPE_TEST_FIXTURES ? { testFixtureDirectory: process.env.ISOTOPE_TEST_FIXTURES } : {} });
+        console.log(result.output);
+        process.exitCode = result.exitCode;
       });
       program.command("explain <entry-point>").description("Inspect signatures, diff, and reasoning (stub)").action(() => pending("explain"));
       program.command("fleet").description("Run batch analysis and produce a static dashboard (stub)").option("--repos <path>", "repository manifest").option("--spec <id>", "ChangeSpec identifier").option("--out <path>", "dashboard file").option("--reason", "enable reasoning").option("--repair", "enable repair").action(() => pending("fleet"));
@@ -316984,14 +317858,14 @@ var require_dist7 = __commonJS({
         process.exitCode = result.exitCode;
       });
       program.command("accuracy").description("Run the historical benchmark (stub)").action(() => pending("accuracy"));
-      program.addHelpText("after", "\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. ChangeSpec selection remains explicit; reasoner and repair remain unimplemented.");
+      program.addHelpText("after", "\nCommand forms:\n  verify --no-reasoner\n  verify --no-repair\n  repair <entry-point>\n  repair --explain <repairId>\n  spec validate|draft|list\n  fixtures normalize\n\nscan performs static analysis only. verify uses the generated BDG and isolated harness. Deterministic repairs are isolated and independently verified; semantic reasoning and model repair remain unavailable.");
       return program;
     }
   }
 });
 
 // packages/reporter/dist/index.js
-var require_dist8 = __commonJS({
+var require_dist10 = __commonJS({
   "packages/reporter/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -317055,6 +317929,14 @@ var require_dist8 = __commonJS({
           lines.push("", `Observable ${code(divergence.sinkKind ?? "handler")} changed at ${code(divergence.pointer)}.`, "", "| | old | new |", "|---|---|---|", `| value | ${code(display(divergence.old), 190)} | ${code(display(divergence.new), 190)} |`);
         if (evidence.signatures.length && evidence.signatures.every((s) => s.threw === null))
           lines.push("", "Both repeated old/new executions completed normally.");
+        const verified = evidence.report.verifiedRepairs[0];
+        if (verified) {
+          const diff = verified.diff.slice(0, 8e3).replace(/```/g, "``\u200B`");
+          lines.push("", "### \u2705 Verified repair available", "", "```diff", diff.trimEnd(), "```", "", "Verification:", "- original verdict: FAIL", "- patched planning fixture: PASS", "- held-out fixture: PASS", "- provider\u2192sink flow preserved", "", "Applied only in an isolated workspace. Nothing was committed, pushed, or merged.");
+        } else if (evidence.report.repairVerifications.length) {
+          const rejected = evidence.report.repairVerifications[0];
+          lines.push("", `A candidate repair was evaluated but did not satisfy Isotope's verification criteria.`, `Reason: ${code(rejected.outcome)} \u2014 ${clean(rejected.reason, 500)}`);
+        }
       } else if (verdict === "PASS" || verdict === "PASS_REASONED") {
         lines.push("### \u2705 Isotope \u2014 compatible", "", transition(evidence.selected), "", `${counts(evidence)}.`, "No behavioral incompatibility found.");
       } else if (verdict === "ESCALATE") {
@@ -317073,7 +317955,8 @@ var require_dist8 = __commonJS({
       return lines.join("\n").slice(0, 2e4);
     }
     function renderCheckSummary2(evidence) {
-      return [`### Isotope: ${evidence.report.verdict.verdict}`, "", transition(evidence.selected), "", counts(evidence), "", "Artifacts: `.isotope/`"].join("\n");
+      const repair = evidence.report.verifiedRepairs.length ? ["", "A verified deterministic repair is available; the incompatibility remains blocking until a human applies it."] : [];
+      return [`### Isotope: ${evidence.report.verdict.verdict}`, "", transition(evidence.selected), "", counts(evidence), ...repair, "", "Artifacts: `.isotope/`"].join("\n");
     }
     function mapVerdictToConclusion2(verdict) {
       if (verdict === "FAIL" || verdict === "FAIL_REASONED" || verdict === "ESCALATE")
@@ -317132,8 +318015,8 @@ var import_node_fs = require("node:fs");
 var import_node_path2 = require("node:path");
 var import_node_os = require("node:os");
 var import_node_child_process = require("node:child_process");
-var import_cli = __toESM(require_dist7());
-var import_reporter = __toESM(require_dist8());
+var import_cli = __toESM(require_dist9());
+var import_reporter = __toESM(require_dist10());
 
 // action/src/context.ts
 var import_promises = require("node:fs/promises");
@@ -317260,7 +318143,7 @@ async function main() {
   const mode = input("mode", "verify");
   const reasoner = input("reasoner", "off");
   const repair = input("repair", "off");
-  if (reasoner !== "off" || repair !== "off") throw new Error("Phase 8 supports only reasoner=off and repair=off");
+  if (reasoner !== "off" || !["on", "off"].includes(repair)) throw new Error("Reasoner must be off and repair must be on or off");
   if (input("fail-on", "critical,high").replace(/\s/g, "") !== "critical,high") throw new Error("Phase 8 supports only fail-on=critical,high");
   const context = await loadActionContext({ base: input("base"), head: input("head"), pullNumber: input("pr-number") });
   const repositoryRoot = (0, import_node_path2.resolve)(process.env.GITHUB_WORKSPACE ?? process.cwd());
@@ -317278,7 +318161,7 @@ async function main() {
       baseRef: context.baseSha,
       headRef: context.headSha,
       reasoner: "off",
-      repair: "off",
+      repair,
       ...internalFixture ? { testFixtureDirectory: internalFixture } : {}
     });
     artifactRoot = result.artifactRoot;
