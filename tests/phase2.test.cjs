@@ -93,7 +93,7 @@ test('unsupported semantic differences never become arbitrary FAIL or PASS', () 
   const a = clone(fixtures.Signature); const b = clone(a); b.calls[0].args[0].value = 43;
   const diff = differ.diffSignatures(diffInput(a,b));
   assert.equal(diff.divergences[0].tier, 'semantic_question');
-  assert.equal(verdict(diff).verdict,'INDETERMINATE'); assert.match(verdict(diff).reason,/unsupported_semantic/);
+  assert.equal(verdict(diff).verdict,'ESCALATE'); assert.equal(verdict(diff).reason,'semantic_reasoner_unavailable');
 });
 test('JSON pointers escape property names and arrays remain positional', () => {
   const a = clone(fixtures.Signature); a.calls[0].args = [{ 'a/b~c': [1,2] }];
@@ -184,7 +184,7 @@ test('CLI identical-behavior control exits 0 with PASS using the same execution 
 
 test('added call arguments remain unsupported semantic differences, never a false PASS', () => {
   const a = clone(fixtures.Signature); const b = clone(a); b.calls[0].args.push({ extra: true });
-  const diff = differ.diffSignatures(diffInput(a,b)); assert.equal(verdict(diff).verdict,'INDETERMINATE');
+  const diff = differ.diffSignatures(diffInput(a,b)); assert.equal(verdict(diff).verdict,'ESCALATE');
 });
 test('failed re-run removes stale comparison artifacts', async t => {
   const directory = await project(t); const p = core.artifactPaths(directory);

@@ -12,7 +12,9 @@ export interface ResolveInput { repoRoot: string; config: IsotopeConfig; selecte
 export interface FixturePair { id: string; role: 'planning' | 'held_out'; oldPath: string; newPath: string; oldVersion: string; newVersion: string }
 export interface HarnessInput { repoRoot: string; config: IsotopeConfig; entryPoint: EntryPoint; bdg: BDG; fixture: FixturePair; codeVersion: CodeVersion }
 export interface HarnessResult { old: [Signature, Signature]; new: [Signature, Signature] }
-export interface DiffInput { old: Signature; new: Signature; bdg: BDG; selfComparisons: { old: [Signature, Signature]; new: [Signature, Signature] } }
+/** Caller-evaluated ambiguity facts, scoped to behavioral JSON Pointer subtrees. No expressions. */
+export interface ChangeContext { ambiguitySatisfied: boolean; affectedPointers: string[] }
+export interface DiffInput { old: Signature; new: Signature; bdg?: BDG; selfComparisons: { old: [Signature, Signature]; new: [Signature, Signature] }; changeContext?: ChangeContext }
 export interface ReasoningInput { packet: EvidencePacket; config: IsotopeConfig['reasoner'] }
 export interface ReasoningRun { status: 'completed' | 'unavailable' | 'errored' | 'disagreed' | 'abstained'; results: ReasoningResult[]; packetRef: string; responseRefs: string[]; error?: string }
 export interface VerdictInput { entryPoint: EntryPoint; bdg: BDG; diff: DiffReport; reasoning: ReasoningRun | null; config: IsotopeConfig }
@@ -47,5 +49,5 @@ export type DraftSpec = (input: DraftSpecInput) => Promise<ChangeSpec>;
 export type NormalizeFixtures = (input: NormalizeFixturesInput) => Promise<{ pairId: string; metadata: JsonValue }>;
 
 // L6 belongs here per v3 §2.5; placeholders contain no resolution/business logic.
-export { resolveVerdict } from './verdict';
+export { resolveVerdict, hasMechanicalFailure, needsSemanticReasoning } from './verdict';
 export const resolveAggregateVerdict: ResolveAggregateVerdict = (_input) => { throw new NotImplementedStageError('L6 aggregate verdict resolver'); };
