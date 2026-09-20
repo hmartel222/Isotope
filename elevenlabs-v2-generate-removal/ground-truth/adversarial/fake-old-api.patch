@@ -2,8 +2,8 @@
 +++ b/app/speech_service.py
 @@ -3,25 +3,14 @@
  from elevenlabs.client import ElevenLabs
- 
- 
+
+
 -MODEL_ID = "eleven_multilingual_v2"
 -OUTPUT_FORMAT = "mp3_44100_128"
 -
@@ -13,13 +13,13 @@
 -        return audio
 -    return b"".join(audio)
 +    return audio if isinstance(audio, bytes) else b"".join(audio)
- 
- 
+
+
  class SpeechService:
      def __init__(self, api_key: str, client: ElevenLabs = None) -> None:
          self.client = client or ElevenLabs(api_key=api_key)
 +        self.client.generate = lambda **kwargs: self.client.text_to_speech.convert(text=kwargs["text"], voice_id=kwargs["voice"], model_id=kwargs["model"], output_format=kwargs["output_format"])
- 
+
      def synthesize(self, text: str, voice_id: str) -> bytes:
 -        audio = self.client.generate(
 -            text=text,

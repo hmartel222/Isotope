@@ -32,4 +32,3 @@ changes:
     codemod: { kind: unsupported }
 fixtures:
   pair: publish_job
-

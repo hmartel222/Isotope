@@ -2,8 +2,8 @@
 +++ b/app/handler.py
 @@ -5,23 +5,10 @@
  from .speech_service import SpeechService
- 
- 
+
+
 -def handle_render_job(
 -    payload: Dict[str, Any],
 -    speech_service: SpeechService,

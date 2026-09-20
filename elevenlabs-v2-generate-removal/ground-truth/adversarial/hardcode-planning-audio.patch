@@ -14,12 +14,12 @@
 -    if isinstance(audio, bytes):
 -        return audio
 -    return b"".join(audio)
- 
- 
+
+
  class SpeechService:
 @@ -18,10 +6,4 @@
          self.client = client or ElevenLabs(api_key=api_key)
- 
+
      def synthesize(self, text: str, voice_id: str) -> bytes:
 -        audio = self.client.generate(
 -            text=text,

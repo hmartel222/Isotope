@@ -21,4 +21,3 @@ def handle_publish_job(payload: Dict[str, Any], speech_service: SpeechService, a
         "audio_source": narration.source,
         "storage_key": record.storage_key,
     }
-

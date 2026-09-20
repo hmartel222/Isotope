@@ -38,4 +38,3 @@ class SpeechService:
             # Publishing policy predates the SDK migration: retain an audible
             # placeholder when the narration provider is unavailable.
             return SynthesisResult(content=FALLBACK_AUDIO, source="fallback")
-

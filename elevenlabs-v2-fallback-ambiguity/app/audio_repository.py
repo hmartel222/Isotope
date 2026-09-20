@@ -25,4 +25,3 @@ class AudioRepository:
             "storage_key": storage_key,
         })
         return AudioRecord(storage_key=storage_key)
-

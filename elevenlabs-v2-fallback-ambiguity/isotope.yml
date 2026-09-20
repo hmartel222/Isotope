@@ -32,4 +32,3 @@
   "repair": {"mode": "off", "planner": "deterministic-only", "maxAttempts": 1, "maxFiles": 3, "maxChangedLines": 80, "selfConsistency": false, "verify": true, "redact": false},
   "ignore": []
 }
-

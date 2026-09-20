@@ -5,4 +5,3 @@ This application renders narration through ElevenLabs and stores the resulting a
 With `elevenlabs==1.59.0`, `client.generate(...)` succeeds and provider-derived audio is stored. With `elevenlabs==2.0.0`, that removed method raises `AttributeError`; the application catches the provider failure and stores fallback audio instead. The sink remains present, but its content and the handler's reported audio source change. Whether that degradation is acceptable is a business-policy question, so Isotope should produce `ESCALATE` with semantic evidence rather than a mechanical `FAIL`.
 
 No live ElevenLabs request is made. Isotope imports the real installed package and intercepts only `text_to_speech.convert` to return deterministic bytes.
-

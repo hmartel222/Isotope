@@ -17,4 +17,3 @@ class PublishJob:
             text=str(payload["text"]),
             voice_id=str(payload["voice_id"]),
         )
-

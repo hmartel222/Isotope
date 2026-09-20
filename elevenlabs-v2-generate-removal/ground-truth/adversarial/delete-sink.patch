@@ -2,8 +2,8 @@
 +++ b/app/handler.py
 @@ -5,23 +5,7 @@
  from .speech_service import SpeechService
- 
- 
+
+
 -def handle_render_job(
 -    payload: Dict[str, Any],
 -    speech_service: SpeechService,
@@ -30,8 +30,8 @@
 +++ b/app/speech_service.py
 @@ -3,14 +3,8 @@
  from elevenlabs.client import ElevenLabs
- 
- 
+
+
 -MODEL_ID = "eleven_multilingual_v2"
 -OUTPUT_FORMAT = "mp3_44100_128"
 -
@@ -41,12 +41,12 @@
 -        return audio
 -    return b"".join(audio)
 +    return audio if isinstance(audio, bytes) else b"".join(audio)
- 
- 
+
+
  class SpeechService:
 @@ -18,10 +12,4 @@
          self.client = client or ElevenLabs(api_key=api_key)
- 
+
      def synthesize(self, text: str, voice_id: str) -> bytes:
 -        audio = self.client.generate(
 -            text=text,
