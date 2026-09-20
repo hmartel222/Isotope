@@ -321124,16 +321124,14 @@ var require_dist15 = __commonJS({
       return `${handlers} handler${handlers === 1 ? "" : "s"} checked \xB7 ${sites} affected site${sites === 1 ? "" : "s"}`;
     }
     function firstDivergence(evidence) {
-      return evidence.diffs.flatMap((d) => d.divergences)[0];
+      const divergences = evidence.diffs.flatMap((d) => d.divergences);
+      return divergences.find((d) => d.kind === "call_dropped") ?? divergences.find((d) => d.kind === "threw_new_only") ?? divergences[0];
     }
     function location(evidence) {
       const site = evidence.bdg?.affectedSites[0];
       return site ? `${code(site.location.file)}:${site.location.line}` : null;
     }
     function ambiguityQuestion(evidence) {
-      const marked = evidence.diffs.some((d) => d.divergences.some((x) => x.ambiguityCandidate));
-      if (!marked)
-        return null;
       return evidence.selected.specs.flatMap((s) => s.changes).find((c) => c.ambiguity)?.ambiguity?.question ?? null;
     }
     function firstReasoning(evidence) {

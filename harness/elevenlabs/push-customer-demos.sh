@@ -34,7 +34,7 @@ PY
 }
 
 publish_repo() {
-  local repo="$1" description="$2" src dir
+  local repo="$1" description="$2" src dir dependabot_branch
   src="$BUILT/$repo"
   dir="$WORKDIR/$repo"
   if [[ ! -d "$src" ]]; then
@@ -62,6 +62,17 @@ publish_repo() {
     git -C "$dir" add -A
     git -C "$dir" commit -m "Add ElevenLabs customer app with Isotope verification"
     gh repo create "${OWNER}/${repo}" --public --description "$description" --source "$dir" --remote origin --push
+  fi
+  dependabot_branch="$(gh pr list --repo "${OWNER}/${repo}" --state open --search 'author:app/dependabot' --limit 1 --json headRefName --jq '.[0].headRefName // empty')"
+  if [[ -n "$dependabot_branch" ]]; then
+    git -C "$dir" fetch origin "+refs/heads/${dependabot_branch}:refs/remotes/origin/${dependabot_branch}"
+    git -C "$dir" checkout -B "$dependabot_branch" "origin/$dependabot_branch"
+    if ! git -C "$dir" merge --no-edit origin/main; then
+      git -C "$dir" merge --abort || true
+      echo "could not synchronize $repo Dependabot branch with main" >&2
+      exit 1
+    fi
+    git -C "$dir" push origin "$dependabot_branch"
   fi
   printf '%s\t%s\n' "$repo" "https://github.com/${OWNER}/${repo}"
 }

@@ -13,11 +13,17 @@ function evidence(verdict = 'FAIL') {
 
 test('reporter renders bounded verdict-specific evidence and keeps SKIP silent',()=>{
   const fail=reporter.renderPrComment(evidence('FAIL'));assert.match(fail,/incompatibility detected/);assert.match(fail,/42/);assert.match(fail,/undefined/);assert.ok(fail.startsWith(reporter.REPORT_MARKER));
-  assert.match(reporter.renderPrComment(evidence('PASS')),/compatible/);assert.match(reporter.renderPrComment(evidence('ESCALATE')),/needs a decision/);
+  assert.match(reporter.renderPrComment(evidence('PASS')),/compatible/);const escalated=reporter.renderPrComment(evidence('ESCALATE'));assert.match(escalated,/needs a decision/);assert.match(escalated,/Decision needed: Which item\?/);
   assert.match(reporter.renderPrComment(evidence('INDETERMINATE')),/could not establish stable behavior/);assert.equal(reporter.renderPrComment(evidence('SKIP')),null);
   const hostile=evidence('FAIL');hostile.selected.specs[0].id='bad<!-- isotope-report -->\n# injected';const rendered=reporter.renderPrComment(hostile);assert.equal((rendered.match(/<!-- isotope-report -->/g)||[]).length,1);assert.ok(rendered.length<=20000);
   assert.deepEqual(['PASS','SKIP','FAIL','ESCALATE','INDETERMINATE'].map(reporter.mapVerdictToConclusion),['success','success','failure','failure','neutral']);
   assert.equal(reporter.buildAnnotations(evidence('FAIL'))[0].annotation_level,'failure');assert.equal(reporter.buildAnnotations(evidence('ESCALATE'))[0].annotation_level,'warning');assert.deepEqual(reporter.buildAnnotations(evidence('SKIP')),[]);
+});
+
+test('FAIL comments prioritize a dropped observable sink over a returned-state divergence',()=>{
+  const input=evidence('FAIL');const returned=clone(input.diffs[0].divergences[0]);returned.pointer='/returned';returned.sinkKind=null;
+  const dropped=clone(returned);dropped.id='dropped';dropped.pointer='/calls/0';dropped.kind='call_dropped';dropped.sinkKind='db_write';dropped.old={mock:'repository.save'};dropped.new='__undefined__';
+  input.diffs[0].divergences=[returned,dropped];const rendered=reporter.renderPrComment(input);assert.match(rendered,/Observable `db_write` changed at `\/calls\/0`/);
 });
 
 test('comment publication creates once, updates one bot-owned marker, and preserves verdict on API errors',async()=>{
