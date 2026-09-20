@@ -12,7 +12,7 @@ Packets are reconstructed from the selected ChangeSpec, BDG, signatures, diff, a
 
 ## Votes
 
-Default model: `gemini-2.5-flash`. Two independent votes share the packet and prompt (`REASONER_PROMPT_VERSION = 1`). One malformed vote may receive a single mechanical schema retry (`primaryVotes = 2`, `apiAttempts <= 3`). Cache keys include packet hash, model, prompt version, and schema version. Timeouts, missing keys, disagreement, low confidence, abstention, and suspected injection escalate. `PASS_REASONED` requires two medium-or-higher `benign_adaptation` votes. The v3 "two calls + one schema retry" rule is implemented as two independent primary votes with at most one mechanical format retry (`primaryVotes = 2`, `apiAttempts <= 3`). The retry asks only for schema-valid JSON over the same packet and never sees the other vote. Live calls read `GEMINI_API_KEY`.
+Default model: `gemini-3.6-flash`. Two independent votes share the packet and prompt (`REASONER_PROMPT_VERSION = 1`). One malformed vote may receive a single mechanical schema retry (`primaryVotes = 2`, `apiAttempts <= 3`). Cache keys include packet hash, model, prompt version, and schema version. Timeouts, missing keys, disagreement, low confidence, abstention, and suspected injection escalate. `PASS_REASONED` requires two medium-or-higher `benign_adaptation` votes. The v3 "two calls + one schema retry" rule is implemented as two independent primary votes with at most one mechanical format retry (`primaryVotes = 2`, `apiAttempts <= 3`). The retry asks only for schema-valid JSON over the same packet and never sees the other vote. Live calls read `GEMINI_API_KEY`.
 
 ## Verdicts
 

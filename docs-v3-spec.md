@@ -25,7 +25,7 @@
 | Fleet view | Static dashboard from a local batch run; single self-contained HTML file | No service to keep alive during judging |
 | Isotope implementation | TypeScript, Node 20, pnpm workspaces | Same toolchain as the primary target language |
 | Python support | Sidecar subprocess (`py-runner/`), stdlib `ast` \+ `unittest.mock` | Fewer moving parts |
-| Models | `gemini-2.5-flash` for semantic adjudication and repair planning. Temperature 0. | Judgment vs. extraction |
+| Models | `gemini-3.6-flash` for semantic adjudication and repair planning. Temperature 0. | Judgment vs. extraction |
 
 ### **0.2 Non-goals**
 
@@ -1290,4 +1290,3 @@ Dependency order is strict: deterministic detection → one FAIL and one PASS en
 | "Just a linter?" | A linter reads syntax. We execute your handler against two real payloads and diff what it *did*. | §3.4–3.5 |
 
 **The loop, in eight words:** detect, trace, execute, compare, reason, repair, re-verify, offer.
-

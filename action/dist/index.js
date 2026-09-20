@@ -317188,7 +317188,7 @@ var require_prompt = __commonJS({
     exports2.schemaRetryMessage = schemaRetryMessage;
     exports2.REASONER_PROMPT_VERSION = 1;
     exports2.REASONING_SCHEMA_VERSION = 1;
-    exports2.DEFAULT_REASONER_MODEL = "gemini-2.5-flash";
+    exports2.DEFAULT_REASONER_MODEL = "gemini-3.6-flash";
     exports2.REASONER_SYSTEM_PROMPT = `You are Isotope's semantic reasoner. Classify one bounded provider-integration behavior change.
 Allowed classifications: incompatibility | benign_adaptation | human_decision_required.
 Choose benign_adaptation only when the code demonstrably implements the provider's new semantics and the observed behavioral change directly follows from that implementation.
@@ -318759,7 +318759,7 @@ var require_prompt2 = __commonJS({
     exports2.plannerSchemaRetryMessage = plannerSchemaRetryMessage;
     exports2.PLANNER_PROMPT_VERSION = 1;
     exports2.PLANNER_SCHEMA_VERSION = 1;
-    exports2.DEFAULT_PLANNER_MODEL = "gemini-2.5-flash";
+    exports2.DEFAULT_PLANNER_MODEL = "gemini-3.6-flash";
     exports2.PLANNER_SYSTEM_PROMPT = `You are Isotope's repair planner. You propose the smallest behavior-preserving edit from bounded evidence. You do not verify patches.
 Allowed classifications: repair_candidate | human_decision_required | no_safe_repair.
 A repair_candidate must be a specific anchored edit derivable from the supplied evidence and documented provider semantics.

@@ -14,8 +14,8 @@ const root = path.resolve(__dirname, '..');
 const cassetteFile = name => JSON.parse(require('fs').readFileSync(path.join(root, 'tests/cassettes/reasoner', `${name}.json`), 'utf8'));
 const cassette = name => { const raw = cassetteFile(name); return raw.voteA ?? raw; };
 
-test('uses the stable Gemini 2.5 Flash model by default', () => {
-  assert.equal(reasoner.DEFAULT_REASONER_MODEL, 'gemini-2.5-flash');
+test('uses the stable Gemini 3.6 Flash model by default', () => {
+  assert.equal(reasoner.DEFAULT_REASONER_MODEL, 'gemini-3.6-flash');
 });
 
 function bindVote(vote, user) {

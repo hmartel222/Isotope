@@ -176,7 +176,7 @@ One EvidencePacket per **entry point**, not per leaf divergence. Primary id = le
 
 `packages/reasoner/src/reason.ts`, `consensus.ts`, `validate.ts`, `prompt.ts`, `adapter.ts`, `cache.ts`
 
-- Default model id: `gemini-2.5-flash` (`DEFAULT_REASONER_MODEL`)
+- Default model id: `gemini-3.6-flash` (`DEFAULT_REASONER_MODEL`)
 - SDK: `@google/generative-ai`. Temperature 0. 30s timeout. No tools
 - Narrow `SemanticModel { classify(input): Promise<string>; modelId }`
 - Prompt version `REASONER_PROMPT_VERSION = 1`. Evidence only inside `<evidence>`

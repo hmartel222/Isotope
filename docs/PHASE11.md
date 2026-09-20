@@ -14,7 +14,7 @@ Packets are reconstructed from the selected ChangeSpec, BDG, planning signatures
 
 ## Planner
 
-Default model: `gemini-2.5-flash`. Prompt version `PLANNER_PROMPT_VERSION = 1`. No tools, filesystem, or shell. One primary attempt and one mechanical schema/apply retry. `repair.selfConsistency` runs two independent calls and escalates when normalized patches differ. Low confidence, abstain, injection, timeout, and API errors produce no patch. Live calls read `GEMINI_API_KEY`.
+Default model: `gemini-3.6-flash`. Prompt version `PLANNER_PROMPT_VERSION = 1`. No tools, filesystem, or shell. One primary attempt and one mechanical schema/apply retry. `repair.selfConsistency` runs two independent calls and escalates when normalized patches differ. Low confidence, abstain, injection, timeout, and API errors produce no patch. Live calls read `GEMINI_API_KEY`.
 
 Classifications are `repair_candidate`, `human_decision_required`, and `no_safe_repair`. Origin is always `model`. L10 accepts `FAIL` or `FAIL_REASONED` as the original verdict for model candidates without changing held-out or shape checks.
 
