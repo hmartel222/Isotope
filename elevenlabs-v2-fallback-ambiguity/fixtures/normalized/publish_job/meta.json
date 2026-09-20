@@ -1,0 +1,6 @@
+{
+  "provenance": "Local application input; identical across isolated SDK environments",
+  "oldVersion": "elevenlabs==1.59.0",
+  "newVersion": "elevenlabs==2.0.0",
+  "synthetic": false
+}
