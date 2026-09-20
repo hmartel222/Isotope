@@ -35,7 +35,7 @@ export async function loadSpecsForProject(registryRoot: string, sources: string[
   const humans = await loadHumanSpecs(registryRoot);
   const configuredModules = config.mocks.map(mock => mock.module);
   const matched = humans.filter(spec => Object.values(spec.detection.ecosystems).some(rule =>
-    rule.packages.some(pkg => mentions(text, pkg) || configuredModules.includes(pkg))));
+    rule.packages.some(pkg => mentions(text, pkg) || configuredModules.some(module => module === pkg || module.startsWith(`${pkg}.`)))));
   const language = config.language === 'py' || (config.language === 'auto' && config.entryPoints.every(e => e.file.endsWith('.py'))) ? 'py' : 'ts';
   const scoped = matched.filter(spec => spec.detection.taint_roots.some(root => root.language === language));
   const chosen = (scoped.length ? scoped : matched).slice().sort((a, b) => a.id.localeCompare(b.id));

@@ -15,13 +15,13 @@ export function usesPython(config: { language: 'ts' | 'py' | 'auto'; entryPoints
   return py;
 }
 
-export async function analyzeConfiguredProject(configPath: string, selectedOverride?: SelectedSpecs) {
+export async function analyzeConfiguredProject(configPath: string, selectedOverride?: SelectedSpecs, specsPath?: string) {
   const path = await realpath(resolve(configPath)); const projectRoot = dirname(path);
   const config = validateContract('IsotopeConfig', parse(await readFile(path, 'utf8')) as unknown);
   const sources = await Promise.all(config.entryPoints.map(async e => {
     try { return `${e.file}\n${await readFile(resolve(projectRoot, e.file), 'utf8')}`; } catch { return e.file; }
   }));
-  const selected = selectedOverride ?? await loadSpecsForProject(resolve(__dirname, '../../../specs'), sources, config);
+  const selected = selectedOverride ?? await loadSpecsForProject(specsPath ? resolve(projectRoot, specsPath) : resolve(__dirname, '../../../specs'), sources, config);
   if (selected.specs.length !== 1) throw new Error('No matching human-verified ChangeSpec for configured sources');
   const python = usesPython(config);
   const bdg = python
@@ -48,8 +48,8 @@ export function graphSummary(bdg: BDG): string[] {
   for (const d of bdg.skipped) lines.push(`Diagnostic: ${d.file}: ${d.reason}`);
   return lines;
 }
-export async function scanProject(configPath: string): Promise<string> {
-  const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath);
+export async function scanProject(configPath: string, specsPath?: string): Promise<string> {
+  const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath, undefined, specsPath);
   const paths = artifactPaths(projectRoot);
   await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
   return [`ChangeSpec: ${selected.specs[0]!.id}`, ...graphSummary(bdg), `BDG artifact: ${paths.bdg}`].join('\n');

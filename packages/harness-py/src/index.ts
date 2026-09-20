@@ -7,16 +7,17 @@ export { HarnessExecutionError } from './errors';
 
 function sidecar(): string { return resolve(__dirname, '../../../py-runner/isotope_runner/cli.py'); }
 
-function python(payload: unknown): Promise<Record<string, unknown>> {
+function python(payload: unknown, executable = 'python3'): Promise<Record<string, unknown>> {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn('python3', [sidecar()], { stdio: ['pipe', 'pipe', 'pipe'] });
-    const out: Buffer[] = [];
+    const child = spawn(executable, [sidecar()], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const out: Buffer[] = []; const err: Buffer[] = [];
     child.stdout.on('data', chunk => out.push(chunk as Buffer));
+    child.stderr.on('data', chunk => err.push(chunk as Buffer));
     child.on('error', error => reject((error as NodeJS.ErrnoException).code === 'ENOENT'
       ? new HarnessExecutionError('harness_could_not_run', 'python3 is required for Python execution') : error));
     child.on('close', () => {
       try { resolvePromise(JSON.parse(Buffer.concat(out).toString('utf8')) as Record<string, unknown>); }
-      catch { reject(new HarnessExecutionError('invalid_child_output', 'Python harness returned invalid JSON')); }
+      catch { reject(new HarnessExecutionError('invalid_child_output', 'Python harness returned invalid JSON', { stderr: Buffer.concat(err).toString('utf8') })); }
     });
     child.stdin.end(JSON.stringify(payload));
   });
@@ -35,7 +36,8 @@ async function runOnce(input: HarnessInput, side: 'old' | 'new', runIndex: numbe
     fixture: { pairId: input.fixture.id, side, payloadVersion: side === 'old' ? input.fixture.oldVersion : input.fixture.newVersion, payloadPath },
     fixturePayload, codeVersion: input.codeVersion, mocks: input.config.mocks, mockReturns: input.config.returns, requestHeaders, runIndex,
   };
-  const result = await python({ command: 'harness', plan });
+  const configured = side === 'old' ? process.env.ISOTOPE_PYTHON_OLD : process.env.ISOTOPE_PYTHON_NEW;
+  const result = await python({ command: 'harness', plan }, configured || process.env.ISOTOPE_PYTHON || 'python3');
   if (result.error) {
     const error = result.error as { reason?: string; message?: string };
     throw new HarnessExecutionError((error.reason as HarnessExecutionError['reason']) || 'harness_could_not_run', error.message || 'Python harness failed');

@@ -196,6 +196,45 @@
                 },
                 "type": "object"
               },
+              "required": {
+                "type": "boolean"
+              },
+              "response": {
+                "additionalProperties": false,
+                "properties": {
+                  "chunks": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "fields": {
+                    "minProperties": 1,
+                    "patternProperties": {
+                      "^(.*)$": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "kind": {
+                    "const": "canonical-json-bytes",
+                    "type": "string"
+                  },
+                  "prefix": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "prefix",
+                  "fields"
+                ],
+                "type": "object"
+              },
               "strategy": {
                 "const": "provider",
                 "type": "string"
@@ -210,6 +249,10 @@
           {
             "additionalProperties": false,
             "properties": {
+              "adapter": {
+                "const": "method-record",
+                "type": "string"
+              },
               "exports": {
                 "minProperties": 1,
                 "patternProperties": {
