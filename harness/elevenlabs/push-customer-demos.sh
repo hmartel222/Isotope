@@ -39,18 +39,26 @@ publish_repo() {
     echo "missing built tree: $src" >&2
     exit 1
   fi
-  cp -a "$src" "$dir"
-  pin_action_sha "$dir"
-  git -C "$dir" init --initial-branch=main
-  git -C "$dir" config user.name "Isotope Demo Deployer"
-  git -C "$dir" config user.email "isotope-demo@users.noreply.github.com"
-  git -C "$dir" add -A
-  git -C "$dir" commit -m "Add ElevenLabs customer app with Isotope verification"
   if gh repo view "${OWNER}/${repo}" >/dev/null 2>&1; then
-    git -C "$dir" remote add origin "https://github.com/${OWNER}/${repo}.git"
-    git -C "$dir" fetch origin main
-    git -C "$dir" push --force-with-lease=main:refs/heads/main origin main
+    git clone "https://github.com/${OWNER}/${repo}.git" "$dir"
+    find "$dir" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+    cp -a "$src"/. "$dir"/
+    pin_action_sha "$dir"
+    git -C "$dir" config user.name "Isotope Demo Deployer"
+    git -C "$dir" config user.email "isotope-demo@users.noreply.github.com"
+    git -C "$dir" add -A
+    if ! git -C "$dir" diff --cached --quiet; then
+      git -C "$dir" commit -m "Sync ElevenLabs customer app and Isotope verification"
+      git -C "$dir" push origin HEAD:main
+    fi
   else
+    cp -a "$src" "$dir"
+    pin_action_sha "$dir"
+    git -C "$dir" init --initial-branch=main
+    git -C "$dir" config user.name "Isotope Demo Deployer"
+    git -C "$dir" config user.email "isotope-demo@users.noreply.github.com"
+    git -C "$dir" add -A
+    git -C "$dir" commit -m "Add ElevenLabs customer app with Isotope verification"
     gh repo create "${OWNER}/${repo}" --public --description "$description" --source "$dir" --remote origin --push
   fi
   printf '%s\t%s\n' "$repo" "https://github.com/${OWNER}/${repo}"
@@ -60,4 +68,3 @@ publish_repo isotope-demo-elevenlabs-removal "Isotope demo: ElevenLabs Python v1
 publish_repo isotope-demo-elevenlabs-fallback "Isotope demo: ElevenLabs Python v1 to v2 fallback-policy escalation"
 printf 'Pinned Isotope Action SHA: %s\n' "$ENGINE_SHA"
 printf 'Dependabot will scan requirements.txt and open the dependency pull requests.\n'
-
