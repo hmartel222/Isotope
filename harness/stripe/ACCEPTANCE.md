@@ -77,17 +77,27 @@ ArtifactValidationError: Invalid ChangeSpec: / must have required property 'id' 
 
 That YAML is `.github/dependabot.yml`. GitHub sets unused Action inputs to `""`, so the bundled-registry fallback never applied and `verify` scanned the customer checkout. The Action now treats blank inputs as missing and loads `action/registry/{specs,fixtures}`. Covered by `tests/phase8-action.test.cjs`.
 
-The four customer trees are committed at `harness/stripe/customer-repos/` (app code, `isotope.yml`, Dependabot, split workflows, npm lockfiles; no engine sources, specs, or fixtures). Action pin in those trees is `800e81cf50f2fa4390af0f9c1ecde7eef5d57d15`. Live Dependabot re-runs are **not** done here.
+The registry fix and Node 20 runtime rebuild were deployed at Action `0bd2ea0f50bd17f0d1a527ce4f076b1e4a4d95b9` on 2026-09-20. The four customer trees are committed at `harness/stripe/customer-repos/` (app code, `isotope.yml`, Dependabot, split workflows, npm lockfiles; no engine sources, specs, or fixtures).
 
-Re-pinning and re-running those PRs requires push access to the demo repos. This agent token can write `hmartel222/hophacksf26` only (`permissions.push: false` on the demos). From a machine that can push them:
+The open Dependabot branches were synchronized with the corrected workflows and produced these public results:
+
+| Demo | Product result | Verification run | Published rationale |
+|---|---|---|---|
+| mechanical | FAIL `mechanical_incompatibility`; critical `value_to_missing`; verified deterministic repair | [run 35488467218](https://github.com/hmartel222/isotope-demo-mechanical/actions/runs/35488467218) | [PR comment](https://github.com/hmartel222/isotope-demo-mechanical/pull/1#issuecomment-5747545311) |
+| migrated | PASS `identical_behavior` | [run 35488469002](https://github.com/hmartel222/isotope-demo-migrated/actions/runs/35488469002) | [PR comment](https://github.com/hmartel222/isotope-demo-migrated/pull/1#issuecomment-5747545026) |
+| aggregating | ESCALATE after bounded Gemini attempts returned HTTP 503/timeout | [run 35488471140](https://github.com/hmartel222/isotope-demo-aggregating/actions/runs/35488471140) | [PR comment](https://github.com/hmartel222/isotope-demo-aggregating/pull/1#issuecomment-5747547177) |
+| ambiguity | ESCALATE `semantic_reasoner_unavailable`; human decision required | [run 35488472930](https://github.com/hmartel222/isotope-demo-ambiguity/actions/runs/35488472930) | [PR comment](https://github.com/hmartel222/isotope-demo-ambiguity/pull/1#issuecomment-5747544947) |
+
+The mechanical run proves the intended intervention: both old and new executions returned HTTP 200, but `db.subscription.update` changed `renewalDate` from `1792395112` to `undefined`. Isotope blocked the PR, annotated `src/webhook.ts:6`, and published a repair independently verified against planning and held-out fixtures. The migrated control passed the identical Stripe upgrade.
+
+To deploy a newer Action commit and rerun the four PRs from an authenticated machine:
 
 ```bash
 cd hophacksf26
-git checkout cursor/stripe-harness-18eb
-./harness/stripe/push-customer-demos.sh
+AUDIT_AFTER_PUSH=1 ./harness/stripe/push-customer-demos.sh
 ```
 
-Then set `GEMINI_API_KEY` as both an Actions secret and a Dependabot secret on `isotope-demo-aggregating` if you want live case 9 (`PASS_REASONED`) instead of degraded `ESCALATE`.
+Set `GEMINI_API_KEY` as both an Actions secret and a Dependabot secret on `isotope-demo-aggregating` if you want live case 9 (`PASS_REASONED`) instead of safe degradation to `ESCALATE`. The 2026-09-20 run had credentials but Gemini returned 503 and then timed out, so Isotope correctly refused to claim a reasoned pass.
 
 Expected after re-pin (repair on for mechanical; reasoner on for aggregating):
 

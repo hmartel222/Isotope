@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Copy the built trees in harness/stripe/customer-repos/ onto the four public
 # demo remotes and pin the Action SHA to this engine HEAD.
-# Run from a clone of hophacksf26 on this branch, with git credentials that can
-# push to hmartel222/isotope-demo-*. This cloud agent token can only write the
-# engine repository.
+# Run from a clone of hophacksf26 with git credentials that can push to
+# hmartel222/isotope-demo-*. Set AUDIT_AFTER_PUSH=1 to wait for and validate
+# the resulting Isotope checks and PR comments.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -11,6 +11,11 @@ ENGINE_SHA="${ENGINE_SHA:-$(git -C "$ROOT" rev-parse HEAD)}"
 OWNER="${OWNER:-hmartel222}"
 WORKDIR="${WORKDIR:-$(mktemp -d /tmp/isotope-demos-XXXX)}"
 BUILT="$ROOT/harness/stripe/customer-repos"
+
+if ! git -C "$ROOT" cat-file -e "${ENGINE_SHA}^{commit}" 2>/dev/null; then
+  echo "engine SHA is not a local commit: $ENGINE_SHA" >&2
+  exit 1
+fi
 
 pin_action_sha() {
   local dest="$1"
@@ -41,6 +46,8 @@ sync_repo() {
   fi
   echo "=== $repo (from customer-repos/$repo sha=$ENGINE_SHA) ==="
   git clone --depth=1 "https://github.com/${OWNER}/${repo}.git" "$dir"
+  git -C "$dir" config user.name "Isotope Demo Deployer"
+  git -C "$dir" config user.email "isotope-demo@users.noreply.github.com"
   # Overlay the committed customer tree; keep the remote .git.
   find "$dir" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
   cp -a "$src"/. "$dir/"
@@ -56,7 +63,11 @@ sync_repo() {
   git -C "$dir" fetch origin '+refs/heads/dependabot/npm_and_yarn/stripe-22.6.2:refs/remotes/origin/dependabot/npm_and_yarn/stripe-22.6.2' || true
   if git -C "$dir" rev-parse --verify origin/dependabot/npm_and_yarn/stripe-22.6.2 >/dev/null 2>&1; then
     git -C "$dir" checkout -B dependabot/npm_and_yarn/stripe-22.6.2 origin/dependabot/npm_and_yarn/stripe-22.6.2
-    git -C "$dir" merge --no-edit origin/HEAD || git -C "$dir" merge --no-edit main
+    if ! git -C "$dir" merge --no-edit origin/HEAD; then
+      git -C "$dir" merge --abort || true
+      echo "could not synchronize $repo Dependabot branch with main" >&2
+      exit 1
+    fi
     git -C "$dir" push origin dependabot/npm_and_yarn/stripe-22.6.2
   fi
 }
@@ -68,3 +79,9 @@ sync_repo isotope-demo-ambiguity
 
 echo "Pinned Action SHA: $ENGINE_SHA"
 echo "Set GEMINI_API_KEY as both an Actions secret and a Dependabot secret on isotope-demo-aggregating for case 9."
+
+if [[ "${AUDIT_AFTER_PUSH:-0}" == "1" ]]; then
+  OWNER="$OWNER" ENGINE_SHA="$ENGINE_SHA" "$ROOT/harness/stripe/audit-customer-demos.sh"
+else
+  echo "Run harness/stripe/audit-customer-demos.sh after GitHub Actions completes."
+fi
