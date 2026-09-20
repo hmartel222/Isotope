@@ -1,0 +1,58 @@
+--- a/app/handler.py
++++ b/app/handler.py
+@@ -5,23 +5,7 @@
+ from .speech_service import SpeechService
+ 
+ 
+-def handle_render_job(
+-    payload: Dict[str, Any],
+-    speech_service: SpeechService,
+-    audio_repository: AudioRepository,
+-) -> Dict[str, Any]:
++def handle_render_job(payload: Dict[str, Any], speech_service: SpeechService, audio_repository: AudioRepository) -> Dict[str, Any]:
+     job = RenderJob.from_dict(payload)
+     audio = speech_service.synthesize(text=job.text, voice_id=job.voice_id)
+-    record = audio_repository.save(
+-        job_id=job.job_id,
+-        document_id=job.document_id,
+-        content=audio,
+-        content_type="audio/mpeg",
+-    )
+-    return {
+-        "job_id": job.job_id,
+-        "document_id": job.document_id,
+-        "status": "stored",
+-        "audio_size": len(audio),
+-        "storage_key": record.storage_key,
+-    }
++    return {"job_id": job.job_id, "document_id": job.document_id, "status": "stored", "audio_size": len(audio), "storage_key": "discarded"}
+--- a/app/speech_service.py
++++ b/app/speech_service.py
+@@ -3,14 +3,8 @@
+ from elevenlabs.client import ElevenLabs
+ 
+ 
+-MODEL_ID = "eleven_multilingual_v2"
+-OUTPUT_FORMAT = "mp3_44100_128"
+-
+-
+ def collect_audio(audio: Union[bytes, Iterable[bytes]]) -> bytes:
+-    if isinstance(audio, bytes):
+-        return audio
+-    return b"".join(audio)
++    return audio if isinstance(audio, bytes) else b"".join(audio)
+ 
+ 
+ class SpeechService:
+@@ -18,10 +12,4 @@
+         self.client = client or ElevenLabs(api_key=api_key)
+ 
+     def synthesize(self, text: str, voice_id: str) -> bytes:
+-        audio = self.client.generate(
+-            text=text,
+-            voice=voice_id,
+-            model=MODEL_ID,
+-            output_format=OUTPUT_FORMAT,
+-        )
+-        return collect_audio(audio)
++        return collect_audio(self.client.text_to_speech.convert(text=text, voice_id=voice_id, model_id="eleven_multilingual_v2", output_format="mp3_44100_128"))

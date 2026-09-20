@@ -1,0 +1,23 @@
+{
+  "officialUpgradeGuide": {
+    "url": "https://github.com/elevenlabs/elevenlabs-python/wiki/v2-upgrade-guide",
+    "relevantSection": "Removal of generate and clone methods",
+    "lastEdited": "2025-05-21"
+  },
+  "oldArtifact": {
+    "version": "1.59.0",
+    "releaseDate": "2025-05-15",
+    "pypi": "https://pypi.org/project/elevenlabs/1.59.0/",
+    "wheel": "elevenlabs-1.59.0-py3-none-any.whl",
+    "wheelSha256": "468145db81a0bc867708b4a8619699f75583e9481b395ec1339d0b443da771ed",
+    "inspectedSource": "elevenlabs/client.py:ElevenLabs.generate"
+  },
+  "newArtifact": {
+    "version": "2.0.0",
+    "releaseDate": "2025-05-20",
+    "pypi": "https://pypi.org/project/elevenlabs/2.0.0/",
+    "wheel": "elevenlabs-2.0.0-py3-none-any.whl",
+    "wheelSha256": "1914c7217356ab1abd6caeab4439ef58731b057c50572ed6e6600d86f0b7f0f2",
+    "inspectedSource": "elevenlabs/realtime_tts.py:RealtimeTextToSpeechClient.convert"
+  }
+}
