@@ -11,13 +11,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, ref: "${{ github.event.pull_request.head.sha }}" }
+      - name: Detect customer config
+        id: cfg
+        run: |
+          if [ -f isotope.yml ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: pnpm/action-setup@v4
+        if: steps.cfg.outputs.present == 'true'
+        with: { version: 9.15.9 }
       - uses: actions/setup-node@v4
+        if: steps.cfg.outputs.present == 'true'
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+        if: steps.cfg.outputs.present == 'true'
       - id: isotope
+        if: steps.cfg.outputs.present == 'true'
         uses: ./action
         with: { github-token: "${{ github.token }}", reasoner: off, repair: off }
       - name: Upload Isotope evidence
-        if: always()
+        if: always() && steps.cfg.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with: { name: "isotope-${{ github.event.pull_request.number }}", path: .isotope/, if-no-files-found: warn, retention-days: 14, include-hidden-files: true }
