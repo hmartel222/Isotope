@@ -102,7 +102,7 @@ test('JSON pointers escape property names and arrays remain positional', () => {
   assert.equal(diff.divergences.length,2); assert.equal(diff.divergences[0].pointer,'/calls/0/args/0/a~1b~0c/0');
 });
 test('the actual static Stripe spec and BDG validate', async () => {
-  const selected = await loadWalkingSkeletonSpec(path.join(root,'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root,'specs'), 'stripe.basil.subscription-period');
   assert.equal(selected.specs[0].verified_by, 'human'); assert.deepEqual(selected.dependencyChanges, []);
   core.validateContract('BDG', JSON.parse(await fs.readFile(path.join(root,'examples/walking-skeleton/bdg.stub.json'),'utf8')));
 });
@@ -197,6 +197,6 @@ test('failed re-run removes stale comparison artifacts', async t => {
 test('walking skeleton loads the Stripe spec from a multi-spec registry', async t => {
   const directory = await project(t);
   const specs = path.join(directory,'specs'); await fs.cp(path.join(root,'specs'),specs,{recursive:true});
-  const selected = await loadWalkingSkeletonSpec(specs);
+  const selected = await loadWalkingSkeletonSpec(specs, 'stripe.basil.subscription-period');
   assert.equal(selected.specs[0].id, 'stripe.basil.subscription-period');
 });

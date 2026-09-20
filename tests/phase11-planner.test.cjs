@@ -53,7 +53,7 @@ async function corpus(t, name) {
 }
 
 test('FAIL_REASONED is model-eligible; mechanical FAIL with safe_when stays deterministic', async () => {
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const site = { id: 's', entryPointId: 'ep', nodeId: 'n', specId: selected.specs[0].id, changeIndex: 0, location: { file: 'src/a.ts', line: 1, column: 1 }, sinkNodeIds: ['sink'], provenance: { confidence: 'high', provider: 'stripe', specId: selected.specs[0].id, basis: 'provider_call' } };
   const base = {
     bdg: { schemaVersion: 1, entryPoints: [], nodes: [], edges: [], sinks: [], affectedSites: [site], skipped: [] },
@@ -102,7 +102,7 @@ test('planner cassettes classify, retry, disagree, and degrade without applying 
 
 test('case 13: FAIL_REASONED coordinated cassette is applied ephemerally and independently verified', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'corpus-coord');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const before = await fs.readFile(path.join(repo, 'src/webhook.ts'), 'utf8');
   const plannerCalls = { n: 0 }; const reasonerCalls = { n: 0 };
@@ -134,7 +134,7 @@ test('case 13: FAIL_REASONED coordinated cassette is applied ephemerally and ind
 
 test('case 14: ESCALATE never calls the planner', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'human-policy');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; config.repair.mode = 'on'; config.repair.planner = 'model';
   await fs.writeFile(configPath, JSON.stringify(config, null, 2));
@@ -150,7 +150,7 @@ test('case 14: ESCALATE never calls the planner', { timeout: 120000 }, async t =
 
 test('case 15: a schema-valid hardcoded model candidate is rejected by L10', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'corpus-coord');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const config = JSON.parse(await fs.readFile(path.join(repo, 'isotope.yml'), 'utf8'));
   const spec = selected.specs[0];
   const bdg = await resolveBehavioralDependencyGraph({ repositoryRoot: repo, config, changeSpec: spec });
@@ -197,7 +197,7 @@ test('case 16: planner unavailable leaves reasoned FAIL unresolved and does not 
     if (previousGen !== undefined) process.env.GOOGLE_GENERATIVE_AI_API_KEY = previousGen; else delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   });
   const reasoned = await corpus(t, 'corpus-coord');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const reasonedConfig = path.join(reasoned, 'isotope.yml');
   const plannerCalls = { n: 0 };
   const missing = await verifyWalkingSkeleton({
@@ -219,7 +219,7 @@ test('case 16: planner unavailable leaves reasoned FAIL unresolved and does not 
 
 test('held-out unique markers never appear in a serialized RepairPacket', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'corpus-coord');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const config = JSON.parse(await fs.readFile(path.join(repo, 'isotope.yml'), 'utf8'));
   const spec = selected.specs[0];
   const bdg = await resolveBehavioralDependencyGraph({ repositoryRoot: repo, config, changeSpec: spec });
@@ -246,7 +246,7 @@ test('held-out unique markers never appear in a serialized RepairPacket', { time
 test('live Gemini planner is optional and skipped without credentials', { timeout: 180000 }, async t => {
   if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) { t.skip('GEMINI_API_KEY not available'); return; }
   const repo = await corpus(t, 'corpus-coord');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const run = await verifyWalkingSkeleton({
     configPath: path.join(repo, 'isotope.yml'), selectedSpecs: selected,
     testFixtureDirectory: path.join(root, 'corpus/cases/fixtures/sub-updated-single'),

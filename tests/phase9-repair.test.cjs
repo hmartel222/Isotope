@@ -22,7 +22,7 @@ test('restricted repair predicates and pure eligibility enforce policy before co
   assert.deepEqual(repair.evaluateRepairPredicate('items.data.length == 1', event(1)), { supported:true, value:true });
   assert.deepEqual(repair.evaluateRepairPredicate('items.data.length > 1 && items.data.length <= 3', event(2)), { supported:true, value:true });
   assert.equal(repair.evaluateRepairPredicate('process.exit()', event(1)).supported, false);
-  const selected = await loadWalkingSkeletonSpec(path.join(root,'specs')); const spec=selected.specs[0];
+  const selected = await loadWalkingSkeletonSpec(path.join(root,'specs'), 'stripe.basil.subscription-period'); const spec=selected.specs[0];
   const site={id:'s',entryPointId:'ep',nodeId:'n',specId:spec.id,changeIndex:0,location:{file:'src/a.ts',line:1,column:1},sinkNodeIds:['sink'],provenance:{confidence:'high',provider:'stripe',specId:spec.id,basis:'provider_call'}};
   const input={verdict:{entryPointId:'ep',verdict:'FAIL',provenance:'mechanical',reason:'mechanical_incompatibility',divergenceIds:['d'],reasoningRefs:[],evidenceRefs:[],suspectedInjection:false},bdg:{schemaVersion:1,entryPoints:[],nodes:[],edges:[],sinks:[],affectedSites:[site],skipped:[]},selectedSpecs:selected,
     config:{repair:{mode:'on',planner:'deterministic-only',verify:true,maxAttempts:1,maxFiles:3,maxChangedLines:80,selfConsistency:false,redact:false}},fixture:{},newPayload:event(1)};
@@ -71,7 +71,7 @@ test('workspace is destroyed when post-creation anchor validation throws', async
 test('multi-item business policy bypass keeps the original FAIL and produces no patch', {timeout:120000}, async t => {
   const repo=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'isotope-phase9-policy-'))); t.after(()=>fs.rm(repo,{recursive:true,force:true})); await fs.cp(path.join(root,'corpus/cases/repositories/mechanical-break'),repo,{recursive:true});
   const configPath=path.join(repo,'isotope.yml'); const config=JSON.parse(await fs.readFile(configPath,'utf8')); config.repair.mode='on'; await fs.writeFile(configPath,JSON.stringify(config,null,2)+'\n'); await fs.writeFile(path.join(repo,'.gitignore'),'.isotope/\n');
-  const selected=await loadWalkingSkeletonSpec(path.join(root,'specs')); const run=await verifyWalkingSkeleton({configPath,selectedSpecs:selected,testFixtureDirectory:path.join(root,'corpus/cases/fixtures/sub-updated-multi'),disableReasoner:true,disableRepair:false});
+  const selected=await loadWalkingSkeletonSpec(path.join(root,'specs'), 'stripe.basil.subscription-period'); const run=await verifyWalkingSkeleton({configPath,selectedSpecs:selected,testFixtureDirectory:path.join(root,'corpus/cases/fixtures/sub-updated-multi'),disableReasoner:true,disableRepair:false});
   assert.equal(run.report.verdict.verdict,'FAIL'); assert.equal(run.exitCode,1); assert.equal(run.report.candidateRefs.length,0); assert.match(run.output,/business_policy_required/);
 });
 
@@ -106,7 +106,7 @@ test('independent verifier rejects broken and hardcoded candidates with distinct
   await fs.cp(path.join(root,'corpus/cases/repositories/mechanical-break'),repo,{recursive:true}); const config=JSON.parse(await fs.readFile(path.join(repo,'isotope.yml'),'utf8')); config.repair.mode='on';
   await fs.writeFile(path.join(repo,'isotope.yml'),JSON.stringify(config,null,2)+'\n'); await fs.writeFile(path.join(repo,'package.json'),'{}\n'); await fs.writeFile(path.join(repo,'.gitignore'),'.isotope/\n');
   await execute('git',['init','--quiet'],{cwd:repo}); await execute('git',['config','user.email','test@local'],{cwd:repo}); await execute('git',['config','user.name','Test'],{cwd:repo}); await execute('git',['add','.'],{cwd:repo}); await execute('git',['commit','--quiet','-m','negative'],{cwd:repo});
-  const selected=await loadWalkingSkeletonSpec(path.join(root,'specs')); const spec=selected.specs[0]; const bdg=await resolveBehavioralDependencyGraph({repositoryRoot:repo,config,changeSpec:spec}); const entry=bdg.entryPoints[0];
+  const selected=await loadWalkingSkeletonSpec(path.join(root,'specs'), 'stripe.basil.subscription-period'); const spec=selected.specs[0]; const bdg=await resolveBehavioralDependencyGraph({repositoryRoot:repo,config,changeSpec:spec}); const entry=bdg.entryPoints[0];
   const makeFixture=async(name,role)=>{const dir=path.join(root,'corpus/cases/fixtures',name);const old=JSON.parse(await fs.readFile(path.join(dir,'old.json'),'utf8'));const next=JSON.parse(await fs.readFile(path.join(dir,'new.json'),'utf8'));return {id:`synthetic-${name}`,role,oldPath:path.join(dir,'old.json'),newPath:path.join(dir,'new.json'),oldVersion:old.api_version,newVersion:next.api_version,newPayload:next};};
   const planning=await makeFixture('sub-updated-single','planning'); const heldOut=await makeFixture('sub-updated-single-B','held_out');
   const originalPlanning=await runHarness({repoRoot:repo,config,entryPoint:entry,bdg,fixture:planning,codeVersion:'original'}); const originalHeldOut=await runHarness({repoRoot:repo,config,entryPoint:entry,bdg,fixture:heldOut,codeVersion:'original'});

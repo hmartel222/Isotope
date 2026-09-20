@@ -9925,16 +9925,27 @@ var require_contracts = __commonJS({
         object({
           module: str(),
           strategy: typebox_1.Type.Literal("provider"),
-          adapter: opt(str()),
+          adapter: opt(typebox_1.Type.Literal("fixture-call")),
           intercept: opt(typebox_1.Type.Array(str(), { minItems: 1, uniqueItems: true })),
           exports: opt(strings()),
           required: opt(typebox_1.Type.Boolean()),
-          response: opt(object({
+          requestHeaders: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), str())),
+          records: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), exports2.SinkKindSchema)),
+          errorPatterns: opt(strings())
+        }),
+        object({
+          module: str(),
+          strategy: typebox_1.Type.Literal("provider"),
+          adapter: typebox_1.Type.Literal("real-method"),
+          intercept: typebox_1.Type.Array(str(), { minItems: 1, uniqueItems: true }),
+          exports: typebox_1.Type.Array(str(), { minItems: 1, uniqueItems: true }),
+          required: opt(typebox_1.Type.Boolean()),
+          response: object({
             kind: typebox_1.Type.Literal("canonical-json-bytes"),
             prefix: typebox_1.Type.String(),
             chunks: opt(positive()),
             fields: typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), typebox_1.Type.Array(str(), { minItems: 1 }), { minProperties: 1 })
-          })),
+          }),
           requestHeaders: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), str())),
           records: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), exports2.SinkKindSchema)),
           errorPatterns: opt(strings())
@@ -24812,13 +24823,10 @@ var require_specimen = __commonJS({
     exports2.loadWalkingSkeletonSpec = loadWalkingSkeletonSpec;
     var core_1 = require_dist();
     var index_1 = require_dist3();
-    async function loadWalkingSkeletonSpec(registryRoot) {
-      const specs = await (0, index_1.loadHumanSpecs)(registryRoot);
-      const ranked = specs.slice().sort((a, b) => b.changes.length - a.changes.length || a.id.localeCompare(b.id));
-      const spec = ranked[0];
-      if (!spec || ranked[1] && ranked[1].changes.length === spec.changes.length) {
-        throw new Error(`Compatibility specimen requires a unique most-comprehensive human-verified spec; found ${specs.length}`);
-      }
+    async function loadWalkingSkeletonSpec(registryRoot, specId) {
+      if (!specId.trim())
+        throw new Error("Compatibility specimen requires an explicit ChangeSpec identifier");
+      const spec = await (0, index_1.loadSpecById)(registryRoot, specId);
       return (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
     }
   }
@@ -315959,7 +315967,8 @@ ${await (0, promises_1.readFile)((0, node_path_1.resolve)(projectRoot, e.file), 
     }
     function graphSummary(bdg) {
       const language = bdg.entryPoints[0]?.language === "py" ? "Python" : "TypeScript/JavaScript";
-      const lines = [`BDG: generated ${language} analysis`, "Bounds: 200 customer files; one local-function hop; one provider re-export hop"];
+      const bounds = language === "Python" ? "Bounds: 200 customer files; eight bounded local calls" : "Bounds: 200 customer files; one local-function hop; one provider re-export hop";
+      const lines = [`BDG: generated ${language} analysis`, bounds];
       for (const entry of bdg.entryPoints) {
         const roots = bdg.nodes.filter((n) => n.entryPointId === entry.id && n.kind === "taint_root");
         const sites = bdg.affectedSites.filter((s) => s.entryPointId === entry.id);

@@ -171,13 +171,21 @@ export const IsotopeConfigSchema = object({
   entryPoints: Type.Array(object({ file: str(), export: str(), kind: adapter }), { minItems: 1 }),
   mocks: Type.Array(Type.Union([
     object({
-      module: str(), strategy: Type.Literal('provider'), adapter: opt(str()),
+      module: str(), strategy: Type.Literal('provider'), adapter: opt(Type.Literal('fixture-call')),
       intercept: opt(Type.Array(str(), { minItems: 1, uniqueItems: true })), exports: opt(strings()),
       required: opt(Type.Boolean()),
-      response: opt(object({
+      requestHeaders: opt(Type.Record(Type.String({ minLength: 1 }), str())),
+      records: opt(Type.Record(Type.String({ minLength: 1 }), SinkKindSchema)),
+      errorPatterns: opt(strings()),
+    }),
+    object({
+      module: str(), strategy: Type.Literal('provider'), adapter: Type.Literal('real-method'),
+      intercept: Type.Array(str(), { minItems: 1, uniqueItems: true }), exports: Type.Array(str(), { minItems: 1, uniqueItems: true }),
+      required: opt(Type.Boolean()),
+      response: object({
         kind: Type.Literal('canonical-json-bytes'), prefix: Type.String(), chunks: opt(positive()),
         fields: Type.Record(Type.String({ minLength: 1 }), Type.Array(str(), { minItems: 1 }), { minProperties: 1 }),
-      })),
+      }),
       requestHeaders: opt(Type.Record(Type.String({ minLength: 1 }), str())),
       records: opt(Type.Record(Type.String({ minLength: 1 }), SinkKindSchema)),
       errorPatterns: opt(strings()),

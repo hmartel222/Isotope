@@ -37,7 +37,10 @@ export async function analyzeConfiguredProject(configPath: string, selectedOverr
 }
 export function graphSummary(bdg: BDG): string[] {
   const language = bdg.entryPoints[0]?.language === 'py' ? 'Python' : 'TypeScript/JavaScript';
-  const lines = [`BDG: generated ${language} analysis`, 'Bounds: 200 customer files; one local-function hop; one provider re-export hop'];
+  const bounds = language === 'Python'
+    ? 'Bounds: 200 customer files; eight bounded local calls'
+    : 'Bounds: 200 customer files; one local-function hop; one provider re-export hop';
+  const lines = [`BDG: generated ${language} analysis`, bounds];
   for (const entry of bdg.entryPoints) {
     const roots = bdg.nodes.filter(n => n.entryPointId === entry.id && n.kind === 'taint_root');
     const sites = bdg.affectedSites.filter(s => s.entryPointId === entry.id);

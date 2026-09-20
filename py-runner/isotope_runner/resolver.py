@@ -141,57 +141,219 @@ class _Analyzer(ast.NodeVisitor):
         return sorted(paths)
 
     def _visit_reachable_modules(self, entry_path: Path, entry_tree: ast.AST) -> None:
-        pending: list[tuple[Path, ast.AST]] = [(entry_path.resolve(), entry_tree)]
-        visited: set[Path] = set()
-        roots: list[str] = []
-        sinks: list[str] = []
-        sink_methods = {
-            exported.split(".")[-1]
-            for mock in self.config.get("mocks", [])
-            if mock.get("adapter") == "method-record"
-            for exported in (mock.get("exports") or {})
-        }
-        while pending and len(visited) < 200:
-            path, tree = pending.pop(0)
-            if path in visited:
+        modules = self._collect_modules(entry_path, entry_tree)
+        functions: dict[str, tuple[ast.FunctionDef | ast.AsyncFunctionDef, Path, str, str | None]] = {}
+        imports: dict[str, dict[str, str]] = {}
+        trees: dict[str, ast.AST] = {}
+        for path, tree in modules.items():
+            module = self._module_name(path)
+            trees[module] = tree
+            imports[module] = self._resolved_imports(path, tree)
+            for statement in getattr(tree, "body", []):
+                if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    functions[f"{module}.{statement.name}"] = (statement, path, module, None)
+                elif isinstance(statement, ast.ClassDef):
+                    for member in statement.body:
+                        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            functions[f"{module}.{statement.name}.{member.name}"] = (member, path, module, f"{module}.{statement.name}")
+        sink_targets: dict[str, tuple[str, str]] = {}
+        for mock in self.config.get("mocks", []):
+            if mock.get("adapter") != "method-record":
                 continue
-            visited.add(path)
-            previous_file = self.file
-            self.file = str(path)
-            imports = self._imports(tree)
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
-                    continue
-                if self._matches_pattern(node.func, imports):
-                    roots.append(self.add_node("taint_root", node, ast.unparse(node.func) if hasattr(ast, "unparse") else "provider call", None, "high", "provider_call"))
-                method = node.func.attr if isinstance(node.func, ast.Attribute) else None
-                if method and method in sink_methods:
-                    sid = self.add_node("sink", node, ast.unparse(node.func) if hasattr(ast, "unparse") else method, None, "high", "name_heuristic")
-                    if sid not in sinks:
-                        sinks.append(sid)
-                        self.graph["sinks"].append({"nodeId": sid, "kind": next(
-                            mock["sinkKind"] for mock in self.config.get("mocks", [])
-                            if mock.get("adapter") == "method-record" and any(name.split(".")[-1] == method for name in (mock.get("exports") or {}))
-                        ), "name": ast.unparse(node.func) if hasattr(ast, "unparse") else method, "location": self.loc(node)})
+            for exported in (mock.get("exports") or {}):
+                sink_targets[f"{mock['module']}.{exported}"] = (mock["sinkKind"], f"{mock['module'].split('.')[-1]}.{exported.split('.')[-1]}")
+        context = {"functions": functions, "imports": imports, "trees": trees, "sinks": sink_targets, "stack": []}
+        entry_key = f"{self._module_name(entry_path)}.{self.ep['export']}"
+        if entry_key not in functions:
+            self.graph["skipped"].append({"file": self.ep["file"], "reason": "unresolved_or_ignored"})
+            return
+        self._trace_function(entry_key, [], {}, context, 0)
+
+    def _collect_modules(self, entry_path: Path, entry_tree: ast.AST) -> dict[Path, ast.AST]:
+        pending: list[tuple[Path, ast.AST]] = [(entry_path.resolve(), entry_tree)]
+        modules: dict[Path, ast.AST] = {}
+        while pending and len(modules) < 200:
+            path, tree = pending.pop(0)
+            if path in modules:
+                continue
+            modules[path] = tree
             for imported in self._local_imports(path, tree):
-                if imported not in visited:
-                    try:
-                        pending.append((imported, ast.parse(imported.read_text(encoding="utf-8"))))
-                    except (OSError, SyntaxError) as error:
-                        self.graph["skipped"].append({"file": _slash(str(imported.relative_to(self.root))), "reason": f"unsupported_syntax:{error}"})
-            self.file = previous_file
+                if imported in modules or any(candidate == imported for candidate, _ in pending):
+                    continue
+                try:
+                    pending.append((imported, ast.parse(imported.read_text(encoding="utf-8"))))
+                except (OSError, SyntaxError) as error:
+                    self.graph["skipped"].append({"file": _slash(str(imported.relative_to(self.root))), "reason": f"unsupported_syntax:{error}"})
         if pending:
             self.graph["skipped"].append({"file": self.ep["file"], "reason": "file_limit:200"})
-        for root in roots:
-            for sink in sinks:
-                self.graph["edges"].append({"from": root, "to": sink, "kind": "flows_to", "pathSuffix": ""})
-            for index, _change in enumerate(self.spec["changes"]):
-                self.graph["affectedSites"].append({
-                    "id": _stable("site", self.ep["id"], root, index), "entryPointId": self.ep["id"],
-                    "nodeId": root, "specId": self.spec["id"], "changeIndex": index,
-                    "location": self.nodes[root]["location"], "sinkNodeIds": sinks,
-                    "provenance": self.nodes[root]["provenance"],
-                })
+        return modules
+
+    def _module_name(self, path: Path) -> str:
+        relative = path.resolve().relative_to(self.root).with_suffix("")
+        parts = list(relative.parts)
+        if parts and parts[-1] == "__init__":
+            parts.pop()
+        return ".".join(parts)
+
+    def _resolved_imports(self, path: Path, tree: ast.AST) -> dict[str, str]:
+        names: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    names[alias.asname or alias.name.split(".")[0]] = alias.name
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    base = path.parent
+                    for _ in range(max(0, node.level - 1)):
+                        base = base.parent
+                    candidate = base.joinpath(*(node.module.split(".") if node.module else []))
+                    module_path = candidate.with_suffix(".py") if candidate.with_suffix(".py").is_file() else candidate / "__init__.py"
+                    module = self._module_name(module_path) if module_path.is_file() else ".".join(candidate.relative_to(self.root).parts)
+                else:
+                    module = node.module or ""
+                for alias in node.names:
+                    if alias.name != "*":
+                        names[alias.asname or alias.name] = f"{module}.{alias.name}" if module else alias.name
+        return names
+
+    @staticmethod
+    def _merge_info(values: list[dict[str, Any]]) -> dict[str, Any]:
+        roots = sorted({root for value in values for root in value.get("roots", [])})
+        confidence = "high" if any(value.get("confidence") == "high" for value in values) else ("medium" if roots else "low")
+        types = {value.get("type") for value in values if value.get("type")}
+        paths = {value.get("path") for value in values if value.get("path")}
+        return {"taint": bool(roots), "roots": roots, "confidence": confidence,
+                "type": next(iter(types)) if len(types) == 1 else None,
+                "path": next(iter(paths)) if len(paths) == 1 else None}
+
+    def _annotation_type(self, annotation: ast.AST | None, module: str, imports: dict[str, str]) -> str | None:
+        if isinstance(annotation, ast.Name):
+            return imports.get(annotation.id, f"{module}.{annotation.id}")
+        if isinstance(annotation, ast.Attribute):
+            text = ast.unparse(annotation) if hasattr(ast, "unparse") else ""
+            head, _, tail = text.partition(".")
+            return f"{imports.get(head, head)}.{tail}" if tail else imports.get(head)
+        return None
+
+    def _trace_function(self, key: str, positional: list[dict[str, Any]], keywords: dict[str, dict[str, Any]], context: dict[str, Any], depth: int) -> dict[str, Any]:
+        if depth > 8 or key in context["stack"]:
+            diagnostic = {"file": self.ep["file"], "reason": "local_call_limit:8"}
+            if diagnostic not in self.graph["skipped"]:
+                self.graph["skipped"].append(diagnostic)
+            return self._merge_info(positional + list(keywords.values()))
+        record = context["functions"].get(key)
+        if not record:
+            return self._merge_info(positional + list(keywords.values()))
+        function, path, module, class_name = record
+        module_imports = context["imports"][module]
+        env: dict[str, dict[str, Any]] = {}
+        position = 0
+        for parameter in function.args.args:
+            if parameter.arg == "self" and class_name:
+                env[parameter.arg] = {"taint": False, "roots": [], "confidence": "low", "type": class_name, "path": None}
+                continue
+            value = keywords.get(parameter.arg) or (positional[position] if position < len(positional) else {"taint": False, "roots": [], "confidence": "low", "path": None})
+            position += 1
+            annotation_type = self._annotation_type(parameter.annotation, module, module_imports)
+            env[parameter.arg] = {**value, **({"type": annotation_type} if annotation_type else {})}
+        previous_file = self.file
+        self.file = str(path)
+        context["stack"].append(key)
+        returns = self._trace_statements(function.body, env, module, context, depth)
+        context["stack"].pop()
+        self.file = previous_file
+        return self._merge_info(returns) if returns else {"taint": False, "roots": [], "confidence": "low", "path": None}
+
+    def _trace_statements(self, statements: list[ast.stmt], env: dict[str, dict[str, Any]], module: str, context: dict[str, Any], depth: int) -> list[dict[str, Any]]:
+        returns: list[dict[str, Any]] = []
+        for statement in statements:
+            if isinstance(statement, ast.Assign) and len(statement.targets) == 1 and isinstance(statement.targets[0], ast.Name):
+                env[statement.targets[0].id] = self._trace_expr(statement.value, env, module, context, depth)
+            elif isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name) and statement.value:
+                value = self._trace_expr(statement.value, env, module, context, depth)
+                annotation_type = self._annotation_type(statement.annotation, module, context["imports"][module])
+                env[statement.target.id] = {**value, **({"type": annotation_type} if annotation_type else {})}
+            elif isinstance(statement, ast.Return):
+                returns.append(self._trace_expr(statement.value, env, module, context, depth) if statement.value else {"taint": False, "roots": [], "confidence": "low", "path": None})
+            elif isinstance(statement, ast.Expr):
+                self._trace_expr(statement.value, env, module, context, depth)
+            elif isinstance(statement, ast.If):
+                returns.extend(self._trace_statements(statement.body, dict(env), module, context, depth))
+                returns.extend(self._trace_statements(statement.orelse, dict(env), module, context, depth))
+            elif isinstance(statement, ast.Try):
+                returns.extend(self._trace_statements(statement.body, dict(env), module, context, depth))
+                for handler in statement.handlers:
+                    returns.extend(self._trace_statements(handler.body, dict(env), module, context, depth))
+                returns.extend(self._trace_statements(statement.orelse, dict(env), module, context, depth))
+                returns.extend(self._trace_statements(statement.finalbody, dict(env), module, context, depth))
+        return returns
+
+    def _call_target(self, function: ast.AST, env: dict[str, dict[str, Any]], module: str, imports: dict[str, str]) -> str | None:
+        if isinstance(function, ast.Name):
+            return imports.get(function.id, f"{module}.{function.id}")
+        if isinstance(function, ast.Attribute):
+            if isinstance(function.value, ast.Name):
+                base = env.get(function.value.id, {}).get("type") or imports.get(function.value.id)
+                return f"{base}.{function.attr}" if base else None
+            text = ast.unparse(function) if hasattr(ast, "unparse") else ""
+            head, _, tail = text.partition(".")
+            if head in imports and tail:
+                return f"{imports[head]}.{tail}"
+        return None
+
+    def _provider_call(self, node: ast.Call, module: str, context: dict[str, Any]) -> bool:
+        provider_modules = [mock["module"] for mock in self.config.get("mocks", []) if "strategy" in mock]
+        imported = context["imports"][module].values()
+        if not any(any(name == provider or name.startswith(f"{provider}.") for name in imported) for provider in provider_modules):
+            return False
+        return self._matches_pattern(node.func, self._imports(context["trees"][module]))
+
+    def _trace_expr(self, node: ast.AST | None, env: dict[str, dict[str, Any]], module: str, context: dict[str, Any], depth: int) -> dict[str, Any]:
+        empty = {"taint": False, "roots": [], "confidence": "low", "path": None}
+        if node is None:
+            return empty
+        if isinstance(node, ast.Name):
+            return dict(env.get(node.id, empty))
+        if isinstance(node, ast.Attribute):
+            return {**self._trace_expr(node.value, env, module, context, depth), "path": node.attr}
+        if isinstance(node, ast.Subscript):
+            return {**self._trace_expr(node.value, env, module, context, depth), "path": self._path_of(node)}
+        if isinstance(node, (ast.Dict, ast.List, ast.Tuple, ast.Set)):
+            values = list(node.values) if isinstance(node, ast.Dict) else list(node.elts)
+            return self._merge_info([self._trace_expr(value, env, module, context, depth) for value in values])
+        if not isinstance(node, ast.Call):
+            return empty
+        positional = [self._trace_expr(argument, env, module, context, depth) for argument in node.args]
+        keywords = {keyword.arg: self._trace_expr(keyword.value, env, module, context, depth) for keyword in node.keywords if keyword.arg}
+        if self._provider_call(node, module, context):
+            root = self.add_node("taint_root", node, ast.unparse(node.func) if hasattr(ast, "unparse") else "provider call", None, "high", "provider_call")
+            return {"taint": True, "roots": [root], "confidence": "high", "path": None}
+        target = self._call_target(node.func, env, module, context["imports"][module])
+        if target in context["sinks"]:
+            value = self._merge_info(positional + list(keywords.values()))
+            if value["taint"]:
+                sink_kind, sink_name = context["sinks"][target]
+                sink = self.add_node("sink", node, sink_name, value.get("path"), value["confidence"], "one_hop_parameter")
+                if not any(item["nodeId"] == sink for item in self.graph["sinks"]):
+                    self.graph["sinks"].append({"nodeId": sink, "kind": sink_kind, "name": sink_name, "location": self.loc(node)})
+                for root in value["roots"]:
+                    edge = {"from": root, "to": sink, "kind": "flows_to", "pathSuffix": value.get("path") or ""}
+                    if edge not in self.graph["edges"]:
+                        self.graph["edges"].append(edge)
+                    for index, _change in enumerate(self.spec["changes"]):
+                        site = {"id": _stable("site", self.ep["id"], root, sink, index), "entryPointId": self.ep["id"],
+                                "nodeId": root, "specId": self.spec["id"], "changeIndex": index,
+                                "location": self.nodes[root]["location"], "sinkNodeIds": [sink],
+                                "provenance": self.nodes[root]["provenance"]}
+                        if not any(existing["id"] == site["id"] for existing in self.graph["affectedSites"]):
+                            self.graph["affectedSites"].append(site)
+            return empty
+        if target in context["functions"]:
+            return self._trace_function(target, positional, keywords, context, depth + 1)
+        if target and any(key.startswith(f"{target}.") for key in context["functions"]):
+            return {"taint": False, "roots": [], "confidence": "low", "type": target, "path": None}
+        receiver = self._trace_expr(node.func.value, env, module, context, depth) if isinstance(node.func, ast.Attribute) else empty
+        return self._merge_info([receiver, *positional, *keywords.values()])
 
     def _imports(self, tree: ast.AST) -> dict[str, str]:
         names: dict[str, str] = {}

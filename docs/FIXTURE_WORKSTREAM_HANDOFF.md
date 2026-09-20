@@ -409,8 +409,8 @@ This workstream ends at: **real provider evidence successfully flowing through P
 
 ## 9. Useful repository facts
 
-- `loadWalkingSkeletonSpec` requires `specs/` to contain **exactly one** file,
-  `stripe/basil-subscription-period.yaml`. Adding a second spec breaks the build and a test.
+- `loadWalkingSkeletonSpec` now requires an explicit ChangeSpec ID, so compatibility
+  tests remain deterministic when a registry contains multiple providers.
 - `verifyWalkingSkeleton` resolves fixtures at `fixtures/normalized/<spec.fixtures.pair>`,
   i.e. only ever `sub-updated-single`. The held-out, multi, aggregating and noop pairs are
   named in the YAML but read by nothing yet.

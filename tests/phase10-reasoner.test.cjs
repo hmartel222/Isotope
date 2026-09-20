@@ -123,7 +123,7 @@ function cassetteModel(nameA, nameB, calls = { n: 0 }) { return model([cassette(
 
 test('aggregation cassette produces PASS_REASONED; reasoner off stays ESCALATE', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'ambiguity-escalate');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const calls = { n: 0 };
@@ -136,7 +136,7 @@ test('aggregation cassette produces PASS_REASONED; reasoner off stays ESCALATE',
 
 test('first-item semantic incompatibility cassette produces FAIL_REASONED and does not repair', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'semantic-incompat');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; config.repair.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const run = await verifyWalkingSkeleton({ configPath, selectedSpecs: selected, testFixtureDirectory: path.join(root, 'corpus/cases/fixtures/sub-updated-multi'), disableReasoner: false, disableRepair: false, semanticModel: cassetteModel('incompatibility', 'incompatibility'), assumeCredentials: true });
@@ -145,7 +145,7 @@ test('first-item semantic incompatibility cassette produces FAIL_REASONED and do
 
 test('human-decision cassette escalates with the ChangeSpec question', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'human-policy');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const run = await verifyWalkingSkeleton({ configPath, selectedSpecs: selected, testFixtureDirectory: path.join(root, 'corpus/cases/fixtures/sub-updated-multi'), disableReasoner: false, disableRepair: true, semanticModel: cassetteModel('human-decision', 'human-decision'), assumeCredentials: true });
@@ -154,7 +154,7 @@ test('human-decision cassette escalates with the ChangeSpec question', { timeout
 
 test('classification disagreement cassette escalates', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'ambiguity-escalate');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const disagree = cassetteFile('disagreement');
@@ -168,7 +168,7 @@ test('classification disagreement cassette escalates', { timeout: 120000 }, asyn
 
 test('mechanical FAIL never calls the reasoner even when a model is injected', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'mechanical-break');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const calls = { n: 0 };
@@ -187,7 +187,7 @@ test('safe degradation never produces PASS_REASONED', () => {
 
 test('schema retry is bounded to one extra API attempt', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'ambiguity-escalate');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const calls = { n: 0 };
@@ -210,7 +210,7 @@ test('required cassette classes never silently PASS_REASONED', () => {
 
 test('timeout, missing credentials, and invocation cap escalate without PASS_REASONED', { timeout: 120000 }, async t => {
   const repo = await corpus(t, 'ambiguity-escalate');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const timeoutCalls = { n: 0 };
@@ -257,7 +257,7 @@ test('incomplete reasoned votes escalate', () => {
 test('live Gemini aggregation is optional and skipped without credentials', { timeout: 180000 }, async t => {
   if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) { t.skip('GEMINI_API_KEY not available'); return; }
   const repo = await corpus(t, 'ambiguity-escalate');
-  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'));
+  const selected = await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period');
   const configPath = path.join(repo, 'isotope.yml');
   const config = JSON.parse(await fs.readFile(configPath, 'utf8')); config.reasoner.mode = 'on'; await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const run = await verifyWalkingSkeleton({ configPath, selectedSpecs: selected, testFixtureDirectory: path.join(root, 'corpus/cases/fixtures/sub-updated-multi'), disableReasoner: false, disableRepair: true, assumeCredentials: true });

@@ -16,7 +16,7 @@ async function setup(t, name = 'direct', file = 'cases.ts', extra = {}) {
   const config = yaml.parse(await fs.readFile(path.join(root, 'examples/walking-skeleton/isotope.yml'), 'utf8'));
   config.entryPoints = [{ file, export: name, kind: 'plain' }];
   config.mocks[0].module = './db'; Object.assign(config, extra);
-  const changeSpec = (await loadWalkingSkeletonSpec(path.join(root, 'specs'))).specs[0];
+  const changeSpec = (await loadWalkingSkeletonSpec(path.join(root, 'specs'), 'stripe.basil.subscription-period')).specs[0];
   return { repositoryRoot: directory, config, changeSpec };
 }
 const db = b => b.sinks.filter(s => s.kind === 'db_write');
