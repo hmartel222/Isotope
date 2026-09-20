@@ -1,0 +1,29 @@
+id: elevenlabs.python.v1-v2.generate-removal
+provider: elevenlabs
+title: ElevenLabs client.generate removed in Python SDK v2
+source: https://github.com/elevenlabs/elevenlabs-python/wiki/v2-upgrade-guide
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "1.59.0", to: "2.0.0" }
+semantics: |
+  ElevenLabs Python 1.59.0 retains the deprecated client.generate helper.
+  ElevenLabs Python 2.0.0 removes it and requires text_to_speech.convert.
+  The public argument names change from voice/model to voice_id/model_id.
+detection:
+  ecosystems:
+    pypi: { packages: [elevenlabs], breaking_from: "2.0.0" }
+  taint_roots:
+    - { kind: call, language: py, pattern: "$ELEVENLABS.generate($$$)" }
+    - { kind: call, language: py, pattern: "$ELEVENLABS.text_to_speech.convert($$$)" }
+changes:
+  - object: text_to_speech_generation
+    removed_path: voice
+    removed_symbol: generate
+    replacement:
+      path: voice_id
+      cardinality: one
+      semantics: The v2 namespaced conversion method requires voice_id.
+    codemod: { kind: unsupported }
+fixtures:
+  pair: render_job
+  heldout_pair: render_job_heldout
