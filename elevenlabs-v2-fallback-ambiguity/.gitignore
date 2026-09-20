@@ -1,0 +1,4 @@
+.isotope/
+.venv*/
+__pycache__/
+

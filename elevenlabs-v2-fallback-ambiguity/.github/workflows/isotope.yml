@@ -1,0 +1,75 @@
+name: Isotope fallback-policy compatibility
+
+on:
+  pull_request:
+    paths:
+      - "requirements*.txt"
+      - "app/**"
+      - "isotope.yml"
+      - "specs/**"
+
+permissions:
+  contents: read
+
+jobs:
+  behavioral-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ github.event.pull_request.head.sha }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build isolated old and new SDK environments
+        run: |
+          python -m venv .venv-old
+          python -m venv .venv-new
+          .venv-old/bin/pip install --disable-pip-version-check -r requirements-old.txt
+          .venv-new/bin/pip install --disable-pip-version-check -r requirements-new.txt
+
+      - name: Check out Isotope
+        uses: actions/checkout@v4
+        with:
+          repository: hmartel222/hophacksf26
+          ref: refactor/api-agnostic-pipeline
+          path: isotope-engine
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: isotope-engine/pnpm-lock.yaml
+
+      - name: Build Isotope
+        working-directory: isotope-engine
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Verify dependency behavior
+        env:
+          ISOTOPE_PYTHON_OLD: "${{ github.workspace }}/.venv-old/bin/python"
+          ISOTOPE_PYTHON_NEW: "${{ github.workspace }}/.venv-new/bin/python"
+        run: |
+          node isotope-engine/packages/cli/dist/bin.js \
+            --config isotope.yml \
+            --specs specs \
+            verify \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --no-reasoner \
+            --no-repair
+
+      - name: Upload Isotope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isotope-fallback-evidence
+          path: .isotope/
+          if-no-files-found: error
+          retention-days: 14

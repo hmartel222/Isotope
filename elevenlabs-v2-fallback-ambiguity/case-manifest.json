@@ -1,0 +1,17 @@
+{
+  "id": "elevenlabs-python-v1-v2-fallback-ambiguity",
+  "provider": "elevenlabs",
+  "language": "python",
+  "package": "elevenlabs",
+  "oldVersion": "1.59.0",
+  "newVersion": "2.0.0",
+  "changeClass": "removed_method_activates_application_fallback",
+  "oldSurface": "ElevenLabs.generate",
+  "newSurface": "ElevenLabs.text_to_speech.convert",
+  "entryPoint": "app.entrypoint.run_publish_job",
+  "providerBoundary": "app.speech_service.SpeechService.synthesize",
+  "sink": "audio_repository.save",
+  "expectedDetectionVerdict": "ESCALATE",
+  "expectedReason": "business_policy_required",
+  "planningFixture": "fixtures/normalized/publish_job"
+}

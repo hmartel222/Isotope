@@ -1,0 +1,2 @@
+"""Resilient narration publishing application."""
+
