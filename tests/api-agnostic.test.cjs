@@ -53,6 +53,7 @@ test('generic production paths contain no provider-specific behavior', async () 
     'packages/cli/src/repair-flow.ts', 'packages/cli/src/scan.ts', 'packages/cli/src/walking-skeleton.ts',
     'packages/harness-ts/src/adapters.ts', 'packages/harness-ts/src/index.ts', 'packages/harness-ts/src/plan.ts',
     'packages/harness-ts/runtime/execution.test.mjs', 'packages/reasoner/src/redact.ts',
+    'py-runner/isotope_runner/adapters.py', 'py-runner/isotope_runner/errors.py',
     'py-runner/isotope_runner/harness.py', 'py-runner/isotope_runner/resolver.py',
   ];
   const forbidden = /stripe|elevenlabs|twilio|sendgrid|anthropic|openai|gemini/i;

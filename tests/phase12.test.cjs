@@ -47,3 +47,62 @@ test('language auto routes Python files to the Python resolver', async () => {
   assert.equal(harness.old[0].threw, null);
   assert.equal(harness.new[0].threw, null);
 });
+
+test('Python resolver proves the cross-module provider-to-repository flow without a root/sink cross-product', async () => {
+  const repo = path.join(root, 'elevenlabs-v2-generate-removal');
+  const config = JSON.parse(await fs.readFile(path.join(repo, 'isotope.yml'), 'utf8'));
+  const spec = await require('@isotope/changespec').loadSpecById(path.join(repo, 'specs'), 'elevenlabs.python.v1-v2.generate-removal');
+  const bdg = await resolveBehavioralDependencyGraph({ repositoryRoot: repo, config, changeSpec: spec });
+  const providerRoots = bdg.nodes.filter(node => node.kind === 'taint_root');
+  assert.equal(providerRoots.length, 1);
+  assert.equal(bdg.sinks.length, 1);
+  assert.equal(bdg.edges.length, 1);
+  assert.deepEqual(bdg.edges[0], { from: providerRoots[0].id, to: bdg.sinks[0].nodeId, kind: 'flows_to', pathSuffix: '' });
+  assert.deepEqual(bdg.affectedSites[0].sinkNodeIds, [bdg.sinks[0].nodeId]);
+});
+
+test('Python resolver does not connect an unrelated provider result to a constant repository write', async t => {
+  const repo = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'isotope-py-flow-')));
+  t.after(() => fs.rm(repo, { recursive: true, force: true }));
+  await fs.writeFile(path.join(repo, 'entry.py'), [
+    'from service import synthesize',
+    'from repository import Repository',
+    'def run(payload):',
+    '    synthesize()',
+    '    repository = Repository()',
+    '    repository.save(content=b"constant")',
+    '    return {"status": "stored"}',
+    '',
+  ].join('\n'));
+  await fs.writeFile(path.join(repo, 'service.py'), [
+    'from invented_sdk.client import Client',
+    'def synthesize():',
+    '    return Client().generate()',
+    '',
+  ].join('\n'));
+  await fs.writeFile(path.join(repo, 'repository.py'), [
+    'class Repository:',
+    '    def save(self, *, content):',
+    '        return len(content)',
+    '',
+  ].join('\n'));
+  const config = {
+    version: 1, language: 'py', entryPoints: [{ file: 'entry.py', export: 'run', kind: 'plain' }],
+    mocks: [
+      { module: 'invented_sdk.client', strategy: 'provider', adapter: 'fixture-call', exports: ['Client'], intercept: ['Client.generate'] },
+      { module: 'repository', adapter: 'method-record', exports: { 'Repository.save': 'recordAll' }, sinkKind: 'db_write' },
+    ], returns: {}, failOn: ['critical', 'high'], reasoner: { mode: 'off', maxInvocations: 0, redact: false },
+    repair: { mode: 'off', planner: 'deterministic-only', maxAttempts: 1, maxFiles: 1, maxChangedLines: 10, selfConsistency: false, verify: true, redact: false }, ignore: [],
+  };
+  const changeSpec = {
+    id: 'invented.generate.removal', provider: 'invented', title: 'Generated value changed', source: 'https://example.invalid/change',
+    verified_by: 'human', verified_at: '2026-09-19', versions: { from: '1.0.0', to: '2.0.0' }, semantics: 'Test-only provider-neutral flow.',
+    detection: { ecosystems: { pypi: { packages: ['invented-sdk'], breaking_from: '2.0.0' } }, taint_roots: [{ kind: 'call', language: 'py', pattern: '$CLIENT.generate($$$)' }] },
+    changes: [{ object: 'generation', removed_symbol: 'generate', replacement: { path: 'create', cardinality: 'one' } }], fixtures: { pair: 'invented' },
+  };
+  const bdg = await resolveBehavioralDependencyGraph({ repositoryRoot: repo, config, changeSpec });
+  assert.equal(bdg.nodes.filter(node => node.kind === 'taint_root').length, 1);
+  assert.deepEqual(bdg.sinks, []);
+  assert.deepEqual(bdg.edges, []);
+  assert.deepEqual(bdg.affectedSites, []);
+});
