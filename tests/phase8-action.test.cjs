@@ -51,6 +51,8 @@ test('bundled verify Action invokes the shared L1-L4 engine once and maps mechan
   let failure,success;try{success=await execute(process.execPath,[path.join(root,'action/dist/index.js')],{cwd:repo,env:{...process.env,GITHUB_EVENT_PATH:event,GITHUB_WORKSPACE:repo,GITHUB_OUTPUT:outputs,INPUT_REASONER:'off',INPUT_REPAIR:'off','INPUT_SPECS-PATH':'','INPUT_FIXTURES-PATH':'',ISOTOPE_ACTION_TEST_MODE:'1',ISOTOPE_INTERNAL_TEST_FIXTURES:synthetic},timeout:90000});}catch(error){failure=error;}
   const report=JSON.parse(await fs.readFile(path.join(repo,'.isotope/isotope-report.json'),'utf8'));
   assert.equal(failure?.code,1,`${failure?.stderr ?? success?.stdout ?? 'action exited successfully'}; verdict=${report.verdict.verdict}; reason=${report.verdict.results[0]?.reason}`);assert.match(await fs.readFile(outputs,'utf8'),/verdict<<ISOTOPE_EOF\nFAIL/);
+  const actionOutput=`${failure?.stdout ?? success?.stdout ?? ''}`;
+  assert.match(actionOutput,/::notice title=Isotope repair::Repair%3A disabled/);
   assert.equal(report.verdict.verdict,'FAIL');assert.equal(report.selectedSpecs.specs[0].id,'stripe.basil.subscription-period');assert.equal(report.signatureRefs.length,4);
 });
 

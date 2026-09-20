@@ -18,9 +18,11 @@ function input(name: string, fallback = ''): string {
 async function output(name: string, value: string | number): Promise<void> {
   const path = process.env.GITHUB_OUTPUT; if (path) await appendFile(path, `${name}<<ISOTOPE_EOF\n${value}\nISOTOPE_EOF\n`); else console.log(`::set-output name=${name}::${value}`);
 }
+function commandValue(value: string): string {
+  return value.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A').replace(/:/g,'%3A').replace(/,/g,'%2C');
+}
 function annotationCommand(level: 'error' | 'warning' | 'notice', a: ReturnType<typeof buildAnnotations>[number]): void {
-  const esc = (v: string) => v.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A').replace(/:/g,'%3A').replace(/,/g,'%2C');
-  console.log(`::${level} file=${esc(a.path)},line=${a.start_line},endLine=${a.end_line},title=${esc(a.title)}::${esc(a.message)}`);
+  console.log(`::${level} file=${commandValue(a.path)},line=${a.start_line},endLine=${a.end_line},title=${commandValue(a.title)}::${commandValue(a.message)}`);
 }
 async function prepareHarnessRuntime(): Promise<{ root: string; dispose(): Promise<void> }> {
   const root = await mkdtemp(join(tmpdir(), 'isotope-action-runtime-')); const archive = resolve(__dirname, '../vendor/vitest-runtime.tgz');
@@ -48,6 +50,11 @@ async function main(): Promise<void> {
     const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), specsPath, fixturesPath, baseRef: context.baseSha, headRef: context.headSha, reasoner: reasoner as 'on' | 'off', repair: repair as 'on' | 'off',
       ...(internalFixture ? { testFixtureDirectory: internalFixture } : {}) });
     artifactRoot = result.artifactRoot; console.log(result.output);
+    const outputLines = result.output.split(/\r?\n/); const repairLine = outputLines.findIndex(line => line.startsWith('Repair:'));
+    if (repairLine >= 0) {
+      const detail = outputLines.slice(repairLine, repairLine + 2).filter(line => line.startsWith('Repair:') || line.startsWith('Reason:')).join(' — ');
+      console.log(`::notice title=Isotope repair::${commandValue(detail)}`);
+    }
   } else if (mode !== 'report') throw new Error('mode must be verify or report');
   const evidence = await loadReportEvidence(artifactRoot); const verdict = evidence.report.verdict.verdict;
   await output('verdict', verdict); await output('report-path', join(artifactRoot, 'isotope-report.json'));

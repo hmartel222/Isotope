@@ -321395,9 +321395,11 @@ ISOTOPE_EOF
 `);
   else console.log(`::set-output name=${name}::${value}`);
 }
+function commandValue(value) {
+  return value.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A").replace(/:/g, "%3A").replace(/,/g, "%2C");
+}
 function annotationCommand(level, a) {
-  const esc = (v) => v.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A").replace(/:/g, "%3A").replace(/,/g, "%2C");
-  console.log(`::${level} file=${esc(a.path)},line=${a.start_line},endLine=${a.end_line},title=${esc(a.title)}::${esc(a.message)}`);
+  console.log(`::${level} file=${commandValue(a.path)},line=${a.start_line},endLine=${a.end_line},title=${commandValue(a.title)}::${commandValue(a.message)}`);
 }
 async function prepareHarnessRuntime() {
   const root = await (0, import_promises3.mkdtemp)((0, import_node_path2.join)((0, import_node_os.tmpdir)(), "isotope-action-runtime-"));
@@ -321449,6 +321451,12 @@ async function main() {
     });
     artifactRoot = result.artifactRoot;
     console.log(result.output);
+    const outputLines = result.output.split(/\r?\n/);
+    const repairLine = outputLines.findIndex((line) => line.startsWith("Repair:"));
+    if (repairLine >= 0) {
+      const detail = outputLines.slice(repairLine, repairLine + 2).filter((line) => line.startsWith("Repair:") || line.startsWith("Reason:")).join(" \u2014 ");
+      console.log(`::notice title=Isotope repair::${commandValue(detail)}`);
+    }
   } else if (mode !== "report") throw new Error("mode must be verify or report");
   const evidence = await loadReportEvidence(artifactRoot);
   const verdict = evidence.report.verdict.verdict;
