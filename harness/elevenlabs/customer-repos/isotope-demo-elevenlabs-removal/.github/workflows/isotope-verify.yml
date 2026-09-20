@@ -30,7 +30,7 @@ jobs:
           .venv-old/bin/pip install --disable-pip-version-check elevenlabs==1.59.0
           .venv-new/bin/pip install --disable-pip-version-check elevenlabs==2.0.0
       - id: isotope
-        uses: hmartel222/hophacksf26/action@6735f4f681b20b27d2ba4b36f22cecb89ccab477
+        uses: hmartel222/hophacksf26/action@de4e93d006640afeb67b92de80a2faba39a86858
         env:
           ISOTOPE_PYTHON_OLD: "${{ github.workspace }}/.venv-old/bin/python"
           ISOTOPE_PYTHON_NEW: "${{ github.workspace }}/.venv-new/bin/python"

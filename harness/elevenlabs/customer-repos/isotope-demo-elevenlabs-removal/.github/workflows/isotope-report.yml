@@ -19,7 +19,7 @@ jobs:
           path: .isotope
           run-id: "${{ github.event.workflow_run.id }}"
           github-token: "${{ github.token }}"
-      - uses: hmartel222/hophacksf26/action@6735f4f681b20b27d2ba4b36f22cecb89ccab477
+      - uses: hmartel222/hophacksf26/action@de4e93d006640afeb67b92de80a2faba39a86858
         with:
           mode: report
           artifact-root: .isotope
