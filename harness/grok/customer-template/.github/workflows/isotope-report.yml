@@ -1,0 +1,10 @@
+name: Isotope report
+on: { workflow_run: { workflows: ["Isotope verify"], types: [completed] } }
+permissions: { contents: read, pull-requests: write, checks: write }
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rohanbadal/isotope@main
+        with: { mode: report }

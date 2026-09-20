@@ -1,0 +1,1 @@
+{"id":"resp-tool-new","output":[{"type":"function_call","call_id":"call_1","name":"save_answer","arguments":"{\"answer\":\"42\"}"}]}

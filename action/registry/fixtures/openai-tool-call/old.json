@@ -1,0 +1,1 @@
+{"id":"chatcmpl-tool-old","choices":[{"message":{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"save_answer","arguments":"{\"answer\":\"42\"}"}}]}}]}

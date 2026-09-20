@@ -1,0 +1,1 @@
+{"id":"resp-structured-new","output_text":"{\"answer\":\"42\",\"confidence\":0.9}","output":[{"type":"message","content":[{"type":"output_text","text":"{\"answer\":\"42\",\"confidence\":0.9}"}]}]}

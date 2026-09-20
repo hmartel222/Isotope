@@ -1,0 +1,1 @@
+{"id":"chatcmpl-old","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"Hello from Isotope"},"finish_reason":"stop"}]}

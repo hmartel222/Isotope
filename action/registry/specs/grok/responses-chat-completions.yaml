@@ -1,0 +1,37 @@
+id: grok.responses.chat-completions
+provider: grok
+title: Grok Chat Completions response migrated to Responses API
+source: https://docs.x.ai/developers/rest-api-reference/inference/responses
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "4.0.0", to: "5.0.0" }
+semantics: |
+  Applications using xAI's OpenAI-compatible SDK may migrate from client.chat.completions.create() and
+  choices[0].message.content to client.responses.create() and output_text.
+  Tool calls and structured output require semantic verification.
+detection:
+  ecosystems:
+    npm: { packages: [openai, '@ai-sdk/xai'], breaking_from: "5.0.0" }
+  taint_roots:
+    - { kind: call, language: ts, pattern: "$OPENAI.chat.completions.create($$$)" }
+    - { kind: call, language: ts, pattern: "$OPENAI.responses.create($$$)" }
+changes:
+  - object: response
+    removed_path: choices[0].message.content
+    replacement: { path: output_text, cardinality: one, semantics: Assistant text returned by Responses API. }
+    codemod: { kind: path_rename, safe_when: always, from: "$OBJ.choices[0].message.content", to: "$OBJ.output_text" }
+  - object: tool_call
+    removed_path: choices[0].message.tool_calls[*].function
+    replacement: { path: 'output[*].content[*]', cardinality: many, semantics: Responses output items. }
+    ambiguity:
+      when: output contains multiple function calls
+      question: Which tool result should drive the application side effect?
+      options: [first matching call, all calls, policy-defined call]
+    repair_policy: { business_policy_required_when: output contains multiple function calls }
+    codemod: { kind: unsupported }
+fixtures:
+  pair: openai-responses-basic
+  heldout_pair: openai-heldout
+  ambiguity_pair: openai-tool-call
+  adaptation_pair: openai-responses-structured
+  noop_pair: openai-noop

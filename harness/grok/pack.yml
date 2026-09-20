@@ -1,0 +1,9 @@
+version: 1
+provider: grok
+specs: [grok.responses.chat-completions]
+registry: specs
+fixtureRegistry: fixtures/normalized
+fixtures:
+  planning: openai-responses-basic
+  heldOut: openai-heldout
+  auxiliary: [openai-responses-structured, openai-tool-call, openai-noop, openai-invalid-migration]
