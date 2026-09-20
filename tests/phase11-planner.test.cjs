@@ -18,6 +18,10 @@ const root = path.resolve(__dirname, '..');
 const cassetteFile = name => JSON.parse(require('fs').readFileSync(path.join(root, 'tests/cassettes/planner', `${name}.json`), 'utf8'));
 const reasonerCassette = name => JSON.parse(require('fs').readFileSync(path.join(root, 'tests/cassettes/reasoner', `${name}.json`), 'utf8'));
 
+test('uses the stable Gemini 2.5 Flash model by default', () => {
+  assert.equal(repair.DEFAULT_PLANNER_MODEL, 'gemini-2.5-flash');
+});
+
 function bind(vote, user) {
   if (typeof vote !== 'object' || vote === null) return vote;
   const match = /<evidence>\n([\s\S]*?)<\/evidence>/.exec(user);

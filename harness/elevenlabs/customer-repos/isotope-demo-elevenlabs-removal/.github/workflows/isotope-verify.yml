@@ -30,7 +30,8 @@ jobs:
           specs-path: specs
           fixtures-path: fixtures/normalized
           reasoner: off
-          repair: off
+          repair: on
+          gemini-api-key: "${{ secrets.GEMINI_API_KEY }}"
       - name: Upload validated Isotope evidence
         if: always()
         uses: actions/upload-artifact@v4

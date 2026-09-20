@@ -1,6 +1,6 @@
 # ElevenLabs Python v1 → v2 generate-removal benchmark
 
-This public customer demo captures the documented ElevenLabs Python SDK migration from `elevenlabs==1.59.0` to `elevenlabs==2.0.0`. Dependabot updates `requirements.txt`; the pinned Isotope Action intercepts the PR, writes validated evidence, blocks the incompatible update, and publishes its rationale. It makes no live ElevenLabs request.
+This public customer demo captures the documented ElevenLabs Python SDK migration from `elevenlabs==1.59.0` to `elevenlabs==2.0.0`. Dependabot updates `requirements.txt`; the pinned Isotope Action intercepts the PR, writes validated evidence, blocks the incompatible update, and publishes a Gemini-planned repair only after independent planning and held-out verification. It makes no live ElevenLabs request.
 
 ## Historical change
 

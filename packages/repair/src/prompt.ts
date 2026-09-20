@@ -1,6 +1,6 @@
 export const PLANNER_PROMPT_VERSION = 1;
 export const PLANNER_SCHEMA_VERSION = 1;
-export const DEFAULT_PLANNER_MODEL = 'gemini-3.6-flash';
+export const DEFAULT_PLANNER_MODEL = 'gemini-2.5-flash';
 
 export const PLANNER_SYSTEM_PROMPT = `You are Isotope's repair planner. You propose the smallest behavior-preserving edit from bounded evidence. You do not verify patches.
 Allowed classifications: repair_candidate | human_decision_required | no_safe_repair.

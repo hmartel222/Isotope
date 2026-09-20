@@ -1,6 +1,6 @@
 export const REASONER_PROMPT_VERSION = 1;
 export const REASONING_SCHEMA_VERSION = 1;
-export const DEFAULT_REASONER_MODEL = 'gemini-3.6-flash';
+export const DEFAULT_REASONER_MODEL = 'gemini-2.5-flash';
 
 export const REASONER_SYSTEM_PROMPT = `You are Isotope's semantic reasoner. Classify one bounded provider-integration behavior change.
 Allowed classifications: incompatibility | benign_adaptation | human_decision_required.
