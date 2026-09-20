@@ -321137,6 +321137,19 @@ var require_dist15 = __commonJS({
     function firstReasoning(evidence) {
       return evidence.reasoning?.[0];
     }
+    function plannerDecline(evidence) {
+      const candidate = evidence.candidates?.[0];
+      if (!candidate)
+        return ["Planner did not produce a repair candidate."];
+      return [
+        "### \u{1F916} Repair planner",
+        "",
+        `Gemini classified this as ${code(candidate.classification)} with ${code(candidate.confidence)} confidence.`,
+        clean(candidate.summary, 800),
+        "",
+        "No candidate was applied. Manual review is required."
+      ];
+    }
     function renderPrComment(evidence) {
       const verdict = evidence.report.verdict.verdict;
       if (verdict === "SKIP")
@@ -321161,6 +321174,8 @@ var require_dist15 = __commonJS({
         } else if (evidence.report.repairVerifications.length) {
           const rejected = evidence.report.repairVerifications[0];
           lines.push("", `A candidate repair was evaluated but did not satisfy Isotope's verification criteria.`, `Reason: ${code(rejected.outcome)} \u2014 ${clean(rejected.reason, 500)}`);
+        } else if (evidence.report.candidateRefs.length) {
+          lines.push("", ...plannerDecline(evidence));
         }
       } else if (verdict === "FAIL_REASONED") {
         lines.push("### \u274C Isotope \u2014 semantic incompatibility", "", transition(evidence.selected));
@@ -321177,7 +321192,7 @@ var require_dist15 = __commonJS({
           const rejected = evidence.report.repairVerifications[0];
           lines.push("", "Candidate rejected by verifier", `Reason: ${code(rejected.outcome)} \u2014 ${clean(rejected.reason, 500)}`);
         } else if (evidence.report.candidateRefs.length) {
-          lines.push("", "Planner declined. No candidate was applied.", "Manual review required.");
+          lines.push("", ...plannerDecline(evidence));
         } else {
           lines.push("", "Manual review required. A verified repair was not offered.");
         }
@@ -321361,7 +321376,9 @@ async function loadReportEvidence(rootInput) {
   for (const ref of report.signatureRefs) signatures.push(await (0, import_core.readJsonArtifact)(root, (0, import_node_path.join)(root, ref), "Signature"));
   const reasoning = [];
   for (const ref of report.reasoningRefs) reasoning.push(await (0, import_core.readJsonArtifact)(root, (0, import_node_path.join)(root, ref), "ReasoningResult"));
-  return { report, selected, bdg, diffs, signatures, reasoning };
+  const candidates = [];
+  for (const ref of report.candidateRefs) candidates.push(await (0, import_core.readJsonArtifact)(root, (0, import_node_path.join)(root, ref), "CandidatePatch"));
+  return { report, selected, bdg, diffs, signatures, reasoning, candidates };
 }
 
 // action/src/index.ts

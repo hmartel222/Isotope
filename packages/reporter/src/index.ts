@@ -1,8 +1,8 @@
-import type { BDG, DiffReport, IsotopeReport, JsonValue, ReasoningResult, SelectedSpecs, Signature, Verdict } from '@isotope/core';
+import type { BDG, CandidatePatch, DiffReport, IsotopeReport, JsonValue, ReasoningResult, SelectedSpecs, Signature, Verdict } from '@isotope/core';
 
 export const REPORT_MARKER = '<!-- isotope-report -->';
 const MAX_TEXT = 240;
-export interface ReportEvidence { report: IsotopeReport; selected: SelectedSpecs; bdg: BDG | null; diffs: DiffReport[]; signatures: Signature[]; reasoning?: ReasoningResult[] }
+export interface ReportEvidence { report: IsotopeReport; selected: SelectedSpecs; bdg: BDG | null; diffs: DiffReport[]; signatures: Signature[]; reasoning?: ReasoningResult[]; candidates?: CandidatePatch[] }
 export interface Annotation { path: string; start_line: number; end_line: number; annotation_level: 'failure' | 'warning' | 'notice'; title: string; message: string; }
 export type CheckConclusion = 'success' | 'failure' | 'neutral';
 
@@ -37,6 +37,18 @@ function ambiguityQuestion(evidence: ReportEvidence): string | null {
 }
 
 function firstReasoning(evidence: ReportEvidence): ReasoningResult | undefined { return evidence.reasoning?.[0]; }
+function plannerDecline(evidence: ReportEvidence): string[] {
+  const candidate = evidence.candidates?.[0];
+  if (!candidate) return ['Planner did not produce a repair candidate.'];
+  return [
+    '### 🤖 Repair planner',
+    '',
+    `Gemini classified this as ${code(candidate.classification)} with ${code(candidate.confidence)} confidence.`,
+    clean(candidate.summary, 800),
+    '',
+    'No candidate was applied. Manual review is required.',
+  ];
+}
 
 /** Pure, bounded Markdown rendering. SKIP intentionally returns null. */
 export function renderPrComment(evidence: ReportEvidence): string | null {
@@ -60,6 +72,8 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
     } else if (evidence.report.repairVerifications.length) {
       const rejected = evidence.report.repairVerifications[0]!;
       lines.push('', `A candidate repair was evaluated but did not satisfy Isotope's verification criteria.`, `Reason: ${code(rejected.outcome)} — ${clean(rejected.reason, 500)}`);
+    } else if (evidence.report.candidateRefs.length) {
+      lines.push('', ...plannerDecline(evidence));
     }
   } else if (verdict === 'FAIL_REASONED') {
     lines.push('### ❌ Isotope — semantic incompatibility', '', transition(evidence.selected));
@@ -78,7 +92,7 @@ export function renderPrComment(evidence: ReportEvidence): string | null {
       const rejected = evidence.report.repairVerifications[0]!;
       lines.push('', 'Candidate rejected by verifier', `Reason: ${code(rejected.outcome)} — ${clean(rejected.reason, 500)}`);
     } else if (evidence.report.candidateRefs.length) {
-      lines.push('', 'Planner declined. No candidate was applied.', 'Manual review required.');
+      lines.push('', ...plannerDecline(evidence));
     } else {
       lines.push('', 'Manual review required. A verified repair was not offered.');
     }

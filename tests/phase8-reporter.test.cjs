@@ -43,3 +43,10 @@ test('reporter offers only verified repair diffs and suppresses rejected candida
   const rejectedText=reporter.renderPrComment(rejected);assert.match(rejectedText,/did not satisfy/);assert.match(rejectedText,/overfit_rejected/);assert.doesNotMatch(rejectedText,/```diff/);
   assert.equal(reporter.mapVerdictToConclusion(verified.report.verdict.verdict),'failure');
 });
+
+test('FAIL comments surface a bounded model-planner decline',()=>{
+  const declined=evidence('FAIL');const candidate=clone(fixtures.CandidatePatch);
+  candidate.classification='no_safe_repair';candidate.confidence='low';candidate.patch=null;candidate.origin='model';candidate.abstain=true;
+  candidate.summary='Planner quota unavailable';declined.report.candidateRefs=['repair/candidates/r1.json'];declined.report.repairVerifications=[];declined.report.verifiedRepairs=[];declined.candidates=[candidate];
+  const rendered=reporter.renderPrComment(declined);assert.match(rendered,/Repair planner/);assert.match(rendered,/`no_safe_repair`/);assert.match(rendered,/Planner quota unavailable/);assert.match(rendered,/No candidate was applied/);assert.doesNotMatch(rendered,/```diff/);
+});
