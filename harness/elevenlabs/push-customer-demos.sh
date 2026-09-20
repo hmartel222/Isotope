@@ -34,7 +34,9 @@ PY
 }
 
 publish_repo() {
-  local repo="$1" description="$2" src="$BUILT/$repo" dir="$WORKDIR/$repo"
+  local repo="$1" description="$2" src dir
+  src="$BUILT/$repo"
+  dir="$WORKDIR/$repo"
   if [[ ! -d "$src" ]]; then
     echo "missing built tree: $src" >&2
     exit 1
