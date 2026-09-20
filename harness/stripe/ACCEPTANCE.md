@@ -77,6 +77,8 @@ ArtifactValidationError: Invalid ChangeSpec: / must have required property 'id' 
 
 That YAML is `.github/dependabot.yml`. GitHub sets unused Action inputs to `""`, so the bundled-registry fallback never applied and `verify` scanned the customer checkout. The Action now treats blank inputs as missing and loads `action/registry/{specs,fixtures}`. Covered by `tests/phase8-action.test.cjs`.
 
+The four customer trees are committed at `harness/stripe/customer-repos/` (app code, `isotope.yml`, Dependabot, split workflows, npm lockfiles; no engine sources, specs, or fixtures). Action pin in those trees is `800e81cf50f2fa4390af0f9c1ecde7eef5d57d15`. Live Dependabot re-runs are **not** done here.
+
 Re-pinning and re-running those PRs requires push access to the demo repos. This agent token can write `hmartel222/hophacksf26` only (`permissions.push: false` on the demos). From a machine that can push them:
 
 ```bash

@@ -1,0 +1,32 @@
+name: Isotope verify
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  behavioral-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ github.event.pull_request.head.sha }}"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - id: isotope
+        uses: hmartel222/hophacksf26/action@800e81cf50f2fa4390af0f9c1ecde7eef5d57d15
+        with:
+          reasoner: on
+          repair: off
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+      - name: Upload validated Isotope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isotope-report
+          path: .isotope/
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: true
