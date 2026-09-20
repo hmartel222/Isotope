@@ -2,7 +2,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { parse } from 'yaml';
 import { artifactPaths, validateContract, writeJsonArtifact, type BDG, type SelectedSpecs } from '@isotope/core';
-import { loadSpecsForProject, loadWalkingSkeletonSpec } from '@isotope/changespec';
+import { loadSpecById, loadSpecsForProject } from '@isotope/changespec';
 import { resolveBehavioralDependencyGraph as resolveTs } from '@isotope/resolver-ts';
 import { resolveBehavioralDependencyGraph as resolvePy } from '@isotope/resolver-py';
 
@@ -21,7 +21,8 @@ export async function analyzeConfiguredProject(configPath: string, selectedOverr
   const sources = await Promise.all(config.entryPoints.map(async e => {
     try { return `${e.file}\n${await readFile(resolve(projectRoot, e.file), 'utf8')}`; } catch { return e.file; }
   }));
-  const selected = selectedOverride ?? await loadSpecsForProject(resolve(__dirname, '../../../specs'), sources, config).catch(() => loadWalkingSkeletonSpec(resolve(__dirname, '../../../specs')));
+  const selected = selectedOverride ?? await loadSpecsForProject(resolve(__dirname, '../../../specs'), sources, config);
+  if (selected.specs.length !== 1) throw new Error('No matching human-verified ChangeSpec for configured sources');
   const python = usesPython(config);
   const bdg = python
     ? await resolvePy({ repositoryRoot: projectRoot, config, changeSpec: selected.specs[0]! })
@@ -47,8 +48,13 @@ export function graphSummary(bdg: BDG): string[] {
   for (const d of bdg.skipped) lines.push(`Diagnostic: ${d.file}: ${d.reason}`);
   return lines;
 }
-export async function scanProject(configPath: string): Promise<string> {
-  const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath);
+export async function scanProject(configPath: string, specId?: string): Promise<string> {
+  let override: SelectedSpecs | undefined;
+  if (specId) {
+    const spec = await loadSpecById(resolve(__dirname, '../../../specs'), specId);
+    override = validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
+  }
+  const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath, override);
   const paths = artifactPaths(projectRoot);
   await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
   return [`ChangeSpec: ${selected.specs[0]!.id}`, ...graphSummary(bdg), `BDG artifact: ${paths.bdg}`].join('\n');

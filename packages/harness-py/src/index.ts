@@ -28,11 +28,12 @@ async function runOnce(input: HarnessInput, side: 'old' | 'new', runIndex: numbe
   const entryFile = await realpath(resolve(root, input.entryPoint.file));
   const payloadPath = side === 'old' ? input.fixture.oldPath : input.fixture.newPath;
   const fixturePayload = JSON.parse(await readFile(payloadPath, 'utf8')) as unknown;
+  const requestHeaders = Object.assign({}, ...input.config.mocks.filter(mock => 'strategy' in mock).map(mock => mock.requestHeaders ?? {}));
   const plan = {
     repositoryRoot: root, entryFile,
     entryPoint: { id: input.entryPoint.id, file: input.entryPoint.file, exportName: input.entryPoint.export, kind: input.entryPoint.kind },
     fixture: { pairId: input.fixture.id, side, payloadVersion: side === 'old' ? input.fixture.oldVersion : input.fixture.newVersion, payloadPath },
-    fixturePayload, codeVersion: input.codeVersion, mocks: input.config.mocks, mockReturns: input.config.returns, runIndex,
+    fixturePayload, codeVersion: input.codeVersion, mocks: input.config.mocks, mockReturns: input.config.returns, requestHeaders, runIndex,
   };
   const result = await python({ command: 'harness', plan });
   if (result.error) {

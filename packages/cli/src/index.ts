@@ -18,15 +18,15 @@ export { verifyRepository } from './verify-repository';
 export function createProgram(): Command {
   const program = new Command().exitOverride().name('isotope').description('Isotope — provider dataflow and behavioral verification').version('0.1.0');
   program.option('--config <path>', 'configuration file', 'isotope.yml');
-  program.command('scan').description('L2: analyze configured entry points and write the BDG').action(async () => console.log(await scanProject(program.opts<{ config: string }>().config)));
-  program.command('verify').description('Analyze and verify configured entry points').option('--no-reasoner', 'mechanical verification only').option('--no-repair', 'stop after detection and verdict').option('--base <ref>', 'local Git base revision').option('--head <ref>', 'local Git head revision').action(async (options: { reasoner: boolean; repair: boolean; base?: string; head?: string }) => {
+  program.command('scan').description('L2: analyze configured entry points and write the BDG').option('--spec <id>', 'ChangeSpec identifier').action(async (options: { spec?: string }) => console.log(await scanProject(program.opts<{ config: string }>().config, options.spec)));
+  program.command('verify').description('Analyze and verify configured entry points').option('--spec <id>', 'ChangeSpec identifier').option('--no-reasoner', 'mechanical verification only').option('--no-repair', 'stop after detection and verdict').option('--base <ref>', 'local Git base revision').option('--head <ref>', 'local Git head revision').action(async (options: { reasoner: boolean; repair: boolean; spec?: string; base?: string; head?: string }) => {
     const testFixtureDirectory = process.env.ISOTOPE_TEST_FIXTURES;
     if ((options.base && !options.head) || (!options.base && options.head)) throw new InvalidArgumentError('--base and --head must be supplied together');
     const configPath = program.opts<{ config: string }>().config;
     if (options.base && options.head) {
       const configAbsolute = await realpath(resolve(configPath)); const root = resolve(configAbsolute, '..');
-      const result = await verifyRepository({ repositoryRoot: root, configPath: configAbsolute, specsPath: resolve(__dirname, '../../../specs'),
-        baseRef: options.base, headRef: options.head, reasoner: options.reasoner === false ? 'off' : 'on', repair: options.repair === false ? 'off' : 'on', ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
+      const result = await verifyRepository({ repositoryRoot: root, configPath: configAbsolute, specsPath: resolve(__dirname, '../../../specs'), fixturesPath: resolve(__dirname, '../../../fixtures/normalized'),
+        baseRef: options.base, headRef: options.head, reasoner: options.reasoner === false ? 'off' : 'on', repair: options.repair === false ? 'off' : 'on', ...(options.spec ? { specId: options.spec } : {}), ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });
       console.log(result.output); process.exitCode = result.exitCode; return;
     }
     const result = await verifyWalkingSkeleton({ configPath, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...(testFixtureDirectory ? { testFixtureDirectory } : {}) });

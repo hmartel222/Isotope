@@ -1,0 +1,19 @@
+id: acme.events.quota-move
+provider: acme
+title: Event quota moved into limits
+source: https://example.invalid/acme/events-quota
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "1.9.0", to: "2.0.0" }
+semantics: Controlled invented-provider specimen for proving provider-neutral TypeScript analysis and execution.
+detection:
+  ecosystems:
+    npm: { packages: [acme-events], breaking_from: "2.0.0" }
+  taint_roots:
+    - { kind: call, language: ts, pattern: "$ACME.events.decode($$$)" }
+changes:
+  - object: event
+    removed_path: legacy_quota
+    replacement: { path: limits.quota, cardinality: one }
+    codemod: { kind: unsupported }
+fixtures: { pair: acme-events }

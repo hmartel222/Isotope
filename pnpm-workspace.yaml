@@ -1,2 +1,9 @@
 packages:
   - packages/*
+supportedArchitectures:
+  os:
+    - current
+    - linux
+  cpu:
+    - current
+    - x64

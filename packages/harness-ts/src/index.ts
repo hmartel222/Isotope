@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -60,9 +60,17 @@ async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: numb
   // Fixtures may be explicit external files: normalized provider artifacts are shared across repos.
   const fixturePath = await realpath(resolve(root, plan.fixture.payloadPath));
   const mocks = await Promise.all(plan.mocks.map(async mock => {
-    if ('strategy' in mock && mock.module !== 'stripe') throw new HarnessExecutionError('unsupported_harness_plan', `Unsupported provider: ${mock.module}`);
-    if (mock.module.startsWith('node:')) throw new HarnessExecutionError('unsupported_harness_plan', 'Built-in modules cannot be configured as observable mocks');
-    return { ...mock, module: isLocalModule(mock.module) ? await projectFile(root, mock.module) : mock.module };
+    const normalized = mock;
+    if (normalized.module.startsWith('node:')) throw new HarnessExecutionError('unsupported_harness_plan', 'Built-in modules cannot be configured as observable mocks');
+    if ('strategy' in normalized) {
+      const descriptor = normalized.providerAdapter ?? {
+        id: normalized.adapter ?? 'fixture-call', module: normalized.module, exports: normalized.exports ?? ['default'],
+        intercept: normalized.intercept ?? [], requestHeaders: normalized.requestHeaders ?? {}, records: normalized.records ?? {}, errorPatterns: normalized.errorPatterns ?? [],
+      };
+      if (descriptor.module !== normalized.module) throw new HarnessExecutionError('unsupported_harness_plan', `Invalid provider adapter for module ${normalized.module}`);
+      return { ...normalized, providerAdapter: descriptor, module: isLocalModule(normalized.module) ? await projectFile(root, normalized.module) : normalized.module };
+    }
+    return { ...normalized, module: isLocalModule(normalized.module) ? await projectFile(root, normalized.module) : normalized.module };
   }));
   if (new Set(mocks.map(m => m.module)).size !== mocks.length) throw new HarnessExecutionError('unsupported_harness_plan', 'Duplicate mock modules');
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'isotope-harness-')));
@@ -70,8 +78,8 @@ async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: numb
   let ownsSpec = false;
   try {
     const generated = await generatedDirectory(root);
-    const key = createHash('sha256').update(JSON.stringify([plan.entryPoint, plan.fixture, plan.codeVersion, plan.runIndex])).digest('hex').slice(0, 24);
-    specPath = join(generated, `${key}.${plan.fixture.side}.${plan.runIndex}.spec.ts`);
+    const key = createHash('sha256').update(JSON.stringify([plan.entryPoint, plan.fixture, plan.codeVersion, plan.runIndex])).digest('hex').slice(0, 16);
+    specPath = join(generated, `${key}.${randomUUID()}.${plan.fixture.side}.${plan.runIndex}.spec.ts`);
     // Exclusive creation prevents concurrent invocations with the same identity from racing.
     await writeFile(specPath, `// Generated execution wrapper; not an authoritative artifact.\nimport ${JSON.stringify(runtimeAsset('execution.test.mjs'))};\n`, { flag: 'wx' });
     ownsSpec = true;
@@ -89,7 +97,11 @@ async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: numb
       let stdout = ''; let stderr = ''; let timedOut = false;
       const kill = () => {
         try { if (child.pid && process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); }
-        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+        catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'EPERM') { try { child.kill('SIGKILL'); } catch { /* process already exited */ } }
+          else if (code !== 'ESRCH') throw error;
+        }
       };
       const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
       child.stdout.on('data', data => { stdout = (stdout + String(data)).slice(-16384); });

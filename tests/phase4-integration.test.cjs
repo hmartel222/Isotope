@@ -39,7 +39,7 @@ for (const scenario of scenarios) test(`real L3 -> L4 -> L6 -> CLI: ${scenario.n
     Object.assign(payload.data.object,{scenario:scenario.name},scenario[side]);
     await fs.writeFile(path.join(fixtureDirectory,side+'.json'),JSON.stringify(payload));
   }
-  await fs.writeFile(path.join(fixtureDirectory,'meta.json'),JSON.stringify({synthetic:true,purpose:'Phase 4 internal structural routing test'}));
+  await fs.writeFile(path.join(fixtureDirectory,'meta.json'),JSON.stringify({synthetic:true,provenance:'internal-controlled',purpose:'Phase 4 internal structural routing test'}));
   let exit=0,stdout='';
   try {const result=await execute(process.execPath,[path.join(root,'packages/cli/dist/bin.js'),'verify','--no-reasoner','--no-repair'],{cwd:directory,env:{...process.env,ISOTOPE_TEST_FIXTURES:fixtureDirectory},timeout:60000});stdout=result.stdout;}
   catch(error){exit=error.code;stdout=error.stdout;}

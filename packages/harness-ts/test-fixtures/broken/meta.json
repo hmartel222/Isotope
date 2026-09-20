@@ -1,5 +1,6 @@
 {
   "synthetic": true,
+  "provenance": "internal-controlled",
   "purpose": "Internal software plumbing test only. NOT produced by Stripe.",
   "pair": "synthetic-broken"
 }

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import copy
 import random
 import sys
 import time
@@ -44,10 +45,58 @@ class Recorder:
         return self._returns.get(self._name)
 
 
-def _install_mocks(plan: dict[str, Any], calls: list[dict[str, Any]]) -> None:
+class ProviderCallable:
+    def __init__(self, descriptor: dict[str, Any], fixture: Any, path: list[str], calls: list[dict[str, Any]], returns: dict[str, Any], invocations: dict[str, int]):
+        self._descriptor = descriptor
+        self._fixture = fixture
+        self._path = path
+        self._calls = calls
+        self._returns = returns
+        self._invocations = invocations
+
+    def __getattr__(self, key: str) -> "ProviderCallable":
+        if key.startswith("_") or key == "then":
+            raise AttributeError(key)
+        return ProviderCallable(self._descriptor, self._fixture, [*self._path, key], self._calls, self._returns, self._invocations)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        name = ".".join(self._path)
+        short_name = ".".join(self._path[1:])
+        paths = {name, short_name}
+        if paths.intersection(self._descriptor.get("intercept") or []):
+            adapter_id = self._descriptor["id"]
+            self._invocations[adapter_id] = self._invocations.get(adapter_id, 0) + 1
+            return copy.deepcopy(self._fixture)
+        records = self._descriptor.get("records") or {}
+        record_name = next((path for path in paths if path in records), None)
+        if record_name:
+            return Recorder(f"{self._descriptor['module']}.{record_name}", records[record_name], self._calls, self._returns)(*args, **kwargs)
+        return self
+
+
+def _provider_descriptor(mock: dict[str, Any]) -> dict[str, Any]:
+    if mock.get("adapter") != "fixture-call":
+        raise HarnessFailure("unsupported_harness_plan", f"Python provider mock {mock['module']} requires adapter: fixture-call")
+    intercept = list(dict.fromkeys(mock.get("intercept") or []))
+    exports = list(dict.fromkeys(mock.get("exports") or ["default"]))
+    if not intercept or not exports:
+        raise HarnessFailure("unsupported_harness_plan", "Provider exports and intercept paths must not be empty")
+    return {"id": f"fixture-call:{mock['module']}", "module": mock["module"], "intercept": intercept,
+            "exports": exports, "records": mock.get("records") or {}}
+
+
+def _install_mocks(plan: dict[str, Any], calls: list[dict[str, Any]], fixture: Any, invocations: dict[str, int]) -> None:
     returns = plan.get("mockReturns") or {}
     for mock in plan.get("mocks") or []:
         if "strategy" in mock:
+            descriptor = _provider_descriptor(mock)
+            rec = types.ModuleType(mock["module"])
+            invocations[descriptor["id"]] = 0
+            for export in descriptor["exports"]:
+                setattr(rec, export, ProviderCallable(descriptor, fixture, [export], calls, returns, invocations))
+            sys.modules[mock["module"]] = rec
+            if "." in mock["module"]:
+                sys.modules[mock["module"].split(".")[-1]] = rec
             continue
         module_name = mock["module"]
         rec = types.ModuleType(module_name)
@@ -70,7 +119,7 @@ def _load(path: str, export: str) -> Any:
     return getattr(module, export)
 
 
-def _invoke(kind: str, handler: Any, fixture: Any) -> Any:
+def _invoke(kind: str, handler: Any, fixture: Any, request_headers: dict[str, str]) -> Any:
     if kind == "plain":
         return handler(fixture)
     if kind == "lambda":
@@ -91,7 +140,7 @@ def _invoke(kind: str, handler: Any, fixture: Any) -> Any:
             def send(self, value: Any) -> "Res":
                 return self.json(value)
 
-        req = {"body": fixture, "rawBody": fixture, "headers": {"stripe-signature": "isotope-mocked-signature"}}
+        req = {"body": fixture, "rawBody": fixture, "headers": dict(request_headers)}
         output = handler(req, Res())
         return {"status": status["code"], "body": status["body"]} if status["sent"] else output
     if kind == "next_app_route":
@@ -106,19 +155,23 @@ def run_harness(plan: dict[str, Any]) -> dict[str, Any]:
     time.time = lambda: 1_767_225_600  # type: ignore[assignment]
     uuid.uuid4 = lambda: uuid.UUID("00000000-0000-4000-8000-000000000001")  # type: ignore[method-assign]
     calls: list[dict[str, Any]] = []
-    _install_mocks(plan, calls)
+    invocations: dict[str, int] = {}
+    fixture = plan["fixturePayload"]
+    _install_mocks(plan, calls, fixture, invocations)
     started = time.perf_counter()
     handler = _load(plan["entryFile"], plan["entryPoint"]["exportName"])
-    fixture = plan["fixturePayload"]
     threw = None
     returned: Any = None
     try:
-        returned = _invoke(plan["entryPoint"]["kind"], handler, fixture)
+        returned = _invoke(plan["entryPoint"]["kind"], handler, fixture, plan.get("requestHeaders") or {})
     except HarnessFailure:
         raise
     except Exception as error:  # customer throw is behavior
         threw = {"name": type(error).__name__, "message": str(error)[:8192]}
         returned = None
+    if any(count == 0 for count in invocations.values()):
+        missed = next(adapter for adapter, count in invocations.items() if count == 0)
+        raise HarnessFailure("provider_stub_not_exercised", f"Provider interception was not exercised successfully: {missed}")
     duration = max(0.0, (time.perf_counter() - started) * 1000)
     return {
         "entryPointId": plan["entryPoint"]["id"],

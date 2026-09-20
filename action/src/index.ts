@@ -9,7 +9,12 @@ import { loadActionContext } from './context';
 import { githubClient } from './github';
 import { loadReportEvidence } from './artifacts';
 
-function input(name: string, fallback = ''): string { return (process.env[`INPUT_${name.toUpperCase().replace(/-/g, '_')}`] ?? fallback).trim(); }
+/** GitHub exports every declared input, including unused ones, as an empty string. Treat blank as missing so bundled registry defaults apply. */
+function input(name: string, fallback = ''): string {
+  const raw = process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`];
+  const value = raw === undefined ? '' : String(raw).trim();
+  return value || fallback;
+}
 async function output(name: string, value: string | number): Promise<void> {
   const path = process.env.GITHUB_OUTPUT; if (path) await appendFile(path, `${name}<<ISOTOPE_EOF\n${value}\nISOTOPE_EOF\n`); else console.log(`::set-output name=${name}::${value}`);
 }
@@ -35,7 +40,11 @@ async function main(): Promise<void> {
     runtime = await prepareHarnessRuntime(); process.once('exit', () => rmSync(runtime!.root, { recursive: true, force: true })); process.env.ISOTOPE_ACTION_RUNTIME_ROOT = join(runtime.root, 'runtime');
     const internalFixture = process.env.ISOTOPE_ACTION_TEST_MODE === '1' ? process.env.ISOTOPE_INTERNAL_TEST_FIXTURES : undefined;
     const key = input('gemini-api-key'); if (key) process.env.GEMINI_API_KEY = key;
-    const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), specsPath: input('specs-path', 'specs'), baseRef: context.baseSha, headRef: context.headSha, reasoner: reasoner as 'on' | 'off', repair: repair as 'on' | 'off',
+    const specsPath = input('specs-path', resolve(__dirname, '../registry/specs'));
+    const fixturesPath = input('fixtures-path', resolve(__dirname, '../registry/fixtures'));
+    console.log(`ChangeSpec registry: ${specsPath}`);
+    console.log(`Fixture registry: ${fixturesPath}`);
+    const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), specsPath, fixturesPath, baseRef: context.baseSha, headRef: context.headSha, reasoner: reasoner as 'on' | 'off', repair: repair as 'on' | 'off',
       ...(internalFixture ? { testFixtureDirectory: internalFixture } : {}) });
     artifactRoot = result.artifactRoot; console.log(result.output);
   } else if (mode !== 'report') throw new Error('mode must be verify or report');

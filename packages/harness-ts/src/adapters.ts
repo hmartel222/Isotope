@@ -3,6 +3,7 @@ import { HarnessExecutionError } from './errors';
 export interface AdapterContext {
   handler: (...args: any[]) => unknown;
   fixture: JsonValue;
+  requestHeaders?: Record<string, string>;
   snapshot(value: unknown): JsonValue;
 }
 export interface AdapterResult { returned: JsonValue; threw: Signature['threw'] }
@@ -18,7 +19,7 @@ const plain: HandlerAdapter = { async invoke({ handler, fixture, snapshot }) {
   catch (error) { return { returned: snapshot(undefined), threw: customerError(error) }; }
   return { returned: snapshot(output), threw: null };
 } };
-const express: HandlerAdapter = { async invoke({ handler, fixture, snapshot }) {
+const express: HandlerAdapter = { async invoke({ handler, fixture, requestHeaders = {}, snapshot }) {
   let status = 200; let body: JsonValue = '__undefined__'; let sent = false;
   const res = {
     get statusCode() { return status; }, set statusCode(code: number) { status = code; },
@@ -29,14 +30,14 @@ const express: HandlerAdapter = { async invoke({ handler, fixture, snapshot }) {
   };
   const rawBody = Buffer.from(JSON.stringify(fixture));
   let output; let threw: Signature['threw'] = null;
-  try { output = await handler({ body: rawBody, rawBody, headers: { 'stripe-signature': 'isotope-mocked-signature' } }, res); }
+  try { output = await handler({ body: rawBody, rawBody, headers: { ...requestHeaders } }, res); }
   catch (error) { threw = customerError(error); }
   return { returned: sent ? { status, body } : snapshot(output), threw };
 } };
-const nextApp: HandlerAdapter = { async invoke({ handler, fixture, snapshot }) {
+const nextApp: HandlerAdapter = { async invoke({ handler, fixture, requestHeaders = {}, snapshot }) {
   const request = {
     method: 'POST', json: async () => fixture, text: async () => JSON.stringify(fixture), body: JSON.stringify(fixture),
-    headers: { get(name: string) { return name.toLowerCase() === 'stripe-signature' ? 'isotope-mocked-signature' : null; } },
+    headers: { get(name: string) { return requestHeaders[name.toLowerCase()] ?? null; } },
   };
   let output; try { output = await handler(request); } catch (error) { return { returned: snapshot(undefined), threw: customerError(error) }; }
   if (output && typeof output === 'object' && typeof (output as { json?: unknown }).json === 'function') {

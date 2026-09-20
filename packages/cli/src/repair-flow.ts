@@ -38,6 +38,7 @@ import {
   withAppliedCandidate,
 } from '@isotope/repair';
 import { verifyRepair } from '@isotope/verifier';
+import { loadFixturePair } from './fixtures';
 
 export interface AttemptRepairInput {
   projectRoot: string;
@@ -68,26 +69,11 @@ export interface AttemptRepairResult {
   plannerInvocations: number;
 }
 
-function asObject(value: unknown, label: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
-  return value as Record<string, unknown>;
-}
-function fixtureVersion(value: unknown, label: string): string {
-  const event = asObject(value, label); const data = asObject(event.data, `${label}.data`); const object = asObject(data.object, `${label}.data.object`);
-  if (event.object !== 'event' || event.type !== 'customer.subscription.updated' || typeof event.api_version !== 'string' || !event.api_version || object.object !== 'subscription') throw new Error(`${label}: expected Stripe subscription event`);
-  return event.api_version;
-}
 async function heldOutFixture(input: AttemptRepairInput): Promise<FixturePair> {
   const spec = input.selected.specs[0]!; const id = spec.fixtures.heldout_pair;
   if (!id) throw new Error('held_out_fixture_required');
   const directory = input.testFixtureDirectory ? join(dirname(input.testFixtureDirectory), id) : join(input.fixtureRoot, id);
-  const oldPath = resolve(directory, 'old.json'); const newPath = resolve(directory, 'new.json'); const metaPath = resolve(directory, 'meta.json');
-  const [oldText, newText, metaText] = await Promise.all([oldPath, newPath, metaPath].map(path => readFile(path, 'utf8')));
-  const old = JSON.parse(oldText!) as unknown; const next = JSON.parse(newText!) as unknown; const meta = asObject(JSON.parse(metaText!), 'held-out metadata');
-  if (input.testFixtureDirectory && meta.synthetic !== true) throw new Error('Test held-out fixtures must declare meta.synthetic: true');
-  if (!input.testFixtureDirectory && meta.synthetic === true) throw new Error('Synthetic held-out fixtures are forbidden in product fixture directories');
-  return { id: input.testFixtureDirectory ? `synthetic-${id}` : id, role: 'held_out', oldPath, newPath,
-    oldVersion: fixtureVersion(old, 'held-out old fixture'), newVersion: fixtureVersion(next, 'held-out new fixture') };
+  return (await loadFixturePair({ directory, spec, pairId: id, role: 'held_out', synthetic: Boolean(input.testFixtureDirectory) })).fixture;
 }
 function rejected(input: AttemptRepairInput, repairId: string, reason: string, origin: 'deterministic' | 'model'): RepairVerification {
   return validateContract('RepairVerification', { schemaVersion: 1, repairId, entryPointId: input.entryPoint.id,
@@ -251,11 +237,10 @@ export async function repairExistingFailure(options: { configPath: string; entry
   if (!entry) throw new Error(`Entry point not present in existing BDG: ${options.entryPoint}`);
   const result = verdict.results.find(item => item.entryPointId === entry.id);
   if (!result || (result.verdict !== 'FAIL' && result.verdict !== 'FAIL_REASONED')) throw new Error('isotope repair requires an existing FAIL or FAIL_REASONED artifact');
-  const spec = selected.specs[0]!; const fixtureDirectory = options.testFixtureDirectory ?? join(projectRoot, 'fixtures/normalized', spec.fixtures.pair);
-  const oldPath = resolve(fixtureDirectory, 'old.json'); const newPath = resolve(fixtureDirectory, 'new.json');
-  const [oldPayload, newPayload] = await Promise.all([oldPath, newPath].map(async path => JSON.parse(await readFile(path, 'utf8')) as JsonValue));
-  const fixture: FixturePair = { id: options.testFixtureDirectory ? `synthetic-${spec.fixtures.pair}` : spec.fixtures.pair, role: 'planning', oldPath, newPath,
-    oldVersion: fixtureVersion(oldPayload, 'old fixture'), newVersion: fixtureVersion(newPayload, 'new fixture') };
+  const spec = selected.specs[0]!; const pairId = config.fixturePair ?? spec.fixtures.pair;
+  const fixtureDirectory = options.testFixtureDirectory ?? join(projectRoot, 'fixtures/normalized', pairId);
+  const loaded = await loadFixturePair({ directory: fixtureDirectory, spec, pairId, role: 'planning', synthetic: Boolean(options.testFixtureDirectory) });
+  const { fixture, payloads: [oldPayload, newPayload] } = loaded;
   const signatures: Signature[] = [];
   for (const artifactRef of report.signatureRefs) signatures.push(await readJsonArtifact(paths.root, resolve(paths.root, artifactRef), 'Signature'));
   const pair = (payloadVersion: string): [Signature, Signature] => {
