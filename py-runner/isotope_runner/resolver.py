@@ -106,11 +106,92 @@ class _Analyzer(ast.NodeVisitor):
                 continue
             self.facts = {}
             self._visit_module(tree, ep["export"])
+            if not any(node["entryPointId"] == ep["id"] and node["kind"] == "taint_root" for node in self.graph["nodes"]):
+                self._visit_reachable_modules(path, tree)
         self.graph["nodes"].sort(key=lambda n: n["id"])
         self.graph["edges"].sort(key=lambda e: (e["from"], e["to"], e["pathSuffix"]))
         self.graph["sinks"].sort(key=lambda s: s["nodeId"])
         self.graph["affectedSites"].sort(key=lambda s: s["id"])
         return self.graph
+
+    def _local_imports(self, current: Path, tree: ast.AST) -> list[Path]:
+        paths: set[Path] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.level:
+                    base = current.parent
+                    for _ in range(max(0, node.level - 1)):
+                        base = base.parent
+                    parts = node.module.split(".") if node.module else []
+                    candidate = base.joinpath(*parts)
+                elif node.module:
+                    candidate = self.root.joinpath(*node.module.split("."))
+                else:
+                    continue
+                choices = [candidate.with_suffix(".py"), candidate / "__init__.py"]
+                if not node.module:
+                    choices.extend(base / f"{alias.name}.py" for alias in node.names)
+                paths.update(path.resolve() for path in choices if path.is_file())
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    candidate = self.root.joinpath(*alias.name.split("."))
+                    for path in (candidate.with_suffix(".py"), candidate / "__init__.py"):
+                        if path.is_file():
+                            paths.add(path.resolve())
+        return sorted(paths)
+
+    def _visit_reachable_modules(self, entry_path: Path, entry_tree: ast.AST) -> None:
+        pending: list[tuple[Path, ast.AST]] = [(entry_path.resolve(), entry_tree)]
+        visited: set[Path] = set()
+        roots: list[str] = []
+        sinks: list[str] = []
+        sink_methods = {
+            exported.split(".")[-1]
+            for mock in self.config.get("mocks", [])
+            if mock.get("adapter") == "method-record"
+            for exported in (mock.get("exports") or {})
+        }
+        while pending and len(visited) < 200:
+            path, tree = pending.pop(0)
+            if path in visited:
+                continue
+            visited.add(path)
+            previous_file = self.file
+            self.file = str(path)
+            imports = self._imports(tree)
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if self._matches_pattern(node.func, imports):
+                    roots.append(self.add_node("taint_root", node, ast.unparse(node.func) if hasattr(ast, "unparse") else "provider call", None, "high", "provider_call"))
+                method = node.func.attr if isinstance(node.func, ast.Attribute) else None
+                if method and method in sink_methods:
+                    sid = self.add_node("sink", node, ast.unparse(node.func) if hasattr(ast, "unparse") else method, None, "high", "name_heuristic")
+                    if sid not in sinks:
+                        sinks.append(sid)
+                        self.graph["sinks"].append({"nodeId": sid, "kind": next(
+                            mock["sinkKind"] for mock in self.config.get("mocks", [])
+                            if mock.get("adapter") == "method-record" and any(name.split(".")[-1] == method for name in (mock.get("exports") or {}))
+                        ), "name": ast.unparse(node.func) if hasattr(ast, "unparse") else method, "location": self.loc(node)})
+            for imported in self._local_imports(path, tree):
+                if imported not in visited:
+                    try:
+                        pending.append((imported, ast.parse(imported.read_text(encoding="utf-8"))))
+                    except (OSError, SyntaxError) as error:
+                        self.graph["skipped"].append({"file": _slash(str(imported.relative_to(self.root))), "reason": f"unsupported_syntax:{error}"})
+            self.file = previous_file
+        if pending:
+            self.graph["skipped"].append({"file": self.ep["file"], "reason": "file_limit:200"})
+        for root in roots:
+            for sink in sinks:
+                self.graph["edges"].append({"from": root, "to": sink, "kind": "flows_to", "pathSuffix": ""})
+            for index, _change in enumerate(self.spec["changes"]):
+                self.graph["affectedSites"].append({
+                    "id": _stable("site", self.ep["id"], root, index), "entryPointId": self.ep["id"],
+                    "nodeId": root, "specId": self.spec["id"], "changeIndex": index,
+                    "location": self.nodes[root]["location"], "sinkNodeIds": sinks,
+                    "provenance": self.nodes[root]["provenance"],
+                })
 
     def _imports(self, tree: ast.AST) -> dict[str, str]:
         names: dict[str, str] = {}
@@ -149,7 +230,7 @@ class _Analyzer(ast.NodeVisitor):
         if fn is None:
             self.graph["skipped"].append({"file": self.ep["file"], "reason": "unresolved_or_ignored"})
             return
-        mocks = {m["module"].split(".")[-1]: m for m in self.config.get("mocks", []) if "exports" in m and "strategy" not in m}
+        mocks = {m["module"].split(".")[-1]: m for m in self.config.get("mocks", []) if "exports" in m and "strategy" not in m and m.get("adapter") != "method-record"}
         env: dict[str, dict[str, Any]] = {}
         for stmt in fn.body:
             self._stmt(stmt, imports, mocks, env)

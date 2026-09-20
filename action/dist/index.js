@@ -9928,11 +9928,18 @@ var require_contracts = __commonJS({
           adapter: opt(str()),
           intercept: opt(typebox_1.Type.Array(str(), { minItems: 1, uniqueItems: true })),
           exports: opt(strings()),
+          required: opt(typebox_1.Type.Boolean()),
+          response: opt(object({
+            kind: typebox_1.Type.Literal("canonical-json-bytes"),
+            prefix: typebox_1.Type.String(),
+            chunks: opt(positive()),
+            fields: typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), typebox_1.Type.Array(str(), { minItems: 1 }), { minProperties: 1 })
+          })),
           requestHeaders: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), str())),
           records: opt(typebox_1.Type.Record(typebox_1.Type.String({ minLength: 1 }), exports2.SinkKindSchema)),
           errorPatterns: opt(strings())
         }),
-        object({ module: str(), exports: typebox_1.Type.Record(str(), typebox_1.Type.Literal("recordAll"), { minProperties: 1 }), sinkKind: exports2.SinkKindSchema })
+        object({ module: str(), adapter: opt(typebox_1.Type.Literal("method-record")), exports: typebox_1.Type.Record(str(), typebox_1.Type.Literal("recordAll"), { minProperties: 1 }), sinkKind: exports2.SinkKindSchema })
       ])),
       returns: typebox_1.Type.Record(typebox_1.Type.String(), json),
       failOn: typebox_1.Type.Array(exports2.SeveritySchema, { uniqueItems: true }),
@@ -24881,7 +24888,7 @@ var require_dist3 = __commonJS({
       const text = sources.join("\n");
       const humans = await loadHumanSpecs(registryRoot);
       const configuredModules = config.mocks.map((mock) => mock.module);
-      const matched = humans.filter((spec) => Object.values(spec.detection.ecosystems).some((rule) => rule.packages.some((pkg) => mentions(text, pkg) || configuredModules.includes(pkg))));
+      const matched = humans.filter((spec) => Object.values(spec.detection.ecosystems).some((rule) => rule.packages.some((pkg) => mentions(text, pkg) || configuredModules.some((module3) => module3 === pkg || module3.startsWith(`${pkg}.`)))));
       const language = config.language === "py" || config.language === "auto" && config.entryPoints.every((e) => e.file.endsWith(".py")) ? "py" : "ts";
       const scoped = matched.filter((spec) => spec.detection.taint_roots.some((root) => root.language === language));
       const chosen = (scoped.length ? scoped : matched).slice().sort((a, b) => a.id.localeCompare(b.id));
@@ -315925,7 +315932,7 @@ var require_scan3 = __commonJS({
         throw new Error("language: auto does not mix Python and TypeScript entry points in one configuration");
       return py;
     }
-    async function analyzeConfiguredProject(configPath, selectedOverride) {
+    async function analyzeConfiguredProject(configPath, selectedOverride, specsPath, specId) {
       const path = await (0, promises_1.realpath)((0, node_path_1.resolve)(configPath));
       const projectRoot = (0, node_path_1.dirname)(path);
       const config = (0, core_1.validateContract)("IsotopeConfig", (0, yaml_1.parse)(await (0, promises_1.readFile)(path, "utf8")));
@@ -315937,7 +315944,13 @@ ${await (0, promises_1.readFile)((0, node_path_1.resolve)(projectRoot, e.file), 
           return e.file;
         }
       }));
-      const selected = selectedOverride ?? await (0, changespec_1.loadSpecsForProject)((0, node_path_1.resolve)(__dirname, "../../../specs"), sources, config);
+      const registryRoot = specsPath ? (0, node_path_1.resolve)(projectRoot, specsPath) : (0, node_path_1.resolve)(__dirname, "../../../specs");
+      let selected = selectedOverride;
+      if (!selected && specId) {
+        const spec = await (0, changespec_1.loadSpecById)(registryRoot, specId);
+        selected = (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
+      }
+      selected ??= await (0, changespec_1.loadSpecsForProject)(registryRoot, sources, config);
       if (selected.specs.length !== 1)
         throw new Error("No matching human-verified ChangeSpec for configured sources");
       const python = usesPython(config);
@@ -315966,13 +315979,8 @@ ${await (0, promises_1.readFile)((0, node_path_1.resolve)(projectRoot, e.file), 
         lines.push(`Diagnostic: ${d.file}: ${d.reason}`);
       return lines;
     }
-    async function scanProject(configPath, specId) {
-      let override;
-      if (specId) {
-        const spec = await (0, changespec_1.loadSpecById)((0, node_path_1.resolve)(__dirname, "../../../specs"), specId);
-        override = (0, core_1.validateContract)("SelectedSpecs", { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
-      }
-      const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath, override);
+    async function scanProject(configPath, options = {}) {
+      const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath, void 0, options.specsPath, options.specId);
       const paths = (0, core_1.artifactPaths)(projectRoot);
       await (0, core_1.writeJsonArtifact)(paths.root, paths.bdg, "BDG", bdg);
       return [`ChangeSpec: ${selected.specs[0].id}`, ...graphSummary(bdg), `BDG artifact: ${paths.bdg}`].join("\n");
@@ -316591,17 +316599,19 @@ var require_dist7 = __commonJS({
     function sidecar() {
       return (0, node_path_1.resolve)(__dirname, "../../../py-runner/isotope_runner/cli.py");
     }
-    function python(payload) {
+    function python(payload, executable = "python3") {
       return new Promise((resolvePromise, reject) => {
-        const child = (0, node_child_process_1.spawn)("python3", [sidecar()], { stdio: ["pipe", "pipe", "pipe"] });
+        const child = (0, node_child_process_1.spawn)(executable, [sidecar()], { stdio: ["pipe", "pipe", "pipe"] });
         const out = [];
+        const err = [];
         child.stdout.on("data", (chunk) => out.push(chunk));
+        child.stderr.on("data", (chunk) => err.push(chunk));
         child.on("error", (error) => reject(error.code === "ENOENT" ? new errors_1.HarnessExecutionError("harness_could_not_run", "python3 is required for Python execution") : error));
         child.on("close", () => {
           try {
             resolvePromise(JSON.parse(Buffer.concat(out).toString("utf8")));
           } catch {
-            reject(new errors_1.HarnessExecutionError("invalid_child_output", "Python harness returned invalid JSON"));
+            reject(new errors_1.HarnessExecutionError("invalid_child_output", "Python harness returned invalid JSON", { stderr: Buffer.concat(err).toString("utf8") }));
           }
         });
         child.stdin.end(JSON.stringify(payload));
@@ -316627,7 +316637,8 @@ var require_dist7 = __commonJS({
         requestHeaders,
         runIndex
       };
-      const result = await python({ command: "harness", plan });
+      const configured = side === "old" ? process.env.ISOTOPE_PYTHON_OLD : process.env.ISOTOPE_PYTHON_NEW;
+      const result = await python({ command: "harness", plan }, configured || process.env.ISOTOPE_PYTHON || "python3");
       if (result.error) {
         const error = result.error;
         throw new errors_1.HarnessExecutionError(error.reason || "harness_could_not_run", error.message || "Python harness failed");
@@ -320889,6 +320900,43 @@ var require_accuracy = __commonJS({
 var require_dist14 = __commonJS({
   "packages/cli/dist/index.js"(exports2) {
     "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.verifyRepository = exports2.runDetectionMatrix = exports2.scanProject = exports2.verifyWalkingSkeleton = void 0;
     exports2.createProgram = createProgram;
@@ -320923,7 +320971,12 @@ var require_dist14 = __commonJS({
     function createProgram() {
       const program = new commander_1.Command().exitOverride().name("isotope").description("Isotope \u2014 provider dataflow and behavioral verification").version("0.1.0");
       program.option("--config <path>", "configuration file", "isotope.yml");
-      program.command("scan").description("L2: analyze configured entry points and write the BDG").option("--spec <id>", "ChangeSpec identifier").action(async (options) => console.log(await (0, scan_1.scanProject)(program.opts().config, options.spec)));
+      program.option("--specs <path>", "ChangeSpec registry (relative to the configured repository)");
+      program.option("--fixtures <path>", "normalized fixture registry (relative to the configured repository)");
+      program.command("scan").description("L2: analyze configured entry points and write the BDG").option("--spec <id>", "ChangeSpec identifier").action(async (command) => {
+        const options = program.opts();
+        console.log(await (0, scan_1.scanProject)(options.config, { ...options.specs ? { specsPath: options.specs } : {}, ...command.spec ? { specId: command.spec } : {} }));
+      });
       program.command("verify").description("Analyze and verify configured entry points").option("--spec <id>", "ChangeSpec identifier").option("--no-reasoner", "mechanical verification only").option("--no-repair", "stop after detection and verdict").option("--base <ref>", "local Git base revision").option("--head <ref>", "local Git head revision").action(async (options) => {
         const testFixtureDirectory = process.env.ISOTOPE_TEST_FIXTURES;
         if (options.base && !options.head || !options.base && options.head)
@@ -320932,11 +320985,12 @@ var require_dist14 = __commonJS({
         if (options.base && options.head) {
           const configAbsolute = await (0, promises_1.realpath)((0, node_path_1.resolve)(configPath));
           const root = (0, node_path_1.resolve)(configAbsolute, "..");
+          const registryOptions = program.opts();
           const result2 = await (0, verify_repository_1.verifyRepository)({
             repositoryRoot: root,
             configPath: configAbsolute,
-            specsPath: (0, node_path_1.resolve)(__dirname, "../../../specs"),
-            fixturesPath: (0, node_path_1.resolve)(__dirname, "../../../fixtures/normalized"),
+            specsPath: registryOptions.specs ?? (0, node_path_1.resolve)(__dirname, "../../../specs"),
+            fixturesPath: registryOptions.fixtures ?? (0, node_path_1.resolve)(__dirname, "../../../fixtures/normalized"),
             baseRef: options.base,
             headRef: options.head,
             reasoner: options.reasoner === false ? "off" : "on",
@@ -320948,7 +321002,16 @@ var require_dist14 = __commonJS({
           process.exitCode = result2.exitCode;
           return;
         }
-        const result = await (0, walking_skeleton_1.verifyWalkingSkeleton)({ configPath, disableReasoner: options.reasoner === false, disableRepair: options.repair === false, ...testFixtureDirectory ? { testFixtureDirectory } : {} });
+        const globalOptions = program.opts();
+        const analysis = await Promise.resolve().then(() => __importStar(require_scan3())).then((module3) => module3.analyzeConfiguredProject(configPath, void 0, globalOptions.specs, options.spec));
+        const result = await (0, walking_skeleton_1.verifyWalkingSkeleton)({
+          configPath,
+          selectedSpecs: analysis.selected,
+          ...globalOptions.fixtures ? { fixtureRoot: (0, node_path_1.resolve)(analysis.projectRoot, globalOptions.fixtures) } : {},
+          disableReasoner: options.reasoner === false,
+          disableRepair: options.repair === false,
+          ...testFixtureDirectory ? { testFixtureDirectory } : {}
+        });
         console.log(result.output);
         process.exitCode = result.exitCode;
       });

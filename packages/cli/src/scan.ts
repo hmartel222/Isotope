@@ -15,13 +15,19 @@ export function usesPython(config: { language: 'ts' | 'py' | 'auto'; entryPoints
   return py;
 }
 
-export async function analyzeConfiguredProject(configPath: string, selectedOverride?: SelectedSpecs) {
+export async function analyzeConfiguredProject(configPath: string, selectedOverride?: SelectedSpecs, specsPath?: string, specId?: string) {
   const path = await realpath(resolve(configPath)); const projectRoot = dirname(path);
   const config = validateContract('IsotopeConfig', parse(await readFile(path, 'utf8')) as unknown);
   const sources = await Promise.all(config.entryPoints.map(async e => {
     try { return `${e.file}\n${await readFile(resolve(projectRoot, e.file), 'utf8')}`; } catch { return e.file; }
   }));
-  const selected = selectedOverride ?? await loadSpecsForProject(resolve(__dirname, '../../../specs'), sources, config);
+  const registryRoot = specsPath ? resolve(projectRoot, specsPath) : resolve(__dirname, '../../../specs');
+  let selected = selectedOverride;
+  if (!selected && specId) {
+    const spec = await loadSpecById(registryRoot, specId);
+    selected = validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
+  }
+  selected ??= await loadSpecsForProject(registryRoot, sources, config);
   if (selected.specs.length !== 1) throw new Error('No matching human-verified ChangeSpec for configured sources');
   const python = usesPython(config);
   const bdg = python
@@ -48,13 +54,8 @@ export function graphSummary(bdg: BDG): string[] {
   for (const d of bdg.skipped) lines.push(`Diagnostic: ${d.file}: ${d.reason}`);
   return lines;
 }
-export async function scanProject(configPath: string, specId?: string): Promise<string> {
-  let override: SelectedSpecs | undefined;
-  if (specId) {
-    const spec = await loadSpecById(resolve(__dirname, '../../../specs'), specId);
-    override = validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [], specs: [spec] });
-  }
-  const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath, override);
+export async function scanProject(configPath: string, options: { specsPath?: string; specId?: string } = {}): Promise<string> {
+  const { projectRoot, selected, bdg } = await analyzeConfiguredProject(configPath, undefined, options.specsPath, options.specId);
   const paths = artifactPaths(projectRoot);
   await writeJsonArtifact(paths.root, paths.bdg, 'BDG', bdg);
   return [`ChangeSpec: ${selected.specs[0]!.id}`, ...graphSummary(bdg), `BDG artifact: ${paths.bdg}`].join('\n');
