@@ -2,7 +2,11 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { validateContract, type BDG, type ChangeSpec, type IsotopeConfig, type ResolveInput } from '@isotope/core';
 
-function sidecar(): string { return resolve(__dirname, '../../../py-runner/isotope_runner/cli.py'); }
+function sidecar(): string {
+  return process.env.ISOTOPE_ACTION_PY_RUNNER
+    ? resolve(process.env.ISOTOPE_ACTION_PY_RUNNER)
+    : resolve(__dirname, '../../../py-runner/isotope_runner/cli.py');
+}
 
 export interface ResolverInput {
   repositoryRoot: string;

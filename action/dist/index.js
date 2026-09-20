@@ -315872,7 +315872,7 @@ var require_dist5 = __commonJS({
     var node_path_1 = require("node:path");
     var core_1 = require_dist();
     function sidecar() {
-      return (0, node_path_1.resolve)(__dirname, "../../../py-runner/isotope_runner/cli.py");
+      return process.env.ISOTOPE_ACTION_PY_RUNNER ? (0, node_path_1.resolve)(process.env.ISOTOPE_ACTION_PY_RUNNER) : (0, node_path_1.resolve)(__dirname, "../../../py-runner/isotope_runner/cli.py");
     }
     function python(payload) {
       return new Promise((resolvePromise, reject) => {
@@ -316606,7 +316606,7 @@ var require_dist7 = __commonJS({
       return errors_2.HarnessExecutionError;
     } });
     function sidecar() {
-      return (0, node_path_1.resolve)(__dirname, "../../../py-runner/isotope_runner/cli.py");
+      return process.env.ISOTOPE_ACTION_PY_RUNNER ? (0, node_path_1.resolve)(process.env.ISOTOPE_ACTION_PY_RUNNER) : (0, node_path_1.resolve)(__dirname, "../../../py-runner/isotope_runner/cli.py");
     }
     function python(payload, executable = "python3") {
       return new Promise((resolvePromise, reject) => {
@@ -321413,6 +321413,7 @@ async function main() {
     runtime = await prepareHarnessRuntime();
     process.once("exit", () => (0, import_node_fs.rmSync)(runtime.root, { recursive: true, force: true }));
     process.env.ISOTOPE_ACTION_RUNTIME_ROOT = (0, import_node_path2.join)(runtime.root, "runtime");
+    process.env.ISOTOPE_ACTION_PY_RUNNER = (0, import_node_path2.resolve)(__dirname, "../../py-runner/isotope_runner/cli.py");
     const internalFixture = process.env.ISOTOPE_ACTION_TEST_MODE === "1" ? process.env.ISOTOPE_INTERNAL_TEST_FIXTURES : void 0;
     const key = input("gemini-api-key");
     if (key) process.env.GEMINI_API_KEY = key;

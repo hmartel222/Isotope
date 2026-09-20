@@ -1,0 +1,42 @@
+name: Isotope verify
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  behavioral-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ github.event.pull_request.head.sha }}"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build isolated ElevenLabs SDK environments
+        run: |
+          python -m venv .venv-old
+          python -m venv .venv-new
+          .venv-old/bin/pip install --disable-pip-version-check elevenlabs==1.59.0
+          .venv-new/bin/pip install --disable-pip-version-check elevenlabs==2.0.0
+      - id: isotope
+        uses: hmartel222/hophacksf26/action@9ef7cd2c9e3f198d3ee266633dc50b416ce040dd
+        env:
+          ISOTOPE_PYTHON_OLD: "${{ github.workspace }}/.venv-old/bin/python"
+          ISOTOPE_PYTHON_NEW: "${{ github.workspace }}/.venv-new/bin/python"
+        with:
+          config: isotope.yml
+          specs-path: specs
+          fixtures-path: fixtures/normalized
+          reasoner: off
+          repair: off
+      - name: Upload validated Isotope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isotope-report
+          path: .isotope/
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: true

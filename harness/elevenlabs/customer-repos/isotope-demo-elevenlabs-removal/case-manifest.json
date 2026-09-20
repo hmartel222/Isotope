@@ -1,0 +1,19 @@
+{
+  "id": "elevenlabs-python-v1-v2-generate-removal",
+  "provider": "elevenlabs",
+  "language": "python",
+  "package": "elevenlabs",
+  "oldVersion": "1.59.0",
+  "newVersion": "2.0.0",
+  "changeClass": "method_removed_and_replaced",
+  "oldSurface": "ElevenLabs.generate",
+  "newSurface": "ElevenLabs.text_to_speech.convert",
+  "entryPoint": "app.handler.handle_render_job",
+  "providerBoundary": "app.speech_service.SpeechService.synthesize",
+  "sink": "audio_repository.save",
+  "expectedDetectionVerdict": "FAIL",
+  "expectedMigratedVerdict": "PASS",
+  "repairExpected": true,
+  "planningFixture": "fixtures/planning/render_job.json",
+  "heldoutFixture": "fixtures/heldout/render_job.json"
+}

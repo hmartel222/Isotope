@@ -5,7 +5,11 @@ import { validateContract, type HarnessInput, type HarnessResult, type Signature
 import { HarnessExecutionError } from './errors';
 export { HarnessExecutionError } from './errors';
 
-function sidecar(): string { return resolve(__dirname, '../../../py-runner/isotope_runner/cli.py'); }
+function sidecar(): string {
+  return process.env.ISOTOPE_ACTION_PY_RUNNER
+    ? resolve(process.env.ISOTOPE_ACTION_PY_RUNNER)
+    : resolve(__dirname, '../../../py-runner/isotope_runner/cli.py');
+}
 
 function python(payload: unknown, executable = 'python3'): Promise<Record<string, unknown>> {
   return new Promise((resolvePromise, reject) => {

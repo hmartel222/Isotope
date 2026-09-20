@@ -38,6 +38,7 @@ async function main(): Promise<void> {
   let artifactRoot = resolve(repositoryRoot, input('artifact-root', '.isotope'));
   if (mode === 'verify') {
     runtime = await prepareHarnessRuntime(); process.once('exit', () => rmSync(runtime!.root, { recursive: true, force: true })); process.env.ISOTOPE_ACTION_RUNTIME_ROOT = join(runtime.root, 'runtime');
+    process.env.ISOTOPE_ACTION_PY_RUNNER = resolve(__dirname, '../../py-runner/isotope_runner/cli.py');
     const internalFixture = process.env.ISOTOPE_ACTION_TEST_MODE === '1' ? process.env.ISOTOPE_INTERNAL_TEST_FIXTURES : undefined;
     const key = input('gemini-api-key'); if (key) process.env.GEMINI_API_KEY = key;
     const specsPath = input('specs-path', resolve(__dirname, '../registry/specs'));

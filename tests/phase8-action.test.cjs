@@ -72,6 +72,24 @@ test('Action uses bundled registries when the customer repo has no specs or fixt
   assert.match(await fs.readFile(path.join(repo,'.isotope/isotope-report.json'),'utf8'),/sub-updated-single/);
 });
 
+test('bundled Action resolves and executes the Python sidecar from a remote-Action layout',async t=>{
+  const repo=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'isotope-action-python-')));t.after(()=>fs.rm(repo,{recursive:true,force:true}));
+  await fs.cp(path.join(root,'corpus/cases/repositories/python-elevenlabs'),repo,{recursive:true});
+  const git=async(...args)=>execute('git',args,{cwd:repo});
+  await git('init','--quiet');await git('config','user.email','action@test.invalid');await git('config','user.name','Action Test');
+  await fs.writeFile(path.join(repo,'requirements.txt'),'elevenlabs==0.2.27\n');await git('add','.');await git('commit','--quiet','-m','base');
+  const base=(await git('rev-parse','HEAD')).stdout.trim();
+  await fs.writeFile(path.join(repo,'requirements.txt'),'elevenlabs==1.0.0\n');await git('add','requirements.txt');await git('commit','--quiet','-m','head');
+  const head=(await git('rev-parse','HEAD')).stdout.trim();
+  const event=path.join(repo,'event.json');await fs.writeFile(event,JSON.stringify({number:4,repository:{full_name:'o/r'},pull_request:{base:{sha:base},head:{sha:head}}}));
+  const outputs=path.join(repo,'outputs');await fs.writeFile(outputs,'');
+  const synthetic=path.join(repo,'internal-test-fixture');await fs.cp(path.join(root,'corpus/cases/fixtures/el-tts'),synthetic,{recursive:true});
+  let failure,success;try{success=await execute(process.execPath,[path.join(root,'action/dist/index.js')],{cwd:repo,env:{...process.env,GITHUB_EVENT_PATH:event,GITHUB_WORKSPACE:repo,GITHUB_OUTPUT:outputs,INPUT_REASONER:'off',INPUT_REPAIR:'off','INPUT_SPECS-PATH':'','INPUT_FIXTURES-PATH':'',ISOTOPE_ACTION_TEST_MODE:'1',ISOTOPE_INTERNAL_TEST_FIXTURES:synthetic},timeout:90000});}catch(error){failure=error;}
+  const report=JSON.parse(await fs.readFile(path.join(repo,'.isotope/isotope-report.json'),'utf8'));
+  assert.equal(failure?.code,1,`${failure?.stderr ?? success?.stdout ?? 'action exited successfully'}; verdict=${report.verdict.verdict}; reason=${report.verdict.results[0]?.reason}`);
+  assert.equal(report.verdict.verdict,'FAIL');assert.equal(report.selectedSpecs.specs[0].provider,'elevenlabs');assert.equal(report.signatureRefs.length,4);
+});
+
 test('workflow templates never grant contents write or use pull_request_target',async()=>{
   const files=await Promise.all(['isotope.yml','isotope-verify.yml','isotope-report.yml'].map(f=>fs.readFile(path.join(root,'.github/workflows',f),'utf8')));
   for(const text of files){assert.doesNotMatch(text,/contents:\s*write/);assert.doesNotMatch(text,/pull_request_target/);}
@@ -79,4 +97,11 @@ test('workflow templates never grant contents write or use pull_request_target',
   const customer=[await fs.readFile(path.join(root,'harness/stripe/customer-template/.github/workflows/isotope-verify.yml'),'utf8'),await fs.readFile(path.join(root,'harness/stripe/customer-template/.github/workflows/isotope-report.yml'),'utf8')];
   for(const text of customer){assert.doesNotMatch(text,/contents:\s*write/);assert.doesNotMatch(text,/pull_request_target/);assert.doesNotMatch(text,/corepack enable/);}
   assert.match(customer[0],/contents: read/);assert.match(customer[0],/include-hidden-files: true/);assert.match(customer[1],/workflow_run/);
+  for(const repo of ['isotope-demo-elevenlabs-removal','isotope-demo-elevenlabs-fallback']) {
+    const verify=await fs.readFile(path.join(root,'harness/elevenlabs/customer-repos',repo,'.github/workflows/isotope-verify.yml'),'utf8');
+    const report=await fs.readFile(path.join(root,'harness/elevenlabs/customer-repos',repo,'.github/workflows/isotope-report.yml'),'utf8');
+    for(const text of [verify,report]) { assert.doesNotMatch(text,/contents:\s*write/);assert.doesNotMatch(text,/pull_request_target/); }
+    assert.match(verify,/ISOTOPE_PYTHON_OLD/);assert.match(verify,/ISOTOPE_PYTHON_NEW/);assert.match(verify,/specs-path: specs/);assert.match(verify,/fixtures-path: fixtures\/normalized/);
+    assert.match(report,/workflow_run/);assert.match(report,/pull-requests: write/);
+  }
 });

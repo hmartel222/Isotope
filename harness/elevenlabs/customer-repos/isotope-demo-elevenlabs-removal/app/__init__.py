@@ -1,0 +1,1 @@
+"""Speech-rendering benchmark application."""

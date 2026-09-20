@@ -1,0 +1,16 @@
+--- a/app/speech_service.py
++++ b/app/speech_service.py
+@@ -18,10 +18,10 @@
+         self.client = client or ElevenLabs(api_key=api_key)
+
+     def synthesize(self, text: str, voice_id: str) -> bytes:
+-        audio = self.client.generate(
++        audio = self.client.text_to_speech.convert(
+             text=text,
+-            voice=voice_id,
+-            model=MODEL_ID,
++            voice_id=voice_id,
++            model_id=MODEL_ID,
+             output_format=OUTPUT_FORMAT,
+         )
+         return collect_audio(audio)

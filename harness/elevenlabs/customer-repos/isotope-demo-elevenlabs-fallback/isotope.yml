@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "language": "py",
+  "entryPoints": [
+    {"file": "app/entrypoint.py", "export": "run_publish_job", "kind": "plain"}
+  ],
+  "mocks": [
+    {
+      "module": "elevenlabs.client",
+      "strategy": "provider",
+      "adapter": "real-method",
+      "exports": ["ElevenLabs"],
+      "intercept": ["ElevenLabs.text_to_speech.convert"],
+      "required": false,
+      "response": {
+        "kind": "canonical-json-bytes",
+        "prefix": "ELEVENLABS_TEST_AUDIO|",
+        "chunks": 2,
+        "fields": {
+          "model_id": ["model_id", "model"],
+          "output_format": ["output_format"],
+          "text": ["text"],
+          "voice_id": ["voice_id", "voice"]
+        }
+      }
+    },
+    {"module": "app.audio_repository", "adapter": "method-record", "exports": {"AudioRepository.save": "recordAll"}, "sinkKind": "db_write"}
+  ],
+  "returns": {},
+  "failOn": ["critical", "high"],
+  "reasoner": {"mode": "off", "maxInvocations": 10, "redact": false},
+  "repair": {"mode": "off", "planner": "deterministic-only", "maxAttempts": 1, "maxFiles": 3, "maxChangedLines": 80, "selfConsistency": false, "verify": true, "redact": false},
+  "ignore": []
+}

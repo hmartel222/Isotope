@@ -1,0 +1,34 @@
+id: elevenlabs.python.v1-v2.fallback-ambiguity
+provider: elevenlabs
+title: ElevenLabs client.generate removal activates application fallback
+source: https://github.com/elevenlabs/elevenlabs-python/wiki/v2-upgrade-guide
+verified_by: human
+verified_at: "2026-09-19"
+versions: { from: "1.59.0", to: "2.0.0" }
+semantics: |
+  ElevenLabs Python 2.0.0 removes client.generate. This application catches
+  provider failures and persists fallback audio, so storage remains successful
+  while the stored content and declared audio source change. Product owners
+  must decide whether fallback narration is acceptable for published content.
+detection:
+  ecosystems:
+    pypi: { packages: [elevenlabs], breaking_from: "2.0.0" }
+  taint_roots:
+    - { kind: call, language: py, pattern: "$ELEVENLABS.generate($$$)" }
+    - { kind: call, language: py, pattern: "$ELEVENLABS.text_to_speech.convert($$$)" }
+changes:
+  - object: narration_audio
+    removed_symbol: generate
+    replacement:
+      path: text_to_speech.convert
+      cardinality: one
+      semantics: The v2 namespaced conversion method restores provider narration instead of application fallback audio.
+    ambiguity:
+      when: "fallback_policy.options.length > 1"
+      question: Is application-owned fallback audio acceptable when narration generation becomes unavailable?
+      options: [accept_fallback, require_provider_audio]
+    repair_policy:
+      business_policy_required_when: fallback audio reaches the publishing sink
+    codemod: { kind: unsupported }
+fixtures:
+  pair: publish_job
