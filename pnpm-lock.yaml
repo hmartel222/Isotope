@@ -20,6 +20,9 @@ importers:
       '@isotope/differ':
         specifier: workspace:*
         version: link:packages/differ
+      '@isotope/fixtures':
+        specifier: workspace:*
+        version: link:packages/fixtures
       '@isotope/fleet':
         specifier: workspace:*
         version: link:packages/fleet
@@ -29,6 +32,9 @@ importers:
       '@isotope/harness-ts':
         specifier: workspace:*
         version: link:packages/harness-ts
+      '@isotope/model-gateway':
+        specifier: workspace:*
+        version: link:packages/model-gateway
       '@isotope/reasoner':
         specifier: workspace:*
         version: link:packages/reasoner
@@ -68,6 +74,18 @@ importers:
       '@isotope/core':
         specifier: workspace:*
         version: link:../core
+      '@isotope/fixtures':
+        specifier: workspace:*
+        version: link:../fixtures
+      '@isotope/model-gateway':
+        specifier: workspace:*
+        version: link:../model-gateway
+      '@isotope/resolver-py':
+        specifier: workspace:*
+        version: link:../resolver-py
+      '@isotope/resolver-ts':
+        specifier: workspace:*
+        version: link:../resolver-ts
       yaml:
         specifier: 2.7.1
         version: 2.7.1
@@ -83,6 +101,9 @@ importers:
       '@isotope/differ':
         specifier: workspace:*
         version: link:../differ
+      '@isotope/fixtures':
+        specifier: workspace:*
+        version: link:../fixtures
       '@isotope/fleet':
         specifier: workspace:*
         version: link:../fleet
@@ -92,6 +113,9 @@ importers:
       '@isotope/harness-ts':
         specifier: workspace:*
         version: link:../harness-ts
+      '@isotope/model-gateway':
+        specifier: workspace:*
+        version: link:../model-gateway
       '@isotope/reasoner':
         specifier: workspace:*
         version: link:../reasoner
@@ -129,6 +153,12 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/fixtures:
+    dependencies:
+      '@isotope/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/fleet:
     dependencies:
       '@isotope/core':
@@ -149,6 +179,12 @@ importers:
       vitest:
         specifier: 3.2.4
         version: 3.2.4(@types/node@20.19.17)(yaml@2.7.1)
+
+  packages/model-gateway:
+    dependencies:
+      '@google/generative-ai':
+        specifier: 0.24.1
+        version: 0.24.1
 
   packages/reasoner:
     dependencies:

@@ -16,6 +16,10 @@
   },
   "dependencies": {
     "@isotope/core": "workspace:*",
+    "@isotope/fixtures": "workspace:*",
+    "@isotope/model-gateway": "workspace:*",
+    "@isotope/resolver-ts": "workspace:*",
+    "@isotope/resolver-py": "workspace:*",
     "yaml": "2.7.1"
   }
 }

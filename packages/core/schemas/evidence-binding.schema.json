@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "fixtureHashes": {
+      "patternProperties": {
+        "^(.*)$": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "heldoutPair": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "newVersion": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "oldVersion": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "pair": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "provenance": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "missing",
+          "type": "string"
+        },
+        {
+          "const": "bound",
+          "type": "string"
+        }
+      ]
+    },
+    "synthetic": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "status",
+    "fixtureHashes"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,9 @@
+schemaVersion: 1
+source: .isotope/sources/provider/change/migration.md
+provider: Provider
+package: provider-sdk
+ecosystem: npm
+fromVersion: 1.0.0
+toVersion: 2.0.0
+language: ts
+goldenSpecId: provider.change

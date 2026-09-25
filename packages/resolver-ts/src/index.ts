@@ -28,3 +28,4 @@ export async function resolveBehavioralDependencyGraph(input: ResolverInput | Re
   const project = loadProject(repositoryRoot, entries.map(e => e.file), config, spec);
   return validateContract('BDG', new Analyzer(project, spec, config, entries).analyze());
 }
+export { checkResolverCompatibility } from './compatibility';

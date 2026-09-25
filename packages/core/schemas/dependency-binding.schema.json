@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "ecosystem": {
+      "anyOf": [
+        {
+          "const": "npm",
+          "type": "string"
+        },
+        {
+          "const": "pypi",
+          "type": "string"
+        }
+      ]
+    },
+    "fromVersion": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "package": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "toVersion": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "ecosystem",
+    "package",
+    "fromVersion",
+    "toVersion"
+  ],
+  "type": "object"
+}

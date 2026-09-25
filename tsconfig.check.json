@@ -6,6 +6,12 @@
       "@isotope/core": [
         "packages/core/src/index.ts"
       ],
+      "@isotope/model-gateway": [
+        "packages/model-gateway/src/index.ts"
+      ],
+      "@isotope/fixtures": [
+        "packages/fixtures/src/index.ts"
+      ],
       "@isotope/changespec": [
         "packages/changespec/src/index.ts"
       ],

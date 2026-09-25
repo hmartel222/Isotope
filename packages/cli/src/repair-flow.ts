@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { parse } from 'yaml';
 import {
   artifactPaths,
@@ -237,7 +237,7 @@ export async function repairExistingFailure(options: { configPath: string; entry
   if (!entry) throw new Error(`Entry point not present in existing BDG: ${options.entryPoint}`);
   const result = verdict.results.find(item => item.entryPointId === entry.id);
   if (!result || (result.verdict !== 'FAIL' && result.verdict !== 'FAIL_REASONED')) throw new Error('isotope repair requires an existing FAIL or FAIL_REASONED artifact');
-  const spec = selected.specs[0]!; const pairId = config.fixturePair ?? spec.fixtures.pair;
+  const spec = selected.specs[0]!; const pairId = config.fixturePair ?? (options.testFixtureDirectory ? basename(resolve(options.testFixtureDirectory)) : spec.fixtures.pair);
   const fixtureDirectory = options.testFixtureDirectory ?? join(projectRoot, 'fixtures/normalized', pairId);
   const loaded = await loadFixturePair({ directory: fixtureDirectory, spec, pairId, role: 'planning', synthetic: Boolean(options.testFixtureDirectory) });
   const { fixture, payloads: [oldPayload, newPayload] } = loaded;

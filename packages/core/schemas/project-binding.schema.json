@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "diagnostics": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "const": "ts",
+          "type": "string"
+        },
+        {
+          "const": "py",
+          "type": "string"
+        }
+      ]
+    },
+    "matchedRoots": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "matches": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "line": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "pattern": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "provenance": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "file",
+          "line",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "module": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "repositoryRootHash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "unbound",
+          "type": "string"
+        },
+        {
+          "const": "bound",
+          "type": "string"
+        },
+        {
+          "const": "ambiguous",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "required": [
+    "status",
+    "matchedRoots"
+  ],
+  "type": "object"
+}

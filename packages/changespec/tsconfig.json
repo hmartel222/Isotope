@@ -11,6 +11,18 @@
   "references": [
     {
       "path": "../core"
+    },
+    {
+      "path": "../model-gateway"
+    },
+    {
+      "path": "../fixtures"
+    },
+    {
+      "path": "../resolver-ts"
+    },
+    {
+      "path": "../resolver-py"
     }
   ]
 }

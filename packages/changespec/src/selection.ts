@@ -5,12 +5,15 @@ import { promisify } from 'node:util';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { validateContract, type ChangeSpec, type SelectedSpecs } from '@isotope/core';
+import { canonicalHash, validateContract, type ChangeSpec, type ChangeSpecEnvelope, type SelectedSpecs } from '@isotope/core';
+import { lowerApprovedEnvelope } from './compiler/lower';
+import { bindProject } from './compiler/bind-project';
 const exec = promisify(execFile);
 export interface DependencyChange { ecosystem: 'npm'|'pypi'; package: string; fromVersion: string; toVersion: string; sourceFiles: string[] }
 export interface GitRevisionInput { repositoryRoot: string; baseRef: string; headRef: string }
 export interface SelectionInput extends GitRevisionInput { specsRoot?: string }
 export interface SelectionResult { dependencyChanges: DependencyChange[]; selected: SelectedSpecs; diagnostics: string[] }
+export interface EnvelopeSelectionResult extends SelectionResult { envelope: ChangeSpecEnvelope; bundleHash: string }
 const npmFiles = new Set(['package.json','pnpm-lock.yaml','package-lock.json']);
 const pyFiles = new Set(['requirements.txt','pyproject.toml','poetry.lock']);
 const normNpm=(s:string)=>s.trim();
@@ -35,3 +38,18 @@ export async function detectDependencyChanges(input:GitRevisionInput):Promise<{c
 for(const file of relevant){const base=await blob(input.repositoryRoot,input.baseRef,file),head=await blob(input.repositoryRoot,input.headRef,file);const baseName=file.split('/').pop()!;const eco=npmFiles.has(baseName)?'npm':'pypi';let before:Map<string,string>,after:Map<string,string>;if(baseName==='package.json'){before=directManifest(base);after=directManifest(head)}else if(baseName==='package-lock.json'){before=lockNpm(base);after=lockNpm(head);const manifestBase=directManifest(await blob(input.repositoryRoot,input.baseRef,file.replace(/package-lock\.json$/,'package.json')));const manifestHead=directManifest(await blob(input.repositoryRoot,input.headRef,file.replace(/package-lock\.json$/,'package.json')));const direct=new Set([...manifestBase.keys(),...manifestHead.keys()]);before=new Map([...before].filter(([n])=>direct.has(n)));after=new Map([...after].filter(([n])=>direct.has(n)))}else if(baseName==='pnpm-lock.yaml'){before=lockPnpm(base);after=lockPnpm(head);const manifestBase=directManifest(await blob(input.repositoryRoot,input.baseRef,file.replace(/pnpm-lock\.yaml$/,'package.json')));const manifestHead=directManifest(await blob(input.repositoryRoot,input.headRef,file.replace(/pnpm-lock\.yaml$/,'package.json')));const direct=new Set([...manifestBase.keys(),...manifestHead.keys()]);before=new Map([...before].filter(([n])=>direct.has(n)));after=new Map([...after].filter(([n])=>direct.has(n)))}else if(baseName==='requirements.txt'){before=reqPy(base);after=reqPy(head)}else if(baseName==='pyproject.toml'){before=pyproject(base);after=pyproject(head)}else {before=poetry(base);after=poetry(head)};const names=new Set([...before.keys(),...after.keys()]);for(const pkg of [...names].sort()){const a=before.get(pkg),b=after.get(pkg);const av=exact(a??''),bv=exact(b??'');if(!av||!bv){if(a!==b)diagnostics.push(`unresolved-version:${file}:${pkg}`);continue}if(av===bv)continue;const key=`${eco}:${pkg}:${av}:${bv}`;const prior=changes.get(key);changes.set(key,{ecosystem:eco,package:pkg,fromVersion:av,toVersion:bv,sourceFiles:[...(prior?.sourceFiles??[]),file]})}}
 return {changes:[...changes.values()].map(c=>({...c,sourceFiles:[...new Set(c.sourceFiles)].sort()})).sort((a,b)=>`${a.ecosystem}:${a.package}:${a.fromVersion}:${a.toVersion}`.localeCompare(`${b.ecosystem}:${b.package}:${b.fromVersion}:${b.toVersion}`)),diagnostics:[...new Set(diagnostics)].sort()}}
 export async function selectChangeSpecs(input:SelectionInput):Promise<SelectionResult>{const detected=await detectDependencyChanges(input);const specs=await allSpecs(input.specsRoot??join(input.repositoryRoot,'specs'));const selected:ChangeSpec[]=[];const selectedChanges:any[]=[];for(const change of detected.changes){for(const spec of specs){for(const [eco,rule] of Object.entries(spec.detection.ecosystems)){if(!crossesBreakingThreshold(change,eco,(rule as any).packages,(rule as any).breaking_from))continue;if(spec.verified_by!=='human'){detected.diagnostics.push(`unverified-spec:${spec.id}`);continue}if(!selected.some(x=>x.id===spec.id)){selected.push(spec);selectedChanges.push({ecosystem:change.ecosystem,package:change.package,from_version:change.fromVersion,to_version:change.toVersion})}}}}const selectedArtifact=validateContract('SelectedSpecs',{schemaVersion:1,dependencyChanges:selectedChanges.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))),specs:selected.sort((a,b)=>a.id.localeCompare(b.id))});return {dependencyChanges:detected.changes,selected:selectedArtifact,diagnostics:[...new Set(detected.diagnostics)].sort()}}
+
+export async function selectApprovedEnvelope(input: GitRevisionInput & { bundlePath: string }): Promise<EnvelopeSelectionResult> {
+  const detected = await detectDependencyChanges(input);
+  const envelope = validateContract('ChangeSpecEnvelope', JSON.parse(await readFile(resolve(input.bundlePath), 'utf8')) as unknown);
+  if (envelope.status !== 'approved') throw new Error(`ChangeSpec envelope is not approved: ${envelope.status}`);
+  const binding = envelope.dependencyBinding;
+  const matches = detected.changes.filter(change => change.ecosystem === binding.ecosystem && change.package === binding.package && change.fromVersion === binding.fromVersion && change.toVersion === binding.toVersion);
+  if (matches.length !== 1) throw new Error(`Approved envelope requires exactly one detected transition ${binding.ecosystem}:${binding.package}:${binding.fromVersion}->${binding.toVersion}; found ${matches.length}`);
+  const currentProjectBinding = await bindProject(envelope.candidate, binding, input.repositoryRoot);
+  if (currentProjectBinding.status !== 'bound' || canonicalHash(currentProjectBinding) !== canonicalHash(envelope.projectBinding)) throw new Error('Approved envelope project binding does not match the current repository');
+  const runtime = lowerApprovedEnvelope(envelope);
+  const change = matches[0]!;
+  const selected = validateContract('SelectedSpecs', { schemaVersion: 1, dependencyChanges: [{ ecosystem: change.ecosystem, package: change.package, from_version: change.fromVersion, to_version: change.toVersion }], specs: [runtime] });
+  return { dependencyChanges: detected.changes, selected, diagnostics: detected.diagnostics, envelope, bundleHash: envelope.bundleHash };
+}

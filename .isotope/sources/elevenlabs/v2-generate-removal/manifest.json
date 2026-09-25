@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "provider": "ElevenLabs",
+  "package": "elevenlabs",
+  "ecosystem": "pypi",
+  "fromVersion": "1.59.0",
+  "toVersion": "2.0.0",
+  "language": "py",
+  "sourceUrls": [
+    "https://github.com/elevenlabs/elevenlabs-python/wiki/v2-upgrade-guide"
+  ],
+  "retrievalDate": "2026-09-21",
+  "files": {
+    "migration.md": "325b8571af9ae767554ecfce2844ca396afd0ebe71a550e1b707efe713d26d3a",
+    "release-notes.md": "803bb21b87a43d0dd31b9f7bcb6c10565ef2d329fa09d81c35f6964b9d3588f4"
+  },
+  "goldenSpecId": "elevenlabs.generate.voice-rename",
+  "repository": "corpus/cases/repositories/python-elevenlabs",
+  "fixturesRoot": "corpus/cases/fixtures",
+  "fixturePair": null,
+  "heldoutPair": null,
+  "blocker": "No non-synthetic ElevenLabs v2 fixture pair is present."
+}

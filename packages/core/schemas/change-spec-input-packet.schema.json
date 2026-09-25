@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "dependency": {
+      "additionalProperties": false,
+      "properties": {
+        "ecosystem": {
+          "anyOf": [
+            {
+              "const": "npm",
+              "type": "string"
+            },
+            {
+              "const": "pypi",
+              "type": "string"
+            }
+          ]
+        },
+        "fromVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "package": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "toVersion": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "ecosystem",
+        "package",
+        "fromVersion",
+        "toVersion"
+      ],
+      "type": "object"
+    },
+    "inputHash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "providerHint": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "sources": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "declaredUri": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "mediaType": {
+            "anyOf": [
+              {
+                "const": "text/plain",
+                "type": "string"
+              },
+              {
+                "const": "text/markdown",
+                "type": "string"
+              },
+              {
+                "const": "application/json",
+                "type": "string"
+              },
+              {
+                "const": "application/yaml",
+                "type": "string"
+              }
+            ]
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "mediaType",
+          "content",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "supportedLanguages": {
+      "items": {
+        "anyOf": [
+          {
+            "const": "ts",
+            "type": "string"
+          },
+          {
+            "const": "py",
+            "type": "string"
+          }
+        ]
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "dependency",
+    "supportedLanguages",
+    "sources",
+    "inputHash"
+  ],
+  "type": "object"
+}

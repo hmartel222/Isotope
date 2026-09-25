@@ -44,12 +44,16 @@ async function main(): Promise<void> {
     const internalFixture = process.env.ISOTOPE_ACTION_TEST_MODE === '1' ? process.env.ISOTOPE_INTERNAL_TEST_FIXTURES : undefined;
     const key = input('gemini-api-key'); if (key) process.env.GEMINI_API_KEY = key;
     const specsPath = input('specs-path', resolve(__dirname, '../registry/specs'));
+    const bundlePath = input('change-spec-bundle');
     const fixturesPath = input('fixtures-path', resolve(__dirname, '../registry/fixtures'));
-    console.log(`ChangeSpec registry: ${specsPath}`);
+    console.log(bundlePath ? `ChangeSpec bundle: ${bundlePath}` : `ChangeSpec registry: ${specsPath}`);
     console.log(`Fixture registry: ${fixturesPath}`);
-    const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), specsPath, fixturesPath, baseRef: context.baseSha, headRef: context.headSha, reasoner: reasoner as 'on' | 'off', repair: repair as 'on' | 'off',
+    const result = await verifyRepository({ repositoryRoot, configPath: input('config', 'isotope.yml'), ...(bundlePath ? { changeSpecBundlePath: bundlePath } : { specsPath }), fixturesPath, baseRef: context.baseSha, headRef: context.headSha, reasoner: reasoner as 'on' | 'off', repair: repair as 'on' | 'off',
       ...(internalFixture ? { testFixtureDirectory: internalFixture } : {}) });
     artifactRoot = result.artifactRoot; console.log(result.output);
+    await output('change-spec-id', result.selection.selected.specs[0]?.id ?? '');
+    await output('change-spec-bundle-hash', result.bundleHash ?? '');
+    await output('selection-rationale', result.selection.selected.specs.length ? result.output.split(/\r?\n/).slice(0, 6).join(' | ') : 'No matching dependency transition');
     const outputLines = result.output.split(/\r?\n/); const repairLine = outputLines.findIndex(line => line.startsWith('Repair:'));
     if (repairLine >= 0) {
       const detail = outputLines.slice(repairLine, repairLine + 2).filter(line => line.startsWith('Repair:') || line.startsWith('Reason:')).join(' — ');

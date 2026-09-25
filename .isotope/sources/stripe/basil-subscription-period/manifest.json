@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "provider": "Stripe",
+  "package": "stripe",
+  "ecosystem": "npm",
+  "fromVersion": "17.7.0",
+  "toVersion": "18.1.0",
+  "language": "ts",
+  "sourceUrls": [
+    "https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end"
+  ],
+  "retrievalDate": "2026-09-21",
+  "files": {
+    "migration.md": "33fcda05a2fb55321ab54103751191c5a7d38e61c3cf3ca8acec236aa9d83cc4",
+    "release-notes.md": "a69657a97eb9752ae04ee83ec2cff5719475fc91e13e3f13e8edd0d4da72fffa"
+  },
+  "goldenSpecId": "stripe.basil.subscription-period",
+  "repository": "corpus/cases/repositories/mechanical-break",
+  "fixturesRoot": "fixtures/normalized",
+  "fixturePair": "sub-updated-single",
+  "heldoutPair": "sub-updated-single-B"
+}

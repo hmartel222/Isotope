@@ -217,6 +217,30 @@ test('combined additive and log-only changes pass with nonempty informational ev
   const old=signature({id:1},[call([1],'log','log_only')]); const next=signature({id:1,added:2},[call([2],'log','log_only')]);
   const report=differ.diffSignatures(input(old,next));assert.equal(report.divergences.length,2);check(report,'PASS');
 });
+test('reasoned verdict states and aggregate precedence fail closed deterministically',()=>{
+  const diff=differ.diffSignatures(argsInput([1],[2]));
+  const config=clone(fixtures.IsotopeConfig);config.reasoner.mode='on';
+  const vote=(overrides={})=>({...clone(fixtures.ReasoningResult),...overrides});
+  const run=(status,results=[],error)=>({status,results,packetRef:'packet.json',responseRefs:['a.json','b.json'],...(error?{error}:{})});
+  const resolve=reasoning=>core.resolveVerdict({entryPoint:fixtures.EntryPoint,bdg:fixtures.BDG,config,diff,reasoning});
+  for(const [reasoning,expected,reason] of [
+    [run('completed',[vote({suspectedInjection:true}),vote()]),'ESCALATE','suspected_prompt_injection'],
+    [run('unavailable',[]),'ESCALATE','semantic_reasoner_unavailable'],
+    [run('errored',[]),'ESCALATE','reasoner_error'],
+    [run('disagreed',[]),'ESCALATE','reasoner_disagreement'],
+    [run('abstained',[]),'ESCALATE','reasoner_abstained'],
+    [run('completed',[vote()]),'ESCALATE','reasoner_incomplete_votes'],
+    [run('completed',[vote({abstain:true}),vote()]),'ESCALATE','reasoner_abstained'],
+    [run('completed',[vote({confidence:'low'}),vote()]),'ESCALATE','reasoner_low_confidence'],
+    [run('completed',[vote({classification:'incompatibility'}),vote({classification:'benign_adaptation'})]),'ESCALATE','reasoner_disagreement'],
+    [run('completed',[vote({classification:'human_decision_required'}),vote({classification:'human_decision_required'})]),'ESCALATE','human_decision_required'],
+    [run('completed',[vote({classification:'incompatibility'}),vote({classification:'incompatibility'})]),'FAIL_REASONED','reasoned_incompatibility'],
+    [run('completed',[vote({classification:'benign_adaptation'}),vote({classification:'benign_adaptation'})]),'PASS_REASONED','reasoned_benign_adaptation'],
+  ]) {const result=resolve(reasoning);assert.equal(result.verdict,expected);assert.equal(result.reason,reason);}
+  const result=value=>({entryPointId:'ep',verdict:value,provenance:'mechanical',reason:'test',divergenceIds:[],reasoningRefs:[],evidenceRefs:[],suspectedInjection:false});
+  assert.equal(core.resolveAggregateVerdict([]).verdict,'SKIP');
+  assert.equal(core.resolveAggregateVerdict(['PASS','INDETERMINATE','FAIL_REASONED'].map(result)).verdict,'FAIL_REASONED');
+});
 test('invalid signatures, seq and inconsistent self-comparison inputs are artifact errors',()=>{
   const data=argsInput([1],[2]);
   const invalid=clone(data);invalid.old.calls[0].seq=5;assert.throws(()=>differ.diffSignatures(invalid),core.ArtifactValidationError);

@@ -12,6 +12,7 @@ const network = localRequire('../block-net.cjs');
 
 test('execute one isolated configured entry point', async () => {
   const plan = JSON.parse(readFileSync(process.env.ISOTOPE_RUN_PLAN, 'utf8'));
+  writeFileSync(plan.workerPidPath, String(process.pid), { mode: 0o600 });
   const calls = [];
   const providerInvocations = new Map();
   let instrumentationFailure;

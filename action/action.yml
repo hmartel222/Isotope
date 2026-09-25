@@ -2,6 +2,7 @@ name: Isotope behavioral verification
 description: Verify dependency upgrade behavior without modifying pull request source
 inputs:
   specs-path: { description: Optional ChangeSpec registry override, required: false }
+  change-spec-bundle: { description: Optional pinned approved ChangeSpec envelope (mutually exclusive with specs-path), required: false }
   fixtures-path: { description: Optional normalized fixture registry override, required: false }
   config: { description: Isotope configuration, default: isotope.yml }
   fail-on: { description: Reserved severity list, default: "critical,high" }
@@ -19,6 +20,9 @@ outputs:
   report-path: { description: Path to isotope-report.json }
   selected-spec-count: { description: Number of selected ChangeSpecs }
   affected-site-count: { description: Number of affected source sites }
+  change-spec-id: { description: Selected ChangeSpec identifier }
+  change-spec-bundle-hash: { description: Approved envelope bundle hash }
+  selection-rationale: { description: Dependency transition and ChangeSpec selection rationale }
 runs:
   using: node20
   main: dist/index.js

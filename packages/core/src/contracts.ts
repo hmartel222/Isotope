@@ -49,6 +49,93 @@ export const ChangeSpecSchema = object({
   fixtures: object({ pair: str(), heldout_pair: opt(str()), ambiguity_pair: opt(str()), adaptation_pair: opt(str()), noop_pair: opt(str()) }),
 });
 export type ChangeSpec = Static<typeof ChangeSpecSchema>;
+
+export const ChangeSpecSourceSchema = object({
+  id: str(), declaredUri: opt(str()),
+  mediaType: choices('text/plain', 'text/markdown', 'application/json', 'application/yaml'),
+  content: str(), sha256: Type.String({ pattern: '^[a-f0-9]{64}$' }),
+});
+export const ChangeSpecInputPacketSchema = object({
+  schemaVersion: Type.Literal(1), providerHint: opt(str()),
+  dependency: object({ ecosystem: choices('npm', 'pypi'), package: str(), fromVersion: str(), toVersion: str() }),
+  supportedLanguages: Type.Array(choices('ts', 'py'), { minItems: 1, uniqueItems: true }),
+  sources: Type.Array(ChangeSpecSourceSchema, { minItems: 1 }),
+  inputHash: Type.String({ pattern: '^[a-f0-9]{64}$' }),
+});
+export type ChangeSpecInputPacket = Static<typeof ChangeSpecInputPacketSchema>;
+
+export const TypedPathSegmentSchema = Type.Union([
+  object({ kind: Type.Literal('property'), name: str() }),
+  object({ kind: Type.Literal('wildcard') }),
+]);
+export const TypedPathSchema = object({ segments: Type.Array(TypedPathSegmentSchema, { minItems: 1 }) });
+export type TypedPath = Static<typeof TypedPathSchema>;
+export const TypedTaintRootSchema = Type.Union([
+  object({ kind: Type.Literal('call'), language: choices('ts', 'py'), receiver: str(), members: Type.Array(str()), argumentMode: choices('none', 'wildcard') }),
+  object({ kind: Type.Literal('type'), language: choices('ts', 'py'), qualifiedName: Type.Array(str(), { minItems: 1 }) }),
+]);
+export type TypedTaintRoot = Static<typeof TypedTaintRootSchema>;
+export const AmbiguityPredicateSchema = Type.Union([
+  object({ kind: choices('field_present', 'field_absent'), path: TypedPathSchema }),
+  object({ kind: choices('array_length_equals', 'array_length_greater_than'), path: TypedPathSchema, value: natural() }),
+  object({ kind: choices('values_all_equal', 'values_differ'), path: TypedPathSchema }),
+]);
+export const CandidateCitationSchema = object({ sourceId: str(), excerpt: str() });
+export const CandidateChangeSchema = object({
+  object: str(), appliesToEvents: opt(strings()), removedPath: opt(TypedPathSchema), removedSymbol: opt(str()),
+  replacement: object({ path: TypedPathSchema, cardinality: choices('one', 'many'), semantics: opt(str()) }),
+  ambiguity: opt(object({ predicate: AmbiguityPredicateSchema, question: str(), options: Type.Array(str(), { minItems: 2 }) })),
+  repairPolicy: opt(object({ businessPolicyRequiredWhen: str() })),
+  codemod: opt(Type.Union([
+    object({ kind: Type.Literal('path_rename'), safeWhen: str(), from: TypedPathSchema, to: TypedPathSchema }),
+    object({ kind: Type.Literal('unsupported') }),
+  ])),
+  citations: object({ removed: Type.Array(CandidateCitationSchema, { minItems: 1 }), replacement: Type.Array(CandidateCitationSchema, { minItems: 1 }), events: opt(Type.Array(CandidateCitationSchema, { minItems: 1 })) }),
+});
+export const ChangeSpecCandidateSchema = object({
+  schemaVersion: Type.Literal(1), provider: str(), title: str(),
+  describedVersions: object({ from: str(), to: str() }), semantics: str(),
+  dependencyProposal: object({ ecosystem: choices('npm', 'pypi'), package: str(), breakingFrom: str() }),
+  taintRoots: Type.Array(TypedTaintRootSchema, { minItems: 1 }),
+  changes: Type.Array(CandidateChangeSchema, { minItems: 1 }),
+  semanticsCitations: Type.Array(CandidateCitationSchema, { minItems: 1 }),
+  unknowns: strings(), unsupportedFeatures: strings(), suspectedInjection: Type.Boolean(), abstain: Type.Boolean(),
+});
+export type ChangeSpecCandidate = Static<typeof ChangeSpecCandidateSchema>;
+
+export const ChangeSpecCompilationReportSchema = object({
+  schemaVersion: Type.Literal(1), inputHash: Type.String({ pattern: '^[a-f0-9]{64}$' }), candidateHash: opt(Type.String({ pattern: '^[a-f0-9]{64}$' })),
+  compilerVersion: str(), promptVersion: positive(), modelId: str(), invocationCount: natural(), cacheStatus: choices('hit', 'miss', 'disabled'),
+  structuralValidation: strings(), semanticValidation: strings(), projectBinding: strings(), resolverCompatibility: strings(),
+  missingEvidence: strings(), unsupportedCapabilities: strings(), injectionWarnings: strings(),
+  status: choices('generated', 'invalid', 'needs_review', 'evidence_missing', 'binding_failed', 'ready_for_approval'),
+});
+export type ChangeSpecCompilationReport = Static<typeof ChangeSpecCompilationReportSchema>;
+export const SourceProvenanceSchema = object({
+  inputHash: Type.String({ pattern: '^[a-f0-9]{64}$' }),
+  sources: Type.Array(object({ id: str(), declaredUri: opt(str()), mediaType: str(), sha256: Type.String({ pattern: '^[a-f0-9]{64}$' }) }), { minItems: 1 }),
+});
+export const CompilerProvenanceSchema = object({ compilerVersion: str(), promptVersion: positive(), modelId: str(), invocationCount: natural(), rawResponseHash: Type.String({ pattern: '^[a-f0-9]{64}$' }), compilationReportHash: Type.String({ pattern: '^[a-f0-9]{64}$' }), cacheStatus: choices('hit', 'miss', 'disabled') });
+export const DependencyBindingSchema = object({ ecosystem: choices('npm', 'pypi'), package: str(), fromVersion: str(), toVersion: str() });
+export type DependencyBinding = Static<typeof DependencyBindingSchema>;
+export const ProjectBindingSchema = object({
+  status: choices('unbound', 'bound', 'ambiguous'), repositoryRootHash: opt(Type.String({ pattern: '^[a-f0-9]{64}$' })), language: opt(choices('ts', 'py')), module: opt(str()), matchedRoots: Type.Array(str()),
+  matches: opt(Type.Array(object({ pattern: str(), file: str(), line: positive(), provenance: str() }))), diagnostics: opt(strings()),
+});
+export type ProjectBinding = Static<typeof ProjectBindingSchema>;
+export const EvidenceBindingSchema = object({ status: choices('missing', 'bound'), pair: opt(str()), heldoutPair: opt(str()), oldVersion: opt(str()), newVersion: opt(str()), provenance: opt(str()), synthetic: opt(Type.Boolean()), fixtureHashes: Type.Record(Type.String({ minLength: 1 }), Type.String({ pattern: '^[a-f0-9]{64}$' })) });
+export type EvidenceBinding = Static<typeof EvidenceBindingSchema>;
+export const ApprovalSchema = object({
+  actor: str(), approvedAt: Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$' }),
+  candidateHash: Type.String({ pattern: '^[a-f0-9]{64}$' }), sourceHash: Type.String({ pattern: '^[a-f0-9]{64}$' }), evidenceHash: Type.String({ pattern: '^[a-f0-9]{64}$' }), compilationReportHash: Type.String({ pattern: '^[a-f0-9]{64}$' }), policyVersion: str(),
+});
+export const ChangeSpecEnvelopeSchema = object({
+  schemaVersion: Type.Literal(1), status: choices('draft', 'validated', 'approved', 'revoked'), candidate: ChangeSpecCandidateSchema,
+  sourceProvenance: SourceProvenanceSchema, compilerProvenance: CompilerProvenanceSchema,
+  dependencyBinding: DependencyBindingSchema, projectBinding: ProjectBindingSchema, evidenceBinding: EvidenceBindingSchema,
+  approval: opt(ApprovalSchema), runtimeSpec: opt(ChangeSpecSchema), bundleHash: Type.String({ pattern: '^[a-f0-9]{64}$' }),
+});
+export type ChangeSpecEnvelope = Static<typeof ChangeSpecEnvelopeSchema>;
 export const SelectedSpecsSchema = object({
   schemaVersion: Type.Literal(1),
   dependencyChanges: Type.Array(object({ ecosystem: choices('npm', 'pypi'), package: str(), from_version: str(), to_version: str() })),
@@ -204,6 +291,9 @@ export type IsotopeReport = Static<typeof IsotopeReportSchema>;
 /** Public JSON-Schema registry; TS types above are inferred from these same schemas. */
 export const schemas = {
   ChangeSpec: ChangeSpecSchema, SelectedSpecs: SelectedSpecsSchema, EntryPoint: EntryPointSchema, Provenance: ProvenanceSchema,
+  ChangeSpecInputPacket: ChangeSpecInputPacketSchema, ChangeSpecCandidate: ChangeSpecCandidateSchema,
+  ChangeSpecCompilationReport: ChangeSpecCompilationReportSchema, ChangeSpecEnvelope: ChangeSpecEnvelopeSchema,
+  DependencyBinding: DependencyBindingSchema, ProjectBinding: ProjectBindingSchema, EvidenceBinding: EvidenceBindingSchema, Approval: ApprovalSchema,
   BDG: BDGSchema, BDGNode: BDGNodeSchema, BDGEdge: BDGEdgeSchema, Sink: SinkSchema, AffectedSite: AffectedSiteSchema,
   Signature: SignatureSchema, RecordedCall: RecordedCallSchema, Divergence: DivergenceSchema, DiffReport: DiffReportSchema,
   EvidencePacket: EvidencePacketSchema, ReasoningResult: ReasoningResultSchema, Verdict: VerdictSchema, VerdictProvenance: VerdictProvenanceSchema, VerdictResult: VerdictResultSchema, VerdictReport: VerdictReportSchema,

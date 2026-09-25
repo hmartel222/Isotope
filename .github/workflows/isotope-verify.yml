@@ -11,8 +11,16 @@ jobs:
         with: { fetch-depth: 0, ref: "${{ github.event.pull_request.head.sha }}" }
       - name: Detect customer config
         id: cfg
+        env:
+          BASE_SHA: "${{ github.event.pull_request.base.sha }}"
         run: |
           if [ -f isotope.yml ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+          if git cat-file -e "$BASE_SHA:.isotope/specs/approved.json" 2>/dev/null; then
+            git show "$BASE_SHA:.isotope/specs/approved.json" > "$RUNNER_TEMP/isotope-approved.json"
+            echo "bundle=$RUNNER_TEMP/isotope-approved.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "bundle=" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pnpm/action-setup@v4
         if: steps.cfg.outputs.present == 'true'
         with: { version: 9.15.9 }
@@ -24,7 +32,10 @@ jobs:
       - id: isotope
         if: steps.cfg.outputs.present == 'true'
         uses: ./action
-        with: { reasoner: off, repair: off }
+        with:
+          reasoner: off
+          repair: off
+          change-spec-bundle: "${{ steps.cfg.outputs.bundle }}"
       - name: Upload validated Isotope evidence
         if: always() && steps.cfg.outputs.present == 'true'
         uses: actions/upload-artifact@v4

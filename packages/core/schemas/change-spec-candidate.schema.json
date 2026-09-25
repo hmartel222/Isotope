@@ -1,0 +1,872 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "abstain": {
+      "type": "boolean"
+    },
+    "changes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "ambiguity": {
+            "additionalProperties": false,
+            "properties": {
+              "options": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 2,
+                "type": "array"
+              },
+              "predicate": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "const": "field_present",
+                            "type": "string"
+                          },
+                          {
+                            "const": "field_absent",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "segments": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "property",
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "name"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "wildcard",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "segments"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "const": "array_length_equals",
+                            "type": "string"
+                          },
+                          {
+                            "const": "array_length_greater_than",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "segments": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "property",
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "name"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "wildcard",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "segments"
+                        ],
+                        "type": "object"
+                      },
+                      "value": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "const": "values_all_equal",
+                            "type": "string"
+                          },
+                          {
+                            "const": "values_differ",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "segments": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "property",
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "name"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "wildcard",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "segments"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "question": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "predicate",
+              "question",
+              "options"
+            ],
+            "type": "object"
+          },
+          "appliesToEvents": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "citations": {
+            "additionalProperties": false,
+            "properties": {
+              "events": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "excerpt": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sourceId",
+                    "excerpt"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "removed": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "excerpt": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sourceId",
+                    "excerpt"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "replacement": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "excerpt": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sourceId",
+                    "excerpt"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "removed",
+              "replacement"
+            ],
+            "type": "object"
+          },
+          "codemod": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "segments": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "property",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "name"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "wildcard",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "segments"
+                    ],
+                    "type": "object"
+                  },
+                  "kind": {
+                    "const": "path_rename",
+                    "type": "string"
+                  },
+                  "safeWhen": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "to": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "segments": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "property",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "name"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "wildcard",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "segments"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "safeWhen",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "unsupported",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "object": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "removedPath": {
+            "additionalProperties": false,
+            "properties": {
+              "segments": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "property",
+                          "type": "string"
+                        },
+                        "name": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "wildcard",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "segments"
+            ],
+            "type": "object"
+          },
+          "removedSymbol": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "repairPolicy": {
+            "additionalProperties": false,
+            "properties": {
+              "businessPolicyRequiredWhen": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "businessPolicyRequiredWhen"
+            ],
+            "type": "object"
+          },
+          "replacement": {
+            "additionalProperties": false,
+            "properties": {
+              "cardinality": {
+                "anyOf": [
+                  {
+                    "const": "one",
+                    "type": "string"
+                  },
+                  {
+                    "const": "many",
+                    "type": "string"
+                  }
+                ]
+              },
+              "path": {
+                "additionalProperties": false,
+                "properties": {
+                  "segments": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "property",
+                              "type": "string"
+                            },
+                            "name": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "name"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "wildcard",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "segments"
+                ],
+                "type": "object"
+              },
+              "semantics": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "cardinality"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "object",
+          "replacement",
+          "citations"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "dependencyProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "breakingFrom": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ecosystem": {
+          "anyOf": [
+            {
+              "const": "npm",
+              "type": "string"
+            },
+            {
+              "const": "pypi",
+              "type": "string"
+            }
+          ]
+        },
+        "package": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "ecosystem",
+        "package",
+        "breakingFrom"
+      ],
+      "type": "object"
+    },
+    "describedVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "to": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "provider": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "semantics": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "semanticsCitations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "excerpt": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sourceId": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "excerpt"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "suspectedInjection": {
+      "type": "boolean"
+    },
+    "taintRoots": {
+      "items": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "argumentMode": {
+                "anyOf": [
+                  {
+                    "const": "none",
+                    "type": "string"
+                  },
+                  {
+                    "const": "wildcard",
+                    "type": "string"
+                  }
+                ]
+              },
+              "kind": {
+                "const": "call",
+                "type": "string"
+              },
+              "language": {
+                "anyOf": [
+                  {
+                    "const": "ts",
+                    "type": "string"
+                  },
+                  {
+                    "const": "py",
+                    "type": "string"
+                  }
+                ]
+              },
+              "members": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "receiver": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "language",
+              "receiver",
+              "members",
+              "argumentMode"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "type",
+                "type": "string"
+              },
+              "language": {
+                "anyOf": [
+                  {
+                    "const": "ts",
+                    "type": "string"
+                  },
+                  {
+                    "const": "py",
+                    "type": "string"
+                  }
+                ]
+              },
+              "qualifiedName": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "language",
+              "qualifiedName"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "unknowns": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "unsupportedFeatures": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "provider",
+    "title",
+    "describedVersions",
+    "semantics",
+    "dependencyProposal",
+    "taintRoots",
+    "changes",
+    "semanticsCitations",
+    "unknowns",
+    "unsupportedFeatures",
+    "suspectedInjection",
+    "abstain"
+  ],
+  "type": "object"
+}

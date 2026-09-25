@@ -1,4 +1,5 @@
 export * from './selection';
+export * from './compiler';
 export { loadWalkingSkeletonSpec } from './specimen';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';

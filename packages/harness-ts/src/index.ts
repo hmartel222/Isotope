@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -85,17 +86,27 @@ async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: numb
     ownsSpec = true;
     const resultPath = join(directory, 'result.json');
     const planPath = join(directory, 'plan.json');
-    await writeFile(planPath, JSON.stringify({ ...plan, repositoryRoot: root, entryFile, mocks, fixturePath, resultPath, specPath }), { mode: 0o600 });
+    const workerPidPath = join(directory, 'worker.pid');
+    await writeFile(planPath, JSON.stringify({ ...plan, repositoryRoot: root, entryFile, mocks, fixturePath, resultPath, specPath, workerPidPath }), { mode: 0o600 });
     const runtime = runtimeAsset('runner.mjs');
     const preload = runtimeAsset('block-net.cjs');
-    const outcome = await new Promise<{ code: number | null; signal: string | null; stdout: string; stderr: string; timedOut: boolean }>((done, reject) => {
+    const outcome = await new Promise<{ code: number | null; signal: string | null; stdout: string; stderr: string; timedOut: boolean; childPid?: number; workerPid?: number }>((done, reject) => {
       const child = spawn(process.execPath, [runtime, planPath], {
         cwd: root, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
         env: { PATH: process.env.PATH ?? '', HOME: directory, TMPDIR: directory, CI: '1', NO_COLOR: '1', TZ: 'UTC',
           NODE_OPTIONS: `--require ${JSON.stringify(preload)}`, ISOTOPE_EGRESS_LOG: join(directory, 'egress.jsonl') },
       });
       let stdout = ''; let stderr = ''; let timedOut = false;
-      const kill = () => {
+      let workerPid: number | undefined;
+      let timeoutCleanup: Promise<void> | undefined;
+      const readWorkerPid = () => {
+        try {
+          const parsed = Number(readFileSync(workerPidPath, 'utf8'));
+          if (Number.isSafeInteger(parsed) && parsed > 1) workerPid = parsed;
+        } catch { /* Worker may not have reached the test body yet. */ }
+        return workerPid;
+      };
+      const killGroup = () => {
         try { if (child.pid && process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); }
         catch (error) {
           const code = (error as NodeJS.ErrnoException).code;
@@ -103,13 +114,80 @@ async function executeTsHarness(plan: TsHarnessPlan, options: { timeoutMs?: numb
           else if (code !== 'ESRCH') throw error;
         }
       };
-      const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
+      const terminateTimedOutTree = async () => {
+        const pid = readWorkerPid();
+        if (pid && process.platform !== 'win32') {
+          try { process.kill(pid, 'SIGKILL'); }
+          catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code !== 'ESRCH' && code !== 'EPERM') throw error;
+          }
+          // Leave the runner alive briefly so it can reap its fork. Killing both at
+          // once can orphan a zombie that remains observable after this call returns.
+          const reapDeadline = Date.now() + 1_000;
+          while (Date.now() < reapDeadline) {
+            try { process.kill(pid, 0); }
+            catch (error) {
+              const code = (error as NodeJS.ErrnoException).code;
+              if (code === 'ESRCH' || code === 'EPERM') break;
+              throw error;
+            }
+            await new Promise(resolvePromise => setTimeout(resolvePromise, 10));
+          }
+        }
+        killGroup();
+      };
+      const timer = setTimeout(() => {
+        timedOut = true;
+        timeoutCleanup = terminateTimedOutTree();
+      }, timeoutMs);
       child.stdout.on('data', data => { stdout = (stdout + String(data)).slice(-16384); });
       child.stderr.on('data', data => { stderr = (stderr + String(data)).slice(-16384); });
-      child.once('error', error => { clearTimeout(timer); kill(); reject(error); });
-      child.once('exit', () => { kill(); }); // Reap pool descendants even after a runner crash.
-      child.once('close', (code, signal) => { clearTimeout(timer); done({ code, signal, stdout, stderr, timedOut }); });
+      child.once('error', error => { clearTimeout(timer); killGroup(); reject(error); });
+      child.once('exit', () => { if (!timedOut) killGroup(); }); // Reap pool descendants even after a runner crash.
+      child.once('close', async (code, signal) => {
+        clearTimeout(timer);
+        try { await timeoutCleanup; }
+        catch (error) { reject(error); return; }
+        const finalWorkerPid = readWorkerPid();
+        done({ code, signal, stdout, stderr, timedOut, ...(child.pid ? { childPid: child.pid } : {}), ...(finalWorkerPid ? { workerPid: finalWorkerPid } : {}) });
+      });
     });
+    if (outcome.timedOut && outcome.childPid && process.platform !== 'win32') {
+      // SIGKILL is asynchronous. Wait until the detached process group is gone so a
+      // timed-out runner cannot leak a briefly live descendant to the caller. Under
+      // a busy test run macOS can take more than a second to reap the Vitest fork,
+      // so keep enforcing the kill until the group disappears or the bounded
+      // cleanup window expires.
+      const cleanupDeadline = Date.now() + 4_500;
+      while (Date.now() < cleanupDeadline) {
+        try { process.kill(-outcome.childPid, 0); }
+        catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'ESRCH' || code === 'EPERM') break;
+          throw error;
+        }
+        try { process.kill(-outcome.childPid, 'SIGKILL'); }
+        catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'ESRCH' || code === 'EPERM') break;
+          throw error;
+        }
+        await new Promise(resolvePromise => setTimeout(resolvePromise, 10));
+      }
+    }
+    if (outcome.timedOut && outcome.workerPid && process.platform !== 'win32') {
+      const workerDeadline = Date.now() + 1_000;
+      while (Date.now() < workerDeadline) {
+        try { process.kill(outcome.workerPid, 0); }
+        catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'ESRCH' || code === 'EPERM') break;
+          throw error;
+        }
+        await new Promise(resolvePromise => setTimeout(resolvePromise, 10));
+      }
+    }
     const diagnostics = { entryPointId: plan.entryPoint.id, stage: 'child', generatedTestPath: specPath, ...outcome };
     let egress = '';
     try { egress = await readFile(join(directory, 'egress.jsonl'), 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }

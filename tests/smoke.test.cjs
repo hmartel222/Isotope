@@ -5,11 +5,11 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const { NotImplementedStageError } = require('@isotope/core');
-const packages = ['core','changespec','resolver-ts','resolver-py','harness-ts','harness-py','differ','reasoner','repair','verifier','reporter','fleet','cli'];
+const packages = ['core','model-gateway','fixtures','changespec','resolver-ts','resolver-py','harness-ts','harness-py','differ','reasoner','repair','verifier','reporter','fleet','cli'];
 for (const name of packages) test(`package ${name} imports and stubs never fake success`, () => {
   const api = require(`@isotope/${name}`);
   assert.ok(Object.keys(api).length);
-  if (!['core', 'cli', 'harness-ts', 'harness-py', 'differ', 'changespec', 'resolver-ts', 'resolver-py', 'repair', 'verifier', 'reporter', 'reasoner', 'fleet'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
+  if (!['core', 'model-gateway', 'fixtures', 'cli', 'harness-ts', 'harness-py', 'differ', 'changespec', 'resolver-ts', 'resolver-py', 'repair', 'verifier', 'reporter', 'reasoner', 'fleet'].includes(name)) for (const fn of Object.values(api)) assert.throws(() => fn({}), NotImplementedStageError);
 });
 test('aggregate verdict resolution implements FAIL > FAIL_REASONED > ESCALATE > INDETERMINATE > PASS_REASONED > PASS > SKIP', () => {
   const core = require('@isotope/core');
@@ -17,7 +17,7 @@ test('aggregate verdict resolution implements FAIL > FAIL_REASONED > ESCALATE > 
   assert.equal(core.resolveAggregateVerdict([r('PASS_REASONED'), r('FAIL')]).verdict, 'FAIL');
   assert.equal(core.resolveAggregateVerdict([]).verdict, 'SKIP');
 });
-test('package graph is acyclic; CLI orchestrates while subsystems depend only on core', () => {
+test('package graph is acyclic; model gateway is provider-neutral and ChangeSpec owns compilation', () => {
   const manifests = Object.fromEntries(packages.map(p => [p, JSON.parse(readFileSync(path.join(root, 'packages',p,'package.json'),'utf8'))]));
   const active = new Set(); const done = new Set();
   function visit(p) {
@@ -25,7 +25,8 @@ test('package graph is acyclic; CLI orchestrates while subsystems depend only on
     active.add(p);
     for (const dependency of Object.keys(manifests[p].dependencies || {})) if (dependency.startsWith('@isotope/')) {
       assert.notEqual(p, 'core');
-      if (!['cli','verifier','repair'].includes(p)) assert.equal(dependency, '@isotope/core');
+      if (!['cli','verifier','repair','changespec'].includes(p)) assert.equal(dependency, '@isotope/core');
+      if (p === 'changespec') assert.ok(['@isotope/core','@isotope/model-gateway','@isotope/fixtures','@isotope/resolver-ts','@isotope/resolver-py'].includes(dependency));
       if (p === 'verifier') assert.ok(['@isotope/core','@isotope/differ','@isotope/harness-ts','@isotope/resolver-ts','@isotope/reasoner'].includes(dependency));
       if (p === 'repair') assert.ok(['@isotope/core','@isotope/reasoner'].includes(dependency));
       visit(dependency.slice(9));

@@ -10,6 +10,13 @@ dist/
 !action/dist/**
 *.tsbuildinfo
 .isotope/
+!/.isotope/
+/.isotope/*
+!/.isotope/sources/
+!/.isotope/sources/**
+!/.isotope/spec-manifest.example.yml
+!/.isotope/validation/
+!/.isotope/validation/**
 .env
 .env.*
 !.env.example

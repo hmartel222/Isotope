@@ -9,6 +9,9 @@ export class NotImplementedStageError extends Error {
 }
 export interface SelectionInput { repoRoot: string; config: IsotopeConfig; specsPath: string; dependencyDiff: string }
 export interface ResolveInput { repoRoot: string; config: IsotopeConfig; selectedSpecs: SelectedSpecs }
+export interface ResolverCompatibilityInput { repositoryRoot: string; config: IsotopeConfig; candidateSpec: ChangeSpec }
+export interface ResolverCompatibilityMatch { pattern: string; file: string; line: number; provenance: string }
+export interface ResolverCompatibilityResult { status: 'compatible'|'unbound'|'ambiguous'|'unsupported'; language: 'ts'|'py'; module: string; matchedRoots: ResolverCompatibilityMatch[]; diagnostics: string[] }
 export interface FixturePair { id: string; role: 'planning' | 'held_out'; oldPath: string; newPath: string; oldVersion: string; newVersion: string }
 export interface HarnessInput { repoRoot: string; config: IsotopeConfig; entryPoint: EntryPoint; bdg: BDG; fixture: FixturePair; codeVersion: CodeVersion }
 export interface HarnessResult { old: [Signature, Signature]; new: [Signature, Signature] }

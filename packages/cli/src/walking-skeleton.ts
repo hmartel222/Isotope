@@ -1,4 +1,4 @@
-import { join, relative, resolve } from 'node:path';
+import { basename, join, relative, resolve } from 'node:path';
 import { artifactPaths, needsSemanticReasoning, readJsonArtifact, removeJsonArtifact, resolveAggregateVerdict, resolveVerdict, writeJsonArtifact, validateContract,
   type DiffReport, type EntryPoint, type FixturePair, type HarnessResult, type IsotopeReport, type JsonValue, type VerdictResult, type SelectedSpecs } from '@isotope/core';
 import { analyzeConfiguredProject, graphSummary } from './scan';
@@ -98,7 +98,7 @@ async function verifyEntry(options: WalkingSkeletonOptions, analysis: Awaited<Re
     return { exitCode: incomplete ? 4 : 0, report, signatures: null, diff: null, output: [`ChangeSpec: ${spec.id}`, ...graphSummary(bdg), `Verdict: ${verdict.verdict}`, `Reason: ${verdict.results[0]!.reason}`, `Artifacts: ${paths.root}`].join('\n') };
   }
   const synthetic = options.testFixtureDirectory !== undefined;
-  const pairId = config.fixturePair ?? spec.fixtures.pair;
+  const pairId = config.fixturePair ?? (options.testFixtureDirectory ? basename(resolve(options.testFixtureDirectory)) : spec.fixtures.pair);
   const fixtureDirectory = options.testFixtureDirectory ?? join(options.fixtureRoot ?? join(sourceRoot, 'fixtures/normalized'), pairId);
   const loaded = await loadFixturePair({ directory: fixtureDirectory, spec, pairId, role: 'planning', synthetic });
   const { fixture, payloads } = loaded;

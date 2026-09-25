@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/definitions/JsonValue"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "cacheStatus": {
+      "anyOf": [
+        {
+          "const": "hit",
+          "type": "string"
+        },
+        {
+          "const": "miss",
+          "type": "string"
+        },
+        {
+          "const": "disabled",
+          "type": "string"
+        }
+      ]
+    },
+    "candidateHash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "compilerVersion": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "injectionWarnings": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "inputHash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "invocationCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "missingEvidence": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "modelId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "projectBinding": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "promptVersion": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "resolverCompatibility": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "semanticValidation": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "generated",
+          "type": "string"
+        },
+        {
+          "const": "invalid",
+          "type": "string"
+        },
+        {
+          "const": "needs_review",
+          "type": "string"
+        },
+        {
+          "const": "evidence_missing",
+          "type": "string"
+        },
+        {
+          "const": "binding_failed",
+          "type": "string"
+        },
+        {
+          "const": "ready_for_approval",
+          "type": "string"
+        }
+      ]
+    },
+    "structuralValidation": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "unsupportedCapabilities": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "inputHash",
+    "compilerVersion",
+    "promptVersion",
+    "modelId",
+    "invocationCount",
+    "cacheStatus",
+    "structuralValidation",
+    "semanticValidation",
+    "projectBinding",
+    "resolverCompatibility",
+    "missingEvidence",
+    "unsupportedCapabilities",
+    "injectionWarnings",
+    "status"
+  ],
+  "type": "object"
+}

@@ -46,3 +46,4 @@ export async function resolveBehavioralDependencyGraph(input: ResolverInput | Re
   if (result.error) throw new Error(String((result.error as { message?: string }).message ?? result.error));
   return validateContract('BDG', result.bdg);
 }
+export { checkResolverCompatibility } from './compatibility';

@@ -5,6 +5,12 @@
       "path": "packages/core"
     },
     {
+      "path": "packages/model-gateway"
+    },
+    {
+      "path": "packages/fixtures"
+    },
+    {
       "path": "packages/changespec"
     },
     {

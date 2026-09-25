@@ -13,6 +13,12 @@
       "path": "../core"
     },
     {
+      "path": "../fixtures"
+    },
+    {
+      "path": "../model-gateway"
+    },
+    {
       "path": "../changespec"
     },
     {

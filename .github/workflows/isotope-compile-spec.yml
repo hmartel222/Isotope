@@ -1,0 +1,82 @@
+name: Isotope trusted ChangeSpec compilation
+on:
+  workflow_dispatch:
+    inputs:
+      source: { description: "Reviewed source under .isotope/sources/", required: true, type: string }
+      provider: { description: "Provider display name", required: true, type: string }
+      package: { description: "Authoritative package name", required: true, type: string }
+      ecosystem: { description: "npm or pypi", required: true, type: choice, options: [npm, pypi] }
+      from-version: { description: "Old dependency version", required: true, type: string }
+      to-version: { description: "New dependency version", required: true, type: string }
+      language: { description: "Resolver language", required: true, type: choice, options: [ts, py] }
+      repository: { description: "Repository fixture used for resolver binding", required: false, default: ".", type: string }
+      fixtures-root: { description: "Optional reviewed fixture root", required: false, type: string }
+      fixture-pair: { description: "Optional planning fixture pair", required: false, type: string }
+      heldout-pair: { description: "Optional held-out fixture pair", required: false, type: string }
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    environment: changespec-compilation
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.sha }}", fetch-depth: 1 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Validate trusted source path
+        env: { SOURCE: "${{ inputs.source }}" }
+        run: |
+          case "$SOURCE" in
+            .isotope/sources/*) ;;
+            *) echo "Source must be inside .isotope/sources/" >&2; exit 2 ;;
+          esac
+          case "$SOURCE" in *..*) echo "Source traversal is forbidden" >&2; exit 2 ;; esac
+          test -f "$SOURCE"
+          node tools/validate-source-manifest.mjs "$SOURCE"
+      - name: Compile untrusted candidate
+        env:
+          GEMINI_API_KEY: "${{ secrets.GEMINI_API_KEY }}"
+          SOURCE: "${{ inputs.source }}"
+          PROVIDER: "${{ inputs.provider }}"
+          PACKAGE: "${{ inputs.package }}"
+          ECOSYSTEM: "${{ inputs.ecosystem }}"
+          FROM_VERSION: "${{ inputs.from-version }}"
+          TO_VERSION: "${{ inputs.to-version }}"
+          LANGUAGE: "${{ inputs.language }}"
+          REPOSITORY: "${{ inputs.repository }}"
+        run: |
+          case "$REPOSITORY" in /*|*..*) echo "Repository must be a checkout-relative trusted path" >&2; exit 2 ;; esac
+          test -d "$REPOSITORY"
+          pnpm isotope spec compile --input "$SOURCE" --provider "$PROVIDER" --package "$PACKAGE" --ecosystem "$ECOSYSTEM" --from "$FROM_VERSION" --to "$TO_VERSION" --language "$LANGUAGE" --repository "$REPOSITORY" --out .isotope/compiler-run/
+      - name: Bind reviewed fixture evidence
+        if: inputs.fixture-pair != ''
+        env:
+          FIXTURES_ROOT: "${{ inputs.fixtures-root }}"
+          FIXTURE_PAIR: "${{ inputs.fixture-pair }}"
+          HELDOUT_PAIR: "${{ inputs.heldout-pair }}"
+        run: |
+          test -n "$FIXTURES_ROOT"
+          case "$FIXTURES_ROOT" in /*|*..*) echo "Fixture root must be a repository-relative trusted path" >&2; exit 2 ;; esac
+          if [ -n "$HELDOUT_PAIR" ]; then
+            pnpm isotope spec bind-fixtures .isotope/compiler-run/draft-envelope.json --report .isotope/compiler-run/compilation-report.json --fixtures "$FIXTURES_ROOT" --pair "$FIXTURE_PAIR" --heldout "$HELDOUT_PAIR"
+          else
+            pnpm isotope spec bind-fixtures .isotope/compiler-run/draft-envelope.json --report .isotope/compiler-run/compilation-report.json --fixtures "$FIXTURES_ROOT" --pair "$FIXTURE_PAIR"
+          fi
+      - name: Validate draft envelope
+        run: pnpm isotope spec validate .isotope/compiler-run/draft-envelope.json
+      - name: Publish approval blockers
+        if: always()
+        run: |
+          echo "## ChangeSpec compiler" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f .isotope/compiler-run/compilation-report.json ]; then
+            node -e 'const r=require("./.isotope/compiler-run/compilation-report.json"); const fields=["structuralValidation","semanticValidation","projectBinding","resolverCompatibility","missingEvidence","unsupportedCapabilities","injectionWarnings"]; console.log(`Status: **${r.status}**`); for(const f of fields) for(const value of r[f]||[]) console.log(`- ${f}: ${value}`)' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "This workflow never approves a candidate." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload compiler audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: changespec-compiler-audit, path: .isotope/compiler-run/, if-no-files-found: error, retention-days: 30, include-hidden-files: true }
